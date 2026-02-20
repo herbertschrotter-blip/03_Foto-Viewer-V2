@@ -17,6 +17,37 @@
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
 
+function ConvertTo-NaturalSortKey {
+    <#
+    .SYNOPSIS
+        Erstellt Sortier-Schlüssel für natürliche Sortierung
+    
+    .DESCRIPTION
+        Zerlegt String in Text- und Zahlen-Teile.
+        Zahlen werden auf 20 Stellen gepaddet für korrekte Sortierung.
+        
+    .EXAMPLE
+        ConvertTo-NaturalSortKey "ebene2/bild10" 
+        # → "ebene00000000000000000002/bild00000000000000000010"
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$InputString
+    )
+    
+    # Regex: Findet Zahlenblöcke
+    $pattern = '\d+'
+    
+    $result = [regex]::Replace($InputString, $pattern, {
+        param($match)
+        # Zahlen auf 20 Stellen padden (funktioniert bis zu sehr großen Zahlen)
+        $match.Value.PadLeft(20, '0')
+    })
+    
+    return $result
+}
+
 function Get-MediaFolders {
     <#
     .SYNOPSIS
@@ -81,8 +112,13 @@ function Get-MediaFolders {
             }
         }
         
-        Write-Verbose "Gefunden: $($result.Count) Ordner mit Medien"
-        return $result
+                # Natural Sort nach RelativePath
+        $sorted = $result | Sort-Object -Property @{
+            Expression = { ConvertTo-NaturalSortKey -InputString $_.RelativePath }
+        }
+        
+        Write-Verbose "Gefunden: $($sorted.Count) Ordner mit Medien"
+        return $sorted
         
     } catch {
         Write-Error "Fehler beim Scannen: $($_.Exception.Message)"
