@@ -1236,6 +1236,10 @@ $folderListHtml
                             <label class="settings-checkbox-label" for="setting-perf-lazy">Lazy Loading</label>
                         </div>
                     </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Lösch-Job Timeout (Sekunden)</label>
+                        <input type="number" class="settings-input" id="setting-perf-timeout" min="1" max="60">
+                    </div>
                 </div>
             </div>
             
@@ -1550,6 +1554,7 @@ $folderListHtml
                 document.getElementById('setting-perf-maxjobs').value = config.Performance.MaxParallelJobs;
                 document.getElementById('setting-perf-cache').checked = config.Performance.CacheThumbnails;
                 document.getElementById('setting-perf-lazy').checked = config.Performance.LazyLoading;
+                document.getElementById('setting-perf-timeout').value = config.Performance.DeleteJobTimeout;
                 
                 document.getElementById('setting-file-recycle').checked = config.FileOperations.UseRecycleBin;
                 document.getElementById('setting-file-confirm').checked = config.FileOperations.ConfirmDelete;
@@ -1601,7 +1606,8 @@ $folderListHtml
                         UseParallelProcessing: document.getElementById('setting-perf-parallel').checked,
                         MaxParallelJobs: parseInt(document.getElementById('setting-perf-maxjobs').value),
                         CacheThumbnails: document.getElementById('setting-perf-cache').checked,
-                        LazyLoading: document.getElementById('setting-perf-lazy').checked
+                        LazyLoading: document.getElementById('setting-perf-lazy').checked,
+                        DeleteJobTimeout: parseInt(document.getElementById('setting-perf-timeout').value)
                     },
                     FileOperations: {
                         UseRecycleBin: document.getElementById('setting-file-recycle').checked,
@@ -1882,6 +1888,7 @@ $folderListHtml
                     $currentConfig.Performance.MaxParallelJobs = $newSettings.Performance.MaxParallelJobs
                     $currentConfig.Performance.CacheThumbnails = $newSettings.Performance.CacheThumbnails
                     $currentConfig.Performance.LazyLoading = $newSettings.Performance.LazyLoading
+                    $currentConfig.Performance.DeleteJobTimeout = $newSettings.Performance.DeleteJobTimeout
                     
                     $currentConfig.FileOperations.UseRecycleBin = $newSettings.FileOperations.UseRecycleBin
                     $currentConfig.FileOperations.ConfirmDelete = $newSettings.FileOperations.ConfirmDelete
