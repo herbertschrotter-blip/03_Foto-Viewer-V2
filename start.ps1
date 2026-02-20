@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Startet HTTP Server mit Hybrid PowerShell 5.1/7+ Support.
-    Phase 4: Video-Thumbnails mit FFmpeg.
+    Phase 4.1: Tools-Menü für .thumbs Verwaltung.
 
 .PARAMETER Port
     Server Port (Default aus config.json)
@@ -204,7 +204,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Foto Viewer V2 - Phase 4</title>
+    <title>Foto Viewer V2 - Phase 4.1</title>
     <style>
         * {
             margin: 0;
@@ -471,9 +471,8 @@ try {
         
         .list-action-btn:hover {
             background: #454545;
-        }        
-        
-        /* Moderne Sidebar */
+        }
+/* Moderne Sidebar */
         .sidebar {
             position: fixed;
             top: 20px;
@@ -669,7 +668,6 @@ try {
             font-weight: 600;
         }
         
-        /* Tooltip Container */
         .tooltip {
             position: fixed;
             background: #2d3748;
@@ -692,10 +690,8 @@ try {
     </style>
 </head>
 <body>
-    <!-- Tooltip Container -->
     <div class="tooltip" id="tooltip"></div>
     
-    <!-- Moderne Sidebar -->
     <div class="sidebar">
         <div class="sidebar-row">
             <button class="sidebar-btn status-btn" id="statusBtn" data-tooltip="Server läuft">
@@ -718,7 +714,7 @@ try {
     <div class="container">
         <div class="header">
             <h1>Foto Viewer V2</h1>
-            <span class="phase-badge">Phase 4: Video-Thumbnails</span>
+            <span class="phase-badge">Phase 4.1: Tools-Menü</span>
         </div>
         
         <div class="folder-list">
@@ -726,7 +722,6 @@ $folderListHtml
         </div>
     </div>
     
-    <!-- Tools Overlay -->
     <div class="overlay" id="toolsOverlay">
         <div class="overlay-content">
             <div class="overlay-header">
@@ -769,21 +764,18 @@ $folderListHtml
     </div>
     
     <script>
-        // Tooltip System
         const tooltip = document.getElementById('tooltip');
         
-        document.querySelectorAll('[data-tooltip]').forEach(el => {
+        document.querySelectorAll('[data-tooltip]').forEach(function(el) {
             el.addEventListener('mouseenter', function(e) {
                 const text = this.getAttribute('data-tooltip');
                 const rect = this.getBoundingClientRect();
-                
                 tooltip.textContent = text;
                 tooltip.style.left = (rect.right + 10) + 'px';
                 tooltip.style.top = (rect.top + rect.height / 2) + 'px';
                 tooltip.style.transform = 'translateY(-50%)';
                 tooltip.classList.add('show');
             });
-            
             el.addEventListener('mouseleave', function() {
                 tooltip.classList.remove('show');
             });
@@ -795,23 +787,17 @@ $folderListHtml
             const isExpanded = card.classList.contains('expanded');
             
             if (isExpanded) {
-                // Zuklappen
                 grid.style.display = 'none';
                 card.classList.remove('expanded');
             } else {
-                // Aufklappen
                 card.classList.add('expanded');
-                
-                // Medien laden (lazy)
                 if (grid.children.length === 0) {
                     const files = JSON.parse(card.dataset.files);
                     const folderPath = card.dataset.path;
-                    
-                    files.forEach(file => {
+                    files.forEach(function(file) {
                         const isVideo = /\.(mp4|mov|avi|mkv|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i.test(file);
                         const filePath = folderPath === '.' ? file : folderPath + '/' + file;
                         const imgUrl = '/img?path=' + encodeURIComponent(filePath);
-                        
                         const item = document.createElement('div');
                         item.className = 'media-item';
                         item.innerHTML = '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">' +
@@ -819,7 +805,6 @@ $folderListHtml
                         grid.appendChild(item);
                     });
                 }
-                
                 grid.style.display = 'grid';
             }
         }
@@ -828,36 +813,29 @@ $folderListHtml
             try {
                 const response = await fetch('/changeroot', { method: 'POST' });
                 const result = await response.json();
-                
-                if (result.cancelled) {
-                    return;
-                }
-                
+                if (result.cancelled) return;
                 if (result.ok) {
                     location.reload();
                 } else {
                     alert('Fehler: ' + (result.error || 'Unbekannter Fehler'));
                 }
             } catch (err) {
-                console.error('Fehler beim Root-Wechsel:', err);
+                console.error('Fehler:', err);
             }
         }
         
         async function shutdownServer() {
             if (!confirm('Server wirklich beenden?')) return;
-            
             try {
                 await fetch('/shutdown', { method: 'POST' });
-                document.body.innerHTML = '<div style="display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:#2d3748;"><div style="font-size:60px;">✓</div><div>Server beendet!</div><div style="font-size:16px;opacity:0.6;">Du kannst dieses Fenster jetzt schließen.</div></div>';
+                document.body.innerHTML = '<div style="display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:#2d3748;"><div style="font-size:60px;">✓</div><div>Server beendet!</div></div>';
             } catch (err) {
                 console.log('Server beendet');
             }
         }
         
-        // Server-Status Ping
         async function checkServerStatus() {
             const btn = document.getElementById('statusBtn');
-            
             try {
                 await fetch('/ping');
                 btn.classList.remove('offline');
@@ -870,6 +848,147 @@ $folderListHtml
         
         setInterval(checkServerStatus, 2000);
         checkServerStatus();
+        
+        function openTools() {
+            document.getElementById('toolsOverlay').classList.add('show');
+        }
+        
+        function closeTools() {
+            document.getElementById('toolsOverlay').classList.remove('show');
+            document.getElementById('statsResult').innerHTML = '';
+            document.getElementById('thumbsList').innerHTML = '';
+        }
+        
+        async function getCacheStats() {
+            var resultDiv = document.getElementById('statsResult');
+            resultDiv.innerHTML = '<div class="overlay-result">⏳ Berechne Statistik...</div>';
+            
+            try {
+                var response = await fetch('/tools/cache-stats');
+                var result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = '<div class="overlay-result success">' +
+                        '<div style="font-weight: 600; margin-bottom: 8px;">📊 Cache-Statistik</div>' +
+                        '<div>📁 .thumbs Ordner: ' + result.data.ThumbsDirectories + '</div>' +
+                        '<div>🖼️ Thumbnail-Dateien: ' + result.data.ThumbnailFiles + '</div>' +
+                        '<div>💾 Gesamtgröße: ' + result.data.TotalSizeFormatted + '</div>' +
+                        '</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="overlay-result error">❌ ' + (result.error || 'Fehler') + '</div>';
+                }
+            } catch (err) {
+                resultDiv.innerHTML = '<div class="overlay-result error">❌ ' + err.message + '</div>';
+            }
+        }
+        
+        async function listThumbs() {
+            var listDiv = document.getElementById('thumbsList');
+            listDiv.innerHTML = '<div class="overlay-result">⏳ Lade Liste...</div>';
+            
+            try {
+                var response = await fetch('/tools/list-thumbs');
+                var result = await response.json();
+                
+                if (!result.success) {
+                    listDiv.innerHTML = '<div class="overlay-result error">❌ ' + (result.error || 'Fehler') + '</div>';
+                    return;
+                }
+                
+                if (result.data.length === 0) {
+                    listDiv.innerHTML = '<div class="overlay-result">Keine .thumbs Ordner gefunden</div>';
+                    return;
+                }
+                
+                var itemsHtml = result.data.map(function(item) {
+                    return '<div class="thumbs-item">' +
+                        '<input type="checkbox" class="thumbs-checkbox" data-path="' + item.Path + '">' +
+                        '<div class="thumbs-info">' +
+                        '<div class="thumbs-path">📁 ' + item.RelativePath + '</div>' +
+                        '<div class="thumbs-details">' + item.FileCount + ' Dateien, ' + item.SizeFormatted + '</div>' +
+                        '</div></div>';
+                }).join('');
+                
+                listDiv.innerHTML = '<div class="thumbs-list">' + itemsHtml + '</div>' +
+                    '<div class="list-actions">' +
+                    '<button class="list-action-btn" onclick="selectAllThumbs()">☑ Alle auswählen</button>' +
+                    '<button class="list-action-btn" onclick="deselectAllThumbs()">☐ Alle abwählen</button>' +
+                    '<button class="list-action-btn danger" onclick="deleteSelectedThumbs()">🗑️ Ausgewählte löschen</button>' +
+                    '</div><div id="deleteSelectedResult"></div>';
+            } catch (err) {
+                listDiv.innerHTML = '<div class="overlay-result error">❌ ' + err.message + '</div>';
+            }
+        }
+        
+        function selectAllThumbs() {
+            document.querySelectorAll('.thumbs-checkbox').forEach(function(cb) { cb.checked = true; });
+        }
+        
+        function deselectAllThumbs() {
+            document.querySelectorAll('.thumbs-checkbox').forEach(function(cb) { cb.checked = false; });
+        }
+        
+        async function deleteSelectedThumbs() {
+            var checkboxes = document.querySelectorAll('.thumbs-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Keine Ordner ausgewählt!');
+                return;
+            }
+            
+            var paths = Array.from(checkboxes).map(function(cb) { return cb.dataset.path; });
+            if (!confirm(paths.length + ' Ordner wirklich löschen?')) return;
+            
+            var resultDiv = document.getElementById('deleteSelectedResult');
+            resultDiv.innerHTML = '<div class="overlay-result">⏳ Lösche...</div>';
+            
+            try {
+                var response = await fetch('/tools/delete-selected', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paths: paths })
+                });
+                var result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = '<div class="overlay-result success">✓ ' + 
+                        result.data.DeletedCount + ' Ordner gelöscht (' + 
+                        (result.data.DeletedSize / 1024 / 1024).toFixed(2) + ' MB)</div>';
+                    setTimeout(function() { listThumbs(); }, 1000);
+                } else {
+                    resultDiv.innerHTML = '<div class="overlay-result error">❌ ' + result.error + '</div>';
+                }
+            } catch (err) {
+                resultDiv.innerHTML = '<div class="overlay-result error">❌ ' + err.message + '</div>';
+            }
+        }
+        
+        async function deleteAllThumbs() {
+            if (!confirm('ALLE .thumbs Ordner wirklich löschen?\n\nDies kann nicht rückgängig gemacht werden!')) return;
+            if (!confirm('Bist du sicher? Dies löscht ALLE Thumbnails im gesamten Root!')) return;
+            
+            try {
+                var response = await fetch('/tools/delete-all-thumbs', { method: 'POST' });
+                var result = await response.json();
+                
+                if (result.success) {
+                    alert('✓ ' + result.data.DeletedCount + ' Ordner gelöscht\n' + 
+                        (result.data.DeletedSize / 1024 / 1024).toFixed(2) + ' MB freigegeben');
+                    closeTools();
+                } else {
+                    alert('❌ Fehler: ' + (result.error || 'Unbekannter Fehler'));
+                }
+            } catch (err) {
+                alert('❌ Fehler: ' + err.message);
+            }
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeTools();
+        });
+        
+        document.getElementById('toolsOverlay').addEventListener('click', function(e) {
+            if (e.target === this) closeTools();
+        });
     </script>
 </body>
 </html>
@@ -878,81 +997,155 @@ $folderListHtml
                 continue
             }
             
-            # Route: /changeroot (Ordner wechseln)
+            # Route: /changeroot
             if ($path -eq "/changeroot" -and $req.HttpMethod -eq "POST") {
                 $newRoot = Show-FolderDialog -Title "Neuen Root-Ordner wählen" -InitialDirectory $script:State.RootPath
-                
                 if (-not $newRoot) {
                     $json = @{ cancelled = $true } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
                     continue
                 }
-                
                 if (-not (Test-Path -LiteralPath $newRoot -PathType Container)) {
                     $json = @{ error = "Ordner existiert nicht" } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
                     continue
                 }
-                
-                # Root wechseln und neu scannen
                 $script:State.RootPath = $newRoot
-                
-                # Thumbnail-Cache neu setzen
                 $script:ThumbsDir = Join-Path $script:State.RootPath ".thumbs"
                 if (-not (Test-Path -LiteralPath $script:ThumbsDir)) {
                     New-Item -Path $script:ThumbsDir -ItemType Directory -Force | Out-Null
                 }
-                
                 try {
                     $script:State.Folders = @(Get-MediaFolders -RootPath $script:State.RootPath -Extensions $mediaExtensions)
                     Save-State -State $script:State
-                    
                     $json = @{ ok = $true } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
                 } catch {
                     $json = @{ error = $_.Exception.Message } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
                 }
-                
                 continue
             }
             
-            # Route: /img (Bilder/Video-Thumbnails ausliefern)
+            # Route: /tools/cache-stats
+            if ($path -eq "/tools/cache-stats" -and $req.HttpMethod -eq "GET") {
+                try {
+                    $stats = Get-ThumbsCacheStats -RootPath $script:State.RootPath
+                    $json = @{
+                        success = $true
+                        data = @{
+                            ThumbsDirectories = $stats.ThumbsDirectories
+                            ThumbnailFiles = $stats.ThumbnailFiles
+                            TotalSize = $stats.TotalSize
+                            TotalSizeFormatted = $stats.TotalSizeFormatted
+                        }
+                    } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /tools/list-thumbs
+            if ($path -eq "/tools/list-thumbs" -and $req.HttpMethod -eq "GET") {
+                try {
+                    $list = Get-ThumbsDirectoriesList -RootPath $script:State.RootPath
+                    $json = @{
+                        success = $true
+                        data = @($list | ForEach-Object {
+                            @{
+                                Path = $_.Path
+                                RelativePath = $_.RelativePath
+                                FileCount = $_.FileCount
+                                Size = $_.Size
+                                SizeFormatted = $_.SizeFormatted
+                            }
+                        })
+                    } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /tools/delete-selected
+            if ($path -eq "/tools/delete-selected" -and $req.HttpMethod -eq "POST") {
+                try {
+                    $reader = [System.IO.StreamReader]::new($req.InputStream)
+                    $body = $reader.ReadToEnd()
+                    $reader.Close()
+                    $data = $body | ConvertFrom-Json
+                    $paths = $data.paths
+                    if (-not $paths -or $paths.Count -eq 0) {
+                        $json = @{ success = $false; error = "Keine Pfade" } | ConvertTo-Json -Compress
+                        Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
+                        continue
+                    }
+                    $result = Remove-SelectedThumbsDirectories -Paths $paths
+                    $json = @{
+                        success = $true
+                        data = @{
+                            DeletedCount = $result.DeletedCount
+                            DeletedSize = $result.DeletedSize
+                        }
+                    } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /tools/delete-all-thumbs
+            if ($path -eq "/tools/delete-all-thumbs" -and $req.HttpMethod -eq "POST") {
+                try {
+                    $result = Remove-AllThumbsDirectories -RootPath $script:State.RootPath
+                    $json = @{
+                        success = $true
+                        data = @{
+                            DeletedCount = $result.DeletedCount
+                            DeletedSize = $result.DeletedSize
+                        }
+                    } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /img
             if ($path -eq "/img" -and $req.HttpMethod -eq "GET") {
                 $relativePath = $req.QueryString["path"]
-                
                 if ([string]::IsNullOrWhiteSpace($relativePath)) {
-                    Send-ResponseText -Response $res -Text "Missing path parameter" -StatusCode 400
+                    Send-ResponseText -Response $res -Text "Missing path" -StatusCode 400
                     continue
                 }
-                
                 $fullPath = Resolve-SafePath -RootPath $script:State.RootPath -RelativePath $relativePath
-                
                 if (-not $fullPath -or -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-                    Send-ResponseText -Response $res -Text "File not found" -StatusCode 404
+                    Send-ResponseText -Response $res -Text "Not found" -StatusCode 404
                     continue
                 }
-                
                 try {
-                    # Video? → Thumbnail generieren
                     if (Test-IsVideoFile -Path $fullPath) {
                         if ($script:FFmpegPath) {
                             $thumbPath = Get-VideoThumbnail -VideoPath $fullPath -CacheDir $script:ThumbsDir -ScriptRoot $ScriptRoot
-                            
                             if ($thumbPath -and (Test-Path -LiteralPath $thumbPath -PathType Leaf)) {
                                 $fullPath = $thumbPath
                             }
                         }
                     }
-                    
-                    # Datei ausliefern
                     $contentType = Get-MediaContentType -Path $fullPath
                     $fileInfo = [System.IO.FileInfo]::new($fullPath)
-                    
                     $res.StatusCode = 200
                     $res.ContentType = $contentType
                     $res.ContentLength64 = $fileInfo.Length
-                    
                     $fs = [System.IO.File]::OpenRead($fullPath)
                     try {
                         $fs.CopyTo($res.OutputStream)
@@ -961,16 +1154,14 @@ $folderListHtml
                         $fs.Close()
                         $res.OutputStream.Close()
                     }
-                    
                 } catch {
-                    Write-Error "Fehler beim Ausliefern von $fullPath : $($_.Exception.Message)"
-                    Send-ResponseText -Response $res -Text "Error reading file" -StatusCode 500
+                    Write-Error "Fehler: $($_.Exception.Message)"
+                    Send-ResponseText -Response $res -Text "Error" -StatusCode 500
                 }
-                
                 continue
             }
             
-            # Route: /ping (Server-Status)
+            # Route: /ping
             if ($path -eq "/ping" -and $req.HttpMethod -eq "GET") {
                 Send-ResponseText -Response $res -Text "OK" -StatusCode 200
                 continue
@@ -979,16 +1170,15 @@ $folderListHtml
             # Route: /shutdown
             if ($path -eq "/shutdown" -and $req.HttpMethod -eq "POST") {
                 $ServerRunning = $false
-                Send-ResponseText -Response $res -Text "Server wird beendet..."
+                Send-ResponseText -Response $res -Text "Beende..."
                 break
             }
             
-            # 404 für alle anderen Routes
             Send-ResponseText -Response $res -Text "Not Found" -StatusCode 404
             
         } catch {
             Write-Error "Request-Fehler: $($_.Exception.Message)"
-            Send-ResponseText -Response $res -Text "Internal Server Error" -StatusCode 500
+            Send-ResponseText -Response $res -Text "Error" -StatusCode 500
         }
     }
 }
@@ -1000,4 +1190,4 @@ finally {
     Write-Host ""
     Write-Host "✓ Server beendet" -ForegroundColor Green
     Write-Host ""
-}
+}            
