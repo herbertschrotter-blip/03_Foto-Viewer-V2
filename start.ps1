@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Startet HTTP Server mit Hybrid PowerShell 5.1/7+ Support.
-    Phase 2: Ordner-Dialog + Scan + Liste anzeigen.
+    Phase 3: Bilder Grid anzeigen.
 
 .PARAMETER Port
     Server Port (Default aus config.json)
@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
 #>
 
 #Requires -Version 5.1
@@ -37,10 +37,11 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptRoot "Lib\Lib_Dialogs.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_Scanner.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_State.ps1")
+. (Join-Path $ScriptRoot "Lib\Lib_FileSystem.ps1")
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  Foto Viewer V2 - Phase 2" -ForegroundColor White
+Write-Host "  Foto Viewer V2 - Phase 3" -ForegroundColor White
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -153,17 +154,25 @@ try {
             # Route: / (Index)
             if ($path -eq "/" -and $req.HttpMethod -eq "GET") {
                 
-                # Ordner-Liste generieren
+                # Ordner-Liste generieren mit JSON-Daten
                 $folderListHtml = ""
                 if ($script:State.Folders.Count -eq 0) {
                     $folderListHtml = "<div style='text-align:center;padding:40px;color:#718096;'>Keine Ordner mit Medien gefunden</div>"
                 } else {
                     $folderRows = foreach ($folder in $script:State.Folders) {
-                        $pathDisplay = if ($folder.RelativePath -eq ".") { "📁 Root" } else { "📁 $($folder.RelativePath)" }
+                        $pathDisplay = if ($folder.RelativePath -eq ".") { "Root" } else { $folder.RelativePath }
+                        $filesJson = ($folder.Files | ConvertTo-Json -Compress).Replace('"', '&quot;')
+                        $relativePath = $folder.RelativePath.Replace('\', '/').Replace('"', '&quot;')
+                        
                         @"
-                        <div class="folder-row">
-                            <span class="folder-path">$pathDisplay</span>
-                            <span class="folder-count">$($folder.MediaCount) Medien</span>
+                        <div class="folder-card" data-path="$relativePath" data-files="$filesJson">
+                            <div class="folder-header" onclick="toggleFolder(this)">
+                                <span class="folder-icon">📁</span>
+                                <span class="folder-name">$pathDisplay</span>
+                                <span class="folder-count">$($folder.MediaCount) Medien</span>
+                                <span class="toggle-icon">▼</span>
+                            </div>
+                            <div class="media-grid" style="display: none;"></div>
                         </div>
 "@
                     }
@@ -176,7 +185,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Foto Viewer V2 - Phase 2</title>
+    <title>Foto Viewer V2 - Phase 3</title>
     <style>
         * {
             margin: 0;
@@ -186,122 +195,130 @@ try {
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f7fafc;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            padding: 80px 20px 20px 20px;
         }
         
         .container {
-            background: white;
-            border-radius: 20px;
-            padding: 60px 80px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 900px;
-            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
         }
         
-        .success-icon {
-            font-size: 80px;
-            margin-bottom: 20px;
+        .header {
             text-align: center;
-            animation: bounce 1s ease-in-out;
-        }
-        
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
+            margin-bottom: 40px;
         }
         
         h1 {
             color: #2d3748;
             font-size: 2.5em;
-            margin-bottom: 20px;
-            font-weight: 700;
-            text-align: center;
+            margin-bottom: 10px;
         }
         
         .phase-badge {
             display: inline-block;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 10px 30px;
+            padding: 8px 24px;
             border-radius: 50px;
             font-weight: 600;
-            margin-bottom: 30px;
-            font-size: 1.1em;
+            font-size: 0.9em;
         }
         
-        .badge-container {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .info-box {
-            background: #f7fafc;
-            border-radius: 10px;
-            padding: 25px;
-            margin-bottom: 30px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        
-        .info-row:last-child {
-            border-bottom: none;
-        }
-        
-        .info-label {
-            font-weight: 600;
-            color: #4a5568;
-        }
-        
-        .info-value {
-            color: #2d3748;
-            font-family: 'Courier New', monospace;
-        }
-        
-        .folder-list {
-            max-height: 400px;
-            overflow-y: auto;
-            background: #f7fafc;
-            border-radius: 10px;
-            padding: 20px;
-        }
-        
-        .folder-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            margin-bottom: 8px;
+        .folder-card {
             background: white;
-            border-radius: 8px;
-            transition: all 0.2s ease;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
         }
         
-        .folder-row:hover {
-            background: #edf2f7;
-            transform: translateX(4px);
+        .folder-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
         }
         
-        .folder-path {
-            font-weight: 500;
+        .folder-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+        
+        .folder-header:hover {
+            background: #f7fafc;
+        }
+        
+        .folder-icon {
+            font-size: 1.5em;
+        }
+        
+        .folder-name {
+            flex: 1;
+            font-weight: 600;
             color: #2d3748;
+            font-size: 1.1em;
         }
         
         .folder-count {
             color: #667eea;
             font-weight: 600;
             font-size: 0.9em;
+        }
+        
+        .toggle-icon {
+            color: #718096;
+            transition: transform 0.3s ease;
+        }
+        
+        .folder-card.expanded .toggle-icon {
+            transform: rotate(180deg);
+        }
+        
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            padding: 20px;
+            background: #f7fafc;
+        }
+        
+        .media-item {
+            position: relative;
+            aspect-ratio: 1;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .media-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        .media-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .video-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
         }
         
         .server-status {
@@ -317,6 +334,7 @@ try {
             gap: 10px;
             font-size: 1.2em;
             cursor: default;
+            z-index: 1000;
         }
         
         .status-dot {
@@ -357,6 +375,7 @@ try {
             justify-content: center;
             line-height: 1;
             padding: 0;
+            z-index: 1000;
         }
         
         .shutdown-btn:hover {
@@ -395,7 +414,7 @@ try {
             pointer-events: none;
             transition: all 0.3s ease;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
+            z-index: 1001;
             min-width: 140px;
             text-align: center;
         }
@@ -425,25 +444,9 @@ try {
     <button class="shutdown-btn" onclick="shutdownServer()" data-tooltip="Server beenden">⏻</button>
     
     <div class="container">
-        <div class="success-icon">✓</div>
-        <h1>Phase 2 funktioniert!</h1>
-        <div class="badge-container">
-            <span class="phase-badge">Ordner-Dialog + Scan</span>
-        </div>
-        
-        <div class="info-box">
-            <div class="info-row">
-                <span class="info-label">Root-Ordner:</span>
-                <span class="info-value">$($script:State.RootPath)</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Ordner gefunden:</span>
-                <span class="info-value">$($script:State.Folders.Count)</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Gesamt-Medien:</span>
-                <span class="info-value">$(($script:State.Folders | Measure-Object -Property MediaCount -Sum).Sum)</span>
-            </div>
+        <div class="header">
+            <h1>Foto Viewer V2</h1>
+            <span class="phase-badge">Phase 3: Bilder Grid</span>
         </div>
         
         <div class="folder-list">
@@ -452,12 +455,47 @@ $folderListHtml
     </div>
     
     <script>
+        function toggleFolder(header) {
+            const card = header.closest('.folder-card');
+            const grid = card.querySelector('.media-grid');
+            const isExpanded = card.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // Zuklappen
+                grid.style.display = 'none';
+                card.classList.remove('expanded');
+            } else {
+                // Aufklappen
+                card.classList.add('expanded');
+                
+                // Medien laden (lazy)
+                if (grid.children.length === 0) {
+                    const files = JSON.parse(card.dataset.files);
+                    const folderPath = card.dataset.path;
+                    
+                    files.forEach(file => {
+                        const isVideo = /\.(mp4|mov|avi|mkv|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i.test(file);
+                        const filePath = folderPath === '.' ? file : folderPath + '/' + file;
+                        const imgUrl = '/img?path=' + encodeURIComponent(filePath);
+                        
+                        const item = document.createElement('div');
+                        item.className = 'media-item';
+                        item.innerHTML = '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">' +
+                                        (isVideo ? '<span class="video-badge">▶ VIDEO</span>' : '');
+                        grid.appendChild(item);
+                    });
+                }
+                
+                grid.style.display = 'grid';
+            }
+        }
+        
         async function shutdownServer() {
             if (!confirm('Server wirklich beenden?')) return;
             
             try {
                 await fetch('/shutdown', { method: 'POST' });
-                document.body.innerHTML = '<div style="display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:white;"><div style="font-size:60px;">✓</div><div>Server beendet!</div><div style="font-size:16px;opacity:0.8;">Du kannst dieses Fenster jetzt schließen.</div></div>';
+                document.body.innerHTML = '<div style="display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:#2d3748;"><div style="font-size:60px;">✓</div><div>Server beendet!</div><div style="font-size:16px;opacity:0.6;">Du kannst dieses Fenster jetzt schließen.</div></div>';
             } catch (err) {
                 console.log('Server beendet');
             }
@@ -485,6 +523,47 @@ $folderListHtml
 </html>
 "@
                 Send-ResponseHtml -Response $res -Html $html
+                continue
+            }
+            
+            # Route: /img (Bilder ausliefern)
+            if ($path -eq "/img" -and $req.HttpMethod -eq "GET") {
+                $relativePath = $req.QueryString["path"]
+                
+                if ([string]::IsNullOrWhiteSpace($relativePath)) {
+                    Send-ResponseText -Response $res -Text "Missing path parameter" -StatusCode 400
+                    continue
+                }
+                
+                $fullPath = Resolve-SafePath -RootPath $script:State.RootPath -RelativePath $relativePath
+                
+                if (-not $fullPath -or -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                    Send-ResponseText -Response $res -Text "File not found" -StatusCode 404
+                    continue
+                }
+                
+                try {
+                    $contentType = Get-MediaContentType -Path $fullPath
+                    $fileInfo = [System.IO.FileInfo]::new($fullPath)
+                    
+                    $res.StatusCode = 200
+                    $res.ContentType = $contentType
+                    $res.ContentLength64 = $fileInfo.Length
+                    
+                    $fs = [System.IO.File]::OpenRead($fullPath)
+                    try {
+                        $fs.CopyTo($res.OutputStream)
+                    }
+                    finally {
+                        $fs.Close()
+                        $res.OutputStream.Close()
+                    }
+                    
+                } catch {
+                    Write-Error "Fehler beim Ausliefern von $fullPath : $($_.Exception.Message)"
+                    Send-ResponseText -Response $res -Text "Error reading file" -StatusCode 500
+                }
+                
                 continue
             }
             
