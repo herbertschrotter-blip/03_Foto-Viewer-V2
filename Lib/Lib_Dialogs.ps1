@@ -38,7 +38,7 @@ function Show-FolderDialog {
         [string]$Title = "Ordner wählen",
         
         [Parameter()]
-        [string]$InitialDirectory = [Environment]::GetFolderPath('Desktop')
+        [string]$InitialDirectory = ""
     )
     
     try {
@@ -48,7 +48,8 @@ function Show-FolderDialog {
         $dialog.Description = $Title
         $dialog.ShowNewFolderButton = $false
         
-        if ($InitialDirectory -and (Test-Path -LiteralPath $InitialDirectory)) {
+        # Initial Directory setzen (falls angegeben UND existiert)
+        if (-not [string]::IsNullOrWhiteSpace($InitialDirectory) -and (Test-Path -LiteralPath $InitialDirectory)) {
             $dialog.SelectedPath = $InitialDirectory
         }
         
