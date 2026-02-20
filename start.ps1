@@ -482,6 +482,148 @@ try {
         .list-action-btn:hover {
             background: #454545;
         }
+        
+        .settings-category {
+            margin-bottom: 16px;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .settings-category-header {
+            padding: 14px 16px;
+            background: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
+        }
+        
+        .settings-category-header:hover {
+            background: #3a3a3a;
+        }
+        
+        .settings-category-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+        
+        .settings-category-toggle {
+            color: #888;
+            transition: transform 0.3s;
+        }
+        
+        .settings-category.expanded .settings-category-toggle {
+            transform: rotate(180deg);
+        }
+        
+        .settings-category-content {
+            display: none;
+            padding: 16px;
+            background: #2a2a2a;
+        }
+        
+        .settings-category.expanded .settings-category-content {
+            display: block;
+        }
+        
+        .settings-group {
+            margin-bottom: 16px;
+        }
+        
+        .settings-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .settings-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #e0e0e0;
+            margin-bottom: 6px;
+        }
+        
+        .settings-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #333;
+            border: 1px solid #4a4a4a;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        
+        .settings-input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #3a3a3a;
+        }
+        
+        .settings-input[type="number"] {
+            width: 120px;
+        }
+        
+        .settings-checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+        }
+        
+        .settings-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #667eea;
+        }
+        
+        .settings-checkbox-label {
+            font-size: 13px;
+            color: #e0e0e0;
+            cursor: pointer;
+        }
+        
+        .settings-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid #3a3a3a;
+        }
+        
+        .settings-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .settings-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .settings-btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .settings-btn-secondary {
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            color: #e0e0e0;
+        }
+        
+        .settings-btn-secondary:hover {
+            background: #454545;
+        }
+        
 /* Moderne Sidebar */
         .sidebar {
             position: fixed;
@@ -763,6 +905,158 @@ $folderListHtml
         </div>
     </div>
     
+    <div class="overlay" id="settingsOverlay">
+        <div class="overlay-content">
+            <div class="overlay-header">
+                <div class="overlay-title">
+                    <span>⚙️</span>
+                    <span>Einstellungen</span>
+                </div>
+                <button class="overlay-close" onclick="closeSettings()">×</button>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🌐 Server</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Port</label>
+                        <input type="number" class="settings-input" id="setting-server-port" min="1000" max="65535">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Host</label>
+                        <input type="text" class="settings-input" id="setting-server-host">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-server-autoopen">
+                            <label class="settings-checkbox-label" for="setting-server-autoopen">Browser automatisch öffnen</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">📁 Medien</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Bild-Dateitypen (mit ; trennen)</label>
+                        <input type="text" class="settings-input" id="setting-media-images" placeholder=".jpg;.png;.gif">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Video-Dateitypen (mit ; trennen)</label>
+                        <input type="text" class="settings-input" id="setting-media-videos" placeholder=".mp4;.mov;.avi">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🎬 Video</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Thumbnail-Qualität (1-100)</label>
+                        <input type="number" class="settings-input" id="setting-video-quality" min="1" max="100">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-autoconvert">
+                            <label class="settings-checkbox-label" for="setting-video-autoconvert">Auto-Konvertierung aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-hls">
+                            <label class="settings-checkbox-label" for="setting-video-hls">HLS Streaming verwenden</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🎨 Oberfläche</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Thumbnail-Größe (px)</label>
+                        <input type="number" class="settings-input" id="setting-ui-thumbsize" min="100" max="400">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Grid-Spalten</label>
+                        <input type="number" class="settings-input" id="setting-ui-columns" min="2" max="12">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">⚡ Performance</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-perf-parallel">
+                            <label class="settings-checkbox-label" for="setting-perf-parallel">Parallel-Processing (PS7+)</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Max. Parallele Jobs</label>
+                        <input type="number" class="settings-input" id="setting-perf-maxjobs" min="1" max="32">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-perf-cache">
+                            <label class="settings-checkbox-label" for="setting-perf-cache">Thumbnails cachen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-perf-lazy">
+                            <label class="settings-checkbox-label" for="setting-perf-lazy">Lazy Loading</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🗑️ Datei-Operationen</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-recycle">
+                            <label class="settings-checkbox-label" for="setting-file-recycle">Papierkorb verwenden</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-confirm">
+                            <label class="settings-checkbox-label" for="setting-file-confirm">Löschen bestätigen</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-actions">
+                <button class="settings-btn settings-btn-secondary" onclick="closeSettings()">Abbrechen</button>
+                <button class="settings-btn settings-btn-secondary" onclick="resetSettings()">Zurücksetzen</button>
+                <button class="settings-btn settings-btn-primary" onclick="saveSettings()">Speichern</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
         const tooltip = document.getElementById('tooltip');
         
@@ -989,9 +1283,124 @@ $folderListHtml
         document.getElementById('toolsOverlay').addEventListener('click', function(e) {
             if (e.target === this) closeTools();
         });
-        function openSettings() {
-            alert('Settings-Menü kommt in Phase 4.2! ⚙️');
+        function toggleCategory(header) {
+            var category = header.closest('.settings-category');
+            category.classList.toggle('expanded');
         }
+        
+        function openSettings() {
+            loadSettings();
+            document.getElementById('settingsOverlay').classList.add('show');
+        }
+        
+        function closeSettings() {
+            document.getElementById('settingsOverlay').classList.remove('show');
+        }
+        
+        async function loadSettings() {
+            try {
+                var response = await fetch('/settings/get');
+                var config = await response.json();
+                
+                document.getElementById('setting-server-port').value = config.Server.Port;
+                document.getElementById('setting-server-host').value = config.Server.Host;
+                document.getElementById('setting-server-autoopen').checked = config.Server.AutoOpenBrowser;
+                
+                document.getElementById('setting-media-images').value = config.Media.ImageExtensions.join(';');
+                document.getElementById('setting-media-videos').value = config.Media.VideoExtensions.join(';');
+                
+                document.getElementById('setting-video-quality').value = config.Video.ThumbnailQuality;
+                document.getElementById('setting-video-autoconvert').checked = config.Video.EnableAutoConversion;
+                document.getElementById('setting-video-hls').checked = config.Video.UseHLS;
+                
+                document.getElementById('setting-ui-thumbsize').value = config.UI.ThumbnailSize;
+                document.getElementById('setting-ui-columns').value = config.UI.GridColumns;
+                
+                document.getElementById('setting-perf-parallel').checked = config.Performance.UseParallelProcessing;
+                document.getElementById('setting-perf-maxjobs').value = config.Performance.MaxParallelJobs;
+                document.getElementById('setting-perf-cache').checked = config.Performance.CacheThumbnails;
+                document.getElementById('setting-perf-lazy').checked = config.Performance.LazyLoading;
+                
+                document.getElementById('setting-file-recycle').checked = config.FileOperations.UseRecycleBin;
+                document.getElementById('setting-file-confirm').checked = config.FileOperations.ConfirmDelete;
+            } catch (err) {
+                alert('Fehler beim Laden der Einstellungen: ' + err.message);
+            }
+        }
+        
+        async function saveSettings() {
+            try {
+                var settings = {
+                    Server: {
+                        Port: parseInt(document.getElementById('setting-server-port').value),
+                        Host: document.getElementById('setting-server-host').value,
+                        AutoOpenBrowser: document.getElementById('setting-server-autoopen').checked
+                    },
+                    Media: {
+                        ImageExtensions: document.getElementById('setting-media-images').value.split(';').map(function(s) { return s.trim(); }).filter(Boolean),
+                        VideoExtensions: document.getElementById('setting-media-videos').value.split(';').map(function(s) { return s.trim(); }).filter(Boolean)
+                    },
+                    Video: {
+                        ThumbnailQuality: parseInt(document.getElementById('setting-video-quality').value),
+                        EnableAutoConversion: document.getElementById('setting-video-autoconvert').checked,
+                        UseHLS: document.getElementById('setting-video-hls').checked
+                    },
+                    UI: {
+                        ThumbnailSize: parseInt(document.getElementById('setting-ui-thumbsize').value),
+                        GridColumns: parseInt(document.getElementById('setting-ui-columns').value)
+                    },
+                    Performance: {
+                        UseParallelProcessing: document.getElementById('setting-perf-parallel').checked,
+                        MaxParallelJobs: parseInt(document.getElementById('setting-perf-maxjobs').value),
+                        CacheThumbnails: document.getElementById('setting-perf-cache').checked,
+                        LazyLoading: document.getElementById('setting-perf-lazy').checked
+                    },
+                    FileOperations: {
+                        UseRecycleBin: document.getElementById('setting-file-recycle').checked,
+                        ConfirmDelete: document.getElementById('setting-file-confirm').checked
+                    }
+                };
+                
+                var response = await fetch('/settings/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                
+                var result = await response.json();
+                
+                if (result.success) {
+                    alert('✓ Einstellungen gespeichert!\n\nServer wird neu gestartet...');
+                    location.reload();
+                } else {
+                    alert('❌ Fehler beim Speichern: ' + (result.error || 'Unbekannt'));
+                }
+            } catch (err) {
+                alert('❌ Fehler: ' + err.message);
+            }
+        }
+        
+        async function resetSettings() {
+            if (!confirm('Einstellungen auf Standard zurücksetzen?')) return;
+            
+            try {
+                var response = await fetch('/settings/reset', { method: 'POST' });
+                var result = await response.json();
+                
+                if (result.success) {
+                    alert('✓ Einstellungen zurückgesetzt!');
+                    loadSettings();
+                } else {
+                    alert('❌ Fehler: ' + (result.error || 'Unbekannt'));
+                }
+            } catch (err) {
+                alert('❌ Fehler: ' + err.message);
+            }
+        }
+        
+        document.getElementById('settingsOverlay').addEventListener('click', function(e) {
+            if (e.target === this) closeSettings();
+        });
     </script>
 </body>
 </html>
@@ -1115,6 +1524,84 @@ $folderListHtml
                             DeletedSize = $result.DeletedSize
                         }
                     } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /settings/get
+            if ($path -eq "/settings/get" -and $req.HttpMethod -eq "GET") {
+                try {
+                    $configPath = Join-Path $ScriptRoot "config.json"
+                    $configJson = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8
+                    Send-ResponseText -Response $res -Text $configJson -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /settings/save
+            if ($path -eq "/settings/save" -and $req.HttpMethod -eq "POST") {
+                try {
+                    $reader = [System.IO.StreamReader]::new($req.InputStream)
+                    $body = $reader.ReadToEnd()
+                    $reader.Close()
+                    
+                    $newSettings = $body | ConvertFrom-Json
+                    $configPath = Join-Path $ScriptRoot "config.json"
+                    $currentConfig = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+                    
+                    $currentConfig.Server.Port = $newSettings.Server.Port
+                    $currentConfig.Server.Host = $newSettings.Server.Host
+                    $currentConfig.Server.AutoOpenBrowser = $newSettings.Server.AutoOpenBrowser
+                    
+                    $currentConfig.Media.ImageExtensions = $newSettings.Media.ImageExtensions
+                    $currentConfig.Media.VideoExtensions = $newSettings.Media.VideoExtensions
+                    
+                    $currentConfig.Video.ThumbnailQuality = $newSettings.Video.ThumbnailQuality
+                    $currentConfig.Video.EnableAutoConversion = $newSettings.Video.EnableAutoConversion
+                    $currentConfig.Video.UseHLS = $newSettings.Video.UseHLS
+                    
+                    $currentConfig.UI.ThumbnailSize = $newSettings.UI.ThumbnailSize
+                    $currentConfig.UI.GridColumns = $newSettings.UI.GridColumns
+                    
+                    $currentConfig.Performance.UseParallelProcessing = $newSettings.Performance.UseParallelProcessing
+                    $currentConfig.Performance.MaxParallelJobs = $newSettings.Performance.MaxParallelJobs
+                    $currentConfig.Performance.CacheThumbnails = $newSettings.Performance.CacheThumbnails
+                    $currentConfig.Performance.LazyLoading = $newSettings.Performance.LazyLoading
+                    
+                    $currentConfig.FileOperations.UseRecycleBin = $newSettings.FileOperations.UseRecycleBin
+                    $currentConfig.FileOperations.ConfirmDelete = $newSettings.FileOperations.ConfirmDelete
+                    
+                    $currentConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
+                    
+                    $json = @{ success = $true } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /settings/reset
+            if ($path -eq "/settings/reset" -and $req.HttpMethod -eq "POST") {
+                try {
+                    $configPath = Join-Path $ScriptRoot "config.json"
+                    $backupPath = Join-Path $ScriptRoot "config.json.backup"
+                    
+                    if (Test-Path -LiteralPath $backupPath) {
+                        Copy-Item -LiteralPath $backupPath -Destination $configPath -Force
+                        $json = @{ success = $true } | ConvertTo-Json -Compress
+                    } else {
+                        $json = @{ success = $false; error = "Keine Backup-Datei gefunden" } | ConvertTo-Json -Compress
+                    }
+                    
                     Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
                 } catch {
                     $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
