@@ -1306,6 +1306,63 @@ $folderListHtml
                     </div>
                 </div>
             </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">✨ Features</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-archive">
+                            <label class="settings-checkbox-label" for="setting-feat-archive">Archiv-Extraktion aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Archiv-Dateitypen (mit ; trennen)</label>
+                        <input type="text" class="settings-input" id="setting-feat-archiveext" placeholder=".zip;.rar;.7z">
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-thumbpre">
+                            <label class="settings-checkbox-label" for="setting-feat-thumbpre">Video-Thumbnails vorab generieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-lazyconv">
+                            <label class="settings-checkbox-label" for="setting-feat-lazyconv">Lazy Video-Konvertierung</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-vlc">
+                            <label class="settings-checkbox-label" for="setting-feat-vlc">In VLC öffnen</label>
+                        </div>
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-collapse">
+                            <label class="settings-checkbox-label" for="setting-feat-collapse">Ordner einklappbar</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-lightbox">
+                            <label class="settings-checkbox-label" for="setting-feat-lightbox">Lightbox-Viewer</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-keyboard">
+                            <label class="settings-checkbox-label" for="setting-feat-keyboard">Tastatur-Navigation</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div>
             
             <div class="settings-actions">
@@ -1608,6 +1665,15 @@ $folderListHtml
                 document.getElementById('setting-cache-scan').checked = config.Cache.UseScanCache;
                 document.getElementById('setting-cache-folder').value = config.Cache.CacheFolder;
                 document.getElementById('setting-cache-videometa').checked = config.Cache.VideoMetadataCache;
+                
+                document.getElementById('setting-feat-archive').checked = config.Features.ArchiveExtraction;
+                document.getElementById('setting-feat-archiveext').value = config.Features.ArchiveExtensions.join(';');
+                document.getElementById('setting-feat-thumbpre').checked = config.Features.VideoThumbnailPreGeneration;
+                document.getElementById('setting-feat-lazyconv').checked = config.Features.LazyVideoConversion;
+                document.getElementById('setting-feat-vlc').checked = config.Features.OpenInVLC;
+                document.getElementById('setting-feat-collapse').checked = config.Features.CollapsibleFolders;
+                document.getElementById('setting-feat-lightbox').checked = config.Features.LightboxViewer;
+                document.getElementById('setting-feat-keyboard').checked = config.Features.KeyboardNavigation;
             } catch (err) {
                 alert('Fehler beim Laden der Einstellungen: ' + err.message);
             }
@@ -1670,6 +1736,16 @@ $folderListHtml
                         UseScanCache: document.getElementById('setting-cache-scan').checked,
                         CacheFolder: document.getElementById('setting-cache-folder').value,
                         VideoMetadataCache: document.getElementById('setting-cache-videometa').checked
+                    },
+                    Features: {
+                        ArchiveExtraction: document.getElementById('setting-feat-archive').checked,
+                        ArchiveExtensions: document.getElementById('setting-feat-archiveext').value.split(';').map(function(s) { return s.trim(); }).filter(Boolean),
+                        VideoThumbnailPreGeneration: document.getElementById('setting-feat-thumbpre').checked,
+                        LazyVideoConversion: document.getElementById('setting-feat-lazyconv').checked,
+                        OpenInVLC: document.getElementById('setting-feat-vlc').checked,
+                        CollapsibleFolders: document.getElementById('setting-feat-collapse').checked,
+                        LightboxViewer: document.getElementById('setting-feat-lightbox').checked,
+                        KeyboardNavigation: document.getElementById('setting-feat-keyboard').checked
                     }
                 };
                 
@@ -1957,6 +2033,15 @@ $folderListHtml
                     $currentConfig.Cache.UseScanCache = $newSettings.Cache.UseScanCache
                     $currentConfig.Cache.CacheFolder = $newSettings.Cache.CacheFolder
                     $currentConfig.Cache.VideoMetadataCache = $newSettings.Cache.VideoMetadataCache
+                    
+                    $currentConfig.Features.ArchiveExtraction = $newSettings.Features.ArchiveExtraction
+                    $currentConfig.Features.ArchiveExtensions = $newSettings.Features.ArchiveExtensions
+                    $currentConfig.Features.VideoThumbnailPreGeneration = $newSettings.Features.VideoThumbnailPreGeneration
+                    $currentConfig.Features.LazyVideoConversion = $newSettings.Features.LazyVideoConversion
+                    $currentConfig.Features.OpenInVLC = $newSettings.Features.OpenInVLC
+                    $currentConfig.Features.CollapsibleFolders = $newSettings.Features.CollapsibleFolders
+                    $currentConfig.Features.LightboxViewer = $newSettings.Features.LightboxViewer
+                    $currentConfig.Features.KeyboardNavigation = $newSettings.Features.KeyboardNavigation
                     
                     $currentConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
                     
