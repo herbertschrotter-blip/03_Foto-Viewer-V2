@@ -245,8 +245,18 @@ try {
             font-size: 0.9em;
         }
 
+        .folder-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
         .tools-btn {
             background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            color: white;
+        }
+        
+        .settings-btn {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
             color: white;
         }
         
@@ -513,6 +523,11 @@ try {
             color: white;
         }
         
+        .sidebar-row:not(:first-child) .sidebar-btn {
+            font-size: 1.8em;
+            width: 100%;
+        }
+        
         .sidebar-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -549,29 +564,7 @@ try {
             color: white;
         }
         
-        .folder-change-btn {
-            width: 100%;
-            height: 46px;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            font-weight: 600;
-            font-size: 0.9em;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-            position: relative;
-        }
-        
-        .folder-change-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
-        }
-        
-        .folder-change-btn:active {
-            transform: translateY(0);
-        }
+    
         
         .folder-card {
             background: white;
@@ -702,13 +695,20 @@ try {
             </button>
         </div>
         <div class="sidebar-row">
-            <button class="sidebar-btn tools-btn" onclick="openTools()" data-tooltip="Tools">
-                🧰
+            <button class="sidebar-btn folder-btn" onclick="changeRoot()" data-tooltip="Ordner wechseln">
+                📂
             </button>
         </div>
-        <button class="folder-change-btn" onclick="changeRoot()" data-tooltip="Root-Ordner wechseln">
-            Ordner
-        </button>
+        <div class="sidebar-row">
+            <button class="sidebar-btn tools-btn" onclick="openTools()" data-tooltip="Tools">
+                🛠️
+            </button>
+        </div>
+        <div class="sidebar-row">
+            <button class="sidebar-btn settings-btn" onclick="openSettings()" data-tooltip="Einstellungen">
+                ⚙️
+            </button>
+        </div>
     </div>
     
     <div class="container">
@@ -989,6 +989,9 @@ $folderListHtml
         document.getElementById('toolsOverlay').addEventListener('click', function(e) {
             if (e.target === this) closeTools();
         });
+        function openSettings() {
+            alert('Settings-Menü kommt in Phase 4.2! ⚙️');
+        }
     </script>
 </body>
 </html>
