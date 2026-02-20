@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.4.6
+    Version: 0.4.7
 #>
 
 #Requires -Version 5.1
@@ -1281,6 +1281,31 @@ $folderListHtml
                     </div>
                                 </div>
             </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">💾 Cache</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-cache-scan">
+                            <label class="settings-checkbox-label" for="setting-cache-scan">Scan-Cache verwenden</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Cache-Ordner</label>
+                        <input type="text" class="settings-input" id="setting-cache-folder" placeholder=".cache">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-cache-videometa">
+                            <label class="settings-checkbox-label" for="setting-cache-videometa">Video-Metadaten cachen</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
             </div>
             
             <div class="settings-actions">
@@ -1579,6 +1604,10 @@ $folderListHtml
                 document.getElementById('setting-file-move').checked = config.FileOperations.EnableMove;
                 document.getElementById('setting-file-flatten').checked = config.FileOperations.EnableFlattenAndMove;
                 document.getElementById('setting-file-range').checked = config.FileOperations.RangeRequestSupport;
+                
+                document.getElementById('setting-cache-scan').checked = config.Cache.UseScanCache;
+                document.getElementById('setting-cache-folder').value = config.Cache.CacheFolder;
+                document.getElementById('setting-cache-videometa').checked = config.Cache.VideoMetadataCache;
             } catch (err) {
                 alert('Fehler beim Laden der Einstellungen: ' + err.message);
             }
@@ -1636,6 +1665,11 @@ $folderListHtml
                         EnableMove: document.getElementById('setting-file-move').checked,
                         EnableFlattenAndMove: document.getElementById('setting-file-flatten').checked,
                         RangeRequestSupport: document.getElementById('setting-file-range').checked
+                    },
+                    Cache: {
+                        UseScanCache: document.getElementById('setting-cache-scan').checked,
+                        CacheFolder: document.getElementById('setting-cache-folder').value,
+                        VideoMetadataCache: document.getElementById('setting-cache-videometa').checked
                     }
                 };
                 
@@ -1919,6 +1953,10 @@ $folderListHtml
                     $currentConfig.FileOperations.EnableMove = $newSettings.FileOperations.EnableMove
                     $currentConfig.FileOperations.EnableFlattenAndMove = $newSettings.FileOperations.EnableFlattenAndMove
                     $currentConfig.FileOperations.RangeRequestSupport = $newSettings.FileOperations.RangeRequestSupport
+                    
+                    $currentConfig.Cache.UseScanCache = $newSettings.Cache.UseScanCache
+                    $currentConfig.Cache.CacheFolder = $newSettings.Cache.CacheFolder
+                    $currentConfig.Cache.VideoMetadataCache = $newSettings.Cache.VideoMetadataCache
                     
                     $currentConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
                     
