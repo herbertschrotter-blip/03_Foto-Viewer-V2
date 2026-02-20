@@ -12,7 +12,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.1.1
 #>
 
 #Requires -Version 5.1
@@ -26,7 +26,7 @@ function Start-HttpListener {
     .PARAMETER Port
         Port-Nummer (Default: 8888)
     
-    .PARAMETER Host
+    .PARAMETER Hostname
         Hostname (Default: localhost)
     
     .EXAMPLE
@@ -39,11 +39,11 @@ function Start-HttpListener {
         [int]$Port = 8888,
         
         [Parameter()]
-        [string]$Host = "localhost"
+        [string]$Hostname = "localhost"
     )
     
     try {
-        $prefix = "http://${Host}:${Port}/"
+        $prefix = "http://${Hostname}:${Port}/"
         $listener = New-Object System.Net.HttpListener
         $listener.Prefixes.Add($prefix)
         $listener.Start()

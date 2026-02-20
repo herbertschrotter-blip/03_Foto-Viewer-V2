@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.1.1
 #>
 
 #Requires -Version 5.1
@@ -69,7 +69,7 @@ Write-Host ""
 
 # HttpListener starten
 try {
-    $listener = Start-HttpListener -Port $Port -Host $config.Server.Host
+    $listener = Start-HttpListener -Port $Port -Hostname $config.Server.Host
     Write-Host "✓ Server läuft auf: http://$($config.Server.Host):$Port" -ForegroundColor Green
 } catch {
     Write-Error "Server-Start fehlgeschlagen: $($_.Exception.Message)"
