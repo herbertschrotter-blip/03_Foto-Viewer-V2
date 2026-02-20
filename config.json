@@ -42,9 +42,12 @@
     "ConversionPreset": "medium",
     "ThumbnailCount": 9,
     "ThumbnailFPS": 1,
+    "ThumbnailStartPercent": 10,
+    "ThumbnailEndPercent": 90,
     "PreviewAsGIF": true,
     "GIFDuration": 3,
     "GIFFrameRate": 10,
+    "GIFLoop": true,
     "UseHLS": true,
     "HLSSegmentDuration": 10
   },

@@ -282,19 +282,28 @@ try {
             background: #2a2a2a;
             border: 1px solid #3a3a3a;
             border-radius: 12px;
-            padding: 32px;
             max-width: 700px;
             width: 90%;
             max-height: 80vh;
-            overflow-y: auto;
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
         
         .overlay-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 24px;
+            padding: 32px 32px 24px 32px;
+            background: #2a2a2a;
+            border-bottom: 1px solid #3a3a3a;
+            flex-shrink: 0;
+        }
+        
+        .overlay-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px 32px;
         }
         
         .overlay-title {
@@ -566,6 +575,17 @@ try {
             width: 120px;
         }
         
+        .settings-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        
+        .settings-row .settings-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
         .settings-checkbox-wrapper {
             display: flex;
             align-items: center;
@@ -589,9 +609,10 @@ try {
         .settings-actions {
             display: flex;
             gap: 12px;
-            margin-top: 24px;
-            padding-top: 20px;
+            padding: 20px 32px 32px 32px;
             border-top: 1px solid #3a3a3a;
+            background: #2a2a2a;
+            flex-shrink: 0;
         }
         
         .settings-btn {
@@ -970,6 +991,7 @@ $folderListHtml
                 <button class="overlay-close" onclick="closeSettings()">×</button>
             </div>
             
+            <div class="overlay-body">
             <div class="settings-category">
                 <div class="settings-category-header" onclick="toggleCategory(this)">
                     <span class="settings-category-title">🌐 Server</span>
@@ -1017,7 +1039,7 @@ $folderListHtml
                 </div>
                 <div class="settings-category-content">
                     <div class="settings-group">
-                        <label class="settings-label">Thumbnail-Qualität (1-100)</label>
+                        <label class="settings-label">Thumbnail-Qualität</label>
                         <input type="number" class="settings-input" id="setting-video-quality" min="1" max="100">
                     </div>
                     <div class="settings-group">
@@ -1027,9 +1049,72 @@ $folderListHtml
                         </div>
                     </div>
                     <div class="settings-group">
+                        <label class="settings-label">Bevorzugter Video-Codec</label>
+                        <select class="settings-input" id="setting-video-codec">
+                            <option value="h264">H.264</option>
+                            <option value="h265">H.265 (HEVC)</option>
+                            <option value="vp9">VP9</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Konvertierungs-Preset</label>
+                        <select class="settings-input" id="setting-video-preset">
+                            <option value="fast">Schnell</option>
+                            <option value="medium">Mittel</option>
+                            <option value="slow">Langsam (beste Qualität)</option>
+                        </select>
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <label class="settings-label">Anzahl Thumbnails pro Video</label>
+                        <input type="number" class="settings-input" id="setting-video-thumbcount" min="1" max="20">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Thumbnails pro Sekunde (FPS)</label>
+                        <input type="number" class="settings-input" id="setting-video-thumbfps" min="1" max="10">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label" style="margin-bottom: 8px;">Zeitbereich (% der Video-Dauer)</label>
+                        <div class="settings-row">
+                            <div class="settings-group">
+                                <label class="settings-label" style="font-size: 12px; color: #aaa;">Von</label>
+                                <input type="number" class="settings-input" id="setting-video-thumbstart" min="0" max="100">
+                            </div>
+                            <div class="settings-group">
+                                <label class="settings-label" style="font-size: 12px; color: #aaa;">Bis</label>
+                                <input type="number" class="settings-input" id="setting-video-thumbend" min="0" max="100">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-group">
                         <div class="settings-checkbox-wrapper">
                             <input type="checkbox" class="settings-checkbox" id="setting-video-hls">
-                            <label class="settings-checkbox-label" for="setting-video-hls">HLS Streaming verwenden</label>
+                            <label class="settings-checkbox-label" for="setting-video-hls">HLS Streaming aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">HLS Segment-Länge (Sekunden)</label>
+                        <input type="number" class="settings-input" id="setting-video-hlssegment" min="5" max="30">
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifpreview">
+                            <label class="settings-checkbox-label" for="setting-video-gifpreview">Video-Vorschau als animiertes GIF</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">GIF-Länge (Sekunden)</label>
+                        <input type="number" class="settings-input" id="setting-video-gifduration" min="1" max="10">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">GIF Bilder pro Sekunde (FPS)</label>
+                        <input type="number" class="settings-input" id="setting-video-gifframerate" min="5" max="30">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifloop">
+                            <label class="settings-checkbox-label" for="setting-video-gifloop">GIF endlos wiederholen</label>
                         </div>
                     </div>
                 </div>
@@ -1110,7 +1195,8 @@ $folderListHtml
                             <label class="settings-checkbox-label" for="setting-file-confirm">Löschen bestätigen</label>
                         </div>
                     </div>
-                </div>
+                                </div>
+            </div>
             </div>
             
             <div class="settings-actions">
@@ -1376,6 +1462,17 @@ $folderListHtml
                 document.getElementById('setting-video-quality').value = config.Video.ThumbnailQuality;
                 document.getElementById('setting-video-autoconvert').checked = config.Video.EnableAutoConversion;
                 document.getElementById('setting-video-hls').checked = config.Video.UseHLS;
+                document.getElementById('setting-video-hlssegment').value = config.Video.HLSSegmentDuration;
+                document.getElementById('setting-video-codec').value = config.Video.PreferredCodec;
+                document.getElementById('setting-video-preset').value = config.Video.ConversionPreset;
+                document.getElementById('setting-video-thumbcount').value = config.Video.ThumbnailCount;
+                document.getElementById('setting-video-thumbfps').value = config.Video.ThumbnailFPS;
+                document.getElementById('setting-video-gifpreview').checked = config.Video.PreviewAsGIF;
+                document.getElementById('setting-video-gifduration').value = config.Video.GIFDuration;
+                document.getElementById('setting-video-gifframerate').value = config.Video.GIFFrameRate;
+                document.getElementById('setting-video-gifloop').checked = config.Video.GIFLoop;
+                document.getElementById('setting-video-thumbstart').value = config.Video.ThumbnailStartPercent;
+                document.getElementById('setting-video-thumbend').value = config.Video.ThumbnailEndPercent;
                 
                 document.getElementById('setting-ui-defaultsize').value = config.UI.DefaultThumbSize || 'medium';
                 document.getElementById('setting-ui-thumbsize').value = config.UI.ThumbnailSize;
@@ -1408,7 +1505,18 @@ $folderListHtml
                     Video: {
                         ThumbnailQuality: parseInt(document.getElementById('setting-video-quality').value),
                         EnableAutoConversion: document.getElementById('setting-video-autoconvert').checked,
-                        UseHLS: document.getElementById('setting-video-hls').checked
+                        UseHLS: document.getElementById('setting-video-hls').checked,
+                        HLSSegmentDuration: parseInt(document.getElementById('setting-video-hlssegment').value),
+                        PreferredCodec: document.getElementById('setting-video-codec').value,
+                        ConversionPreset: document.getElementById('setting-video-preset').value,
+                        ThumbnailCount: parseInt(document.getElementById('setting-video-thumbcount').value),
+                        ThumbnailFPS: parseInt(document.getElementById('setting-video-thumbfps').value),
+                        PreviewAsGIF: document.getElementById('setting-video-gifpreview').checked,
+                        GIFDuration: parseInt(document.getElementById('setting-video-gifduration').value),
+                        GIFFrameRate: parseInt(document.getElementById('setting-video-gifframerate').value),
+                        GIFLoop: document.getElementById('setting-video-gifloop').checked,
+                        ThumbnailStartPercent: parseInt(document.getElementById('setting-video-thumbstart').value),
+                        ThumbnailEndPercent: parseInt(document.getElementById('setting-video-thumbend').value)
                     },
                     UI: {
                         DefaultThumbSize: document.getElementById('setting-ui-defaultsize').value,
@@ -1674,6 +1782,17 @@ $folderListHtml
                     $currentConfig.Video.ThumbnailQuality = $newSettings.Video.ThumbnailQuality
                     $currentConfig.Video.EnableAutoConversion = $newSettings.Video.EnableAutoConversion
                     $currentConfig.Video.UseHLS = $newSettings.Video.UseHLS
+                    $currentConfig.Video.HLSSegmentDuration = $newSettings.Video.HLSSegmentDuration
+                    $currentConfig.Video.PreferredCodec = $newSettings.Video.PreferredCodec
+                    $currentConfig.Video.ConversionPreset = $newSettings.Video.ConversionPreset
+                    $currentConfig.Video.ThumbnailCount = $newSettings.Video.ThumbnailCount
+                    $currentConfig.Video.ThumbnailFPS = $newSettings.Video.ThumbnailFPS
+                    $currentConfig.Video.PreviewAsGIF = $newSettings.Video.PreviewAsGIF
+                    $currentConfig.Video.GIFDuration = $newSettings.Video.GIFDuration
+                    $currentConfig.Video.GIFFrameRate = $newSettings.Video.GIFFrameRate
+                    $currentConfig.Video.GIFLoop = $newSettings.Video.GIFLoop
+                    $currentConfig.Video.ThumbnailStartPercent = $newSettings.Video.ThumbnailStartPercent
+                    $currentConfig.Video.ThumbnailEndPercent = $newSettings.Video.ThumbnailEndPercent
                     
                     $currentConfig.UI.DefaultThumbSize = $newSettings.UI.DefaultThumbSize
                     $currentConfig.UI.ThumbnailSize = $newSettings.UI.ThumbnailSize
