@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.1
+    Version: 0.1.2
 #>
 
 #Requires -Version 5.1
@@ -234,9 +234,41 @@ try {
             font-weight: bold;
             margin-right: 10px;
         }
+        
+        .shutdown-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
+            transition: all 0.3s ease;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .shutdown-btn:hover {
+            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+            transform: translateY(-2px) rotate(90deg);
+            box-shadow: 0 6px 16px rgba(245, 101, 101, 0.5);
+        }
+        
+        .shutdown-btn:active {
+            transform: translateY(0) rotate(90deg);
+        }
     </style>
 </head>
 <body>
+    <button class="shutdown-btn" onclick="shutdownServer()" title="Server beenden">⏻</button>
+    
     <div class="container">
         <div class="success-icon">✓</div>
         <h1>Phase 1 funktioniert!</h1>
@@ -267,12 +299,27 @@ try {
             </ul>
         </div>
     </div>
+    
+    <script>
+        async function shutdownServer() {
+            if (!confirm('Server wirklich beenden?')) return;
+            
+            try {
+                await fetch('/shutdown', { method: 'POST' });
+                document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:white;">Server wird beendet...</div>';
+                setTimeout(() => window.close(), 1000);
+            } catch (err) {
+                console.log('Server beendet');
+            }
+        }
+    </script>
 </body>
 </html>
 "@
                 Send-ResponseHtml -Response $res -Html $html
                 continue
             }
+
             
             # Route: /shutdown (für spätere Phasen)
             if ($path -eq "/shutdown" -and $req.HttpMethod -eq "POST") {
