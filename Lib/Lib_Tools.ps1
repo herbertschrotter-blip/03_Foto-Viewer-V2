@@ -3,29 +3,291 @@
     Tools & Maintenance für Foto_Viewer_V2
 
 .DESCRIPTION
-    Cleanup-Funktionen für .thumbs Cache und andere Wartungsaufgaben.
+    Verwaltung von .thumbs Cache-Ordnern:
+    - Statistiken anzeigen
+    - Liste aller .thumbs Ordner (rekursiv)
+    - Ausgewählte löschen
+    - Alle löschen
 
 .EXAMPLE
-    Clean-ThumbsDirectory -RootPath "C:\Photos"
+    $stats = Get-ThumbsCacheStats -RootPath "C:\Photos"
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
+    
+.LINK
+    https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
 #>
 
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$PSDefaultParameterValues['*:Encoding'] = 'utf8'
 
-function Clean-ThumbsDirectory {
+# ============================================================================
+# CACHE STATISTIKEN
+# ============================================================================
+
+function Get-ThumbsCacheStats {
     <#
     .SYNOPSIS
-        Bereinigt .thumbs Ordner (entfernt verschachtelte/alte Thumbnails)
+        Gibt Statistiken über alle .thumbs Ordner zurück
+    
+    .DESCRIPTION
+        Findet rekursiv alle .thumbs Ordner im Root und zählt:
+        - Anzahl .thumbs Ordner
+        - Anzahl Thumbnail-Dateien gesamt
+        - Gesamtgröße in Bytes
     
     .PARAMETER RootPath
         Root-Ordner der Medien
     
     .EXAMPLE
-        $result = Clean-ThumbsDirectory -RootPath "C:\Photos"
+        $stats = Get-ThumbsCacheStats -RootPath "C:\Photos"
+        Write-Host "$($stats.ThumbsDirectories) Ordner, $($stats.ThumbnailFiles) Dateien"
+    
+    .OUTPUTS
+        PSCustomObject mit ThumbsDirectories, ThumbnailFiles, TotalSize, TotalSizeFormatted
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RootPath
+    )
+    
+    try {
+        if (-not (Test-Path -LiteralPath $RootPath -PathType Container)) {
+            throw "Root-Ordner existiert nicht: $RootPath"
+        }
+        
+        # Finde ALLE .thumbs Ordner rekursiv
+        $allThumbsDirs = @(Get-ChildItem -LiteralPath $RootPath -Recurse -Directory -Filter ".thumbs" -Force -ErrorAction SilentlyContinue)
+        
+        if ($allThumbsDirs.Count -eq 0) {
+            return [PSCustomObject]@{
+                ThumbsDirectories = 0
+                ThumbnailFiles = 0
+                TotalSize = 0
+                TotalSizeFormatted = "0 MB"
+            }
+        }
+        
+        # Zähle alle Dateien in allen .thumbs Ordnern
+        $totalFiles = 0
+        $totalSize = 0
+        
+        foreach ($dir in $allThumbsDirs) {
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
+            $totalFiles += $files.Count
+            $totalSize += ($files | Measure-Object -Property Length -Sum).Sum
+        }
+        
+        # Formatiere Größe
+        $sizeFormatted = if ($totalSize -gt 1GB) {
+            "$([Math]::Round($totalSize / 1GB, 2)) GB"
+        } elseif ($totalSize -gt 1MB) {
+            "$([Math]::Round($totalSize / 1MB, 2)) MB"
+        } elseif ($totalSize -gt 1KB) {
+            "$([Math]::Round($totalSize / 1KB, 2)) KB"
+        } else {
+            "$totalSize Bytes"
+        }
+        
+        Write-Verbose "Cache Stats: $($allThumbsDirs.Count) Ordner, $totalFiles Dateien, $sizeFormatted"
+        
+        return [PSCustomObject]@{
+            ThumbsDirectories = $allThumbsDirs.Count
+            ThumbnailFiles = $totalFiles
+            TotalSize = $totalSize
+            TotalSizeFormatted = $sizeFormatted
+        }
+        
+    } catch {
+        Write-Error "Fehler beim Abrufen der Statistiken: $($_.Exception.Message)"
+        throw
+    }
+}
+
+# ============================================================================
+# LISTE ALLER .THUMBS ORDNER
+# ============================================================================
+
+function Get-ThumbsDirectoriesList {
+    <#
+    .SYNOPSIS
+        Gibt Liste aller .thumbs Ordner mit Details zurück
+    
+    .DESCRIPTION
+        Findet rekursiv alle .thumbs Ordner und gibt für jeden:
+        - Absoluter Pfad
+        - Relativer Pfad (zu Root)
+        - Anzahl Dateien
+        - Größe in Bytes
+    
+    .PARAMETER RootPath
+        Root-Ordner der Medien
+    
+    .EXAMPLE
+        $list = Get-ThumbsDirectoriesList -RootPath "C:\Photos"
+        $list | ForEach-Object { Write-Host "$($_.RelativePath): $($_.FileCount) Dateien" }
+    
+    .OUTPUTS
+        Array von PSCustomObjects mit Path, RelativePath, FileCount, Size, SizeFormatted
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject[]])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RootPath
+    )
+    
+    try {
+        if (-not (Test-Path -LiteralPath $RootPath -PathType Container)) {
+            throw "Root-Ordner existiert nicht: $RootPath"
+        }
+        
+        # Finde ALLE .thumbs Ordner rekursiv
+        $allThumbsDirs = @(Get-ChildItem -LiteralPath $RootPath -Recurse -Directory -Filter ".thumbs" -Force -ErrorAction SilentlyContinue)
+        
+        if ($allThumbsDirs.Count -eq 0) {
+            Write-Verbose "Keine .thumbs Ordner gefunden"
+            return @()
+        }
+        
+        $result = foreach ($dir in $allThumbsDirs) {
+            # Relativer Pfad
+            $relativePath = $dir.FullName.Substring($RootPath.Length).TrimStart('\', '/')
+            if ([string]::IsNullOrEmpty($relativePath)) {
+                $relativePath = ".thumbs"
+            }
+            
+            # Dateien zählen
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
+            $fileCount = $files.Count
+            $size = ($files | Measure-Object -Property Length -Sum).Sum
+            
+            # Größe formatieren
+            $sizeFormatted = if ($size -gt 1GB) {
+                "$([Math]::Round($size / 1GB, 2)) GB"
+            } elseif ($size -gt 1MB) {
+                "$([Math]::Round($size / 1MB, 2)) MB"
+            } elseif ($size -gt 1KB) {
+                "$([Math]::Round($size / 1KB, 2)) KB"
+            } else {
+                "$size Bytes"
+            }
+            
+            [PSCustomObject]@{
+                Path = $dir.FullName
+                RelativePath = $relativePath
+                FileCount = $fileCount
+                Size = $size
+                SizeFormatted = $sizeFormatted
+            }
+        }
+        
+        Write-Verbose "Gefunden: $($result.Count) .thumbs Ordner"
+        return $result
+        
+    } catch {
+        Write-Error "Fehler beim Auflisten: $($_.Exception.Message)"
+        throw
+    }
+}
+
+# ============================================================================
+# AUSGEWÄHLTE .THUMBS ORDNER LÖSCHEN
+# ============================================================================
+
+function Remove-SelectedThumbsDirectories {
+    <#
+    .SYNOPSIS
+        Löscht ausgewählte .thumbs Ordner
+    
+    .DESCRIPTION
+        Löscht die angegebenen .thumbs Ordner rekursiv.
+        Prüft vorher ob Pfade gültig sind.
+    
+    .PARAMETER Paths
+        Array mit absoluten Pfaden zu .thumbs Ordnern
+    
+    .EXAMPLE
+        $paths = @("C:\Photos\.thumbs", "C:\Photos\Urlaub\.thumbs")
+        $result = Remove-SelectedThumbsDirectories -Paths $paths
+    
+    .OUTPUTS
+        PSCustomObject mit DeletedCount, DeletedSize
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Paths
+    )
+    
+    try {
+        $deletedCount = 0
+        $deletedSize = 0
+        
+        foreach ($path in $Paths) {
+            if (-not (Test-Path -LiteralPath $path -PathType Container)) {
+                Write-Warning "Ordner existiert nicht (übersprungen): $path"
+                continue
+            }
+            
+            # Prüfe ob es ein .thumbs Ordner ist
+            $dirName = Split-Path -Leaf $path
+            if ($dirName -ne ".thumbs") {
+                Write-Warning "Kein .thumbs Ordner (übersprungen): $path"
+                continue
+            }
+            
+            # Größe berechnen
+            $files = @(Get-ChildItem -LiteralPath $path -File -Recurse -ErrorAction SilentlyContinue)
+            $size = ($files | Measure-Object -Property Length -Sum).Sum
+            
+            # Löschen
+            Write-Verbose "Lösche: $path"
+            Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+            
+            $deletedCount++
+            $deletedSize += $size
+        }
+        
+        Write-Verbose "Gelöscht: $deletedCount Ordner, $([Math]::Round($deletedSize / 1MB, 2)) MB"
+        
+        return [PSCustomObject]@{
+            DeletedCount = $deletedCount
+            DeletedSize = $deletedSize
+        }
+        
+    } catch {
+        Write-Error "Fehler beim Löschen: $($_.Exception.Message)"
+        throw
+    }
+}
+
+# ============================================================================
+# ALLE .THUMBS ORDNER LÖSCHEN
+# ============================================================================
+
+function Remove-AllThumbsDirectories {
+    <#
+    .SYNOPSIS
+        Löscht ALLE .thumbs Ordner im Root rekursiv
+    
+    .DESCRIPTION
+        Findet rekursiv alle .thumbs Ordner im Root und löscht sie alle.
+        ACHTUNG: Keine Rückfrage, direktes Löschen!
+    
+    .PARAMETER RootPath
+        Root-Ordner der Medien
+    
+    .EXAMPLE
+        $result = Remove-AllThumbsDirectories -RootPath "C:\Photos"
+        Write-Host "Gelöscht: $($result.DeletedCount) Ordner"
     
     .OUTPUTS
         PSCustomObject mit DeletedCount, DeletedSize
@@ -38,10 +300,15 @@ function Clean-ThumbsDirectory {
     )
     
     try {
-        $thumbsDir = Join-Path $RootPath ".thumbs"
+        if (-not (Test-Path -LiteralPath $RootPath -PathType Container)) {
+            throw "Root-Ordner existiert nicht: $RootPath"
+        }
         
-        if (-not (Test-Path -LiteralPath $thumbsDir -PathType Container)) {
-            Write-Verbose "Kein .thumbs Ordner gefunden"
+        # Finde ALLE .thumbs Ordner rekursiv
+        $allThumbsDirs = @(Get-ChildItem -LiteralPath $RootPath -Recurse -Directory -Filter ".thumbs" -Force -ErrorAction SilentlyContinue)
+        
+        if ($allThumbsDirs.Count -eq 0) {
+            Write-Verbose "Keine .thumbs Ordner gefunden"
             return [PSCustomObject]@{
                 DeletedCount = 0
                 DeletedSize = 0
@@ -51,26 +318,20 @@ function Clean-ThumbsDirectory {
         $deletedCount = 0
         $deletedSize = 0
         
-        # Verschachtelte .thumbs Ordner finden und löschen
-        $nestedThumbs = Get-ChildItem -LiteralPath $thumbsDir -Recurse -Directory -Filter ".thumbs" -ErrorAction SilentlyContinue
-        
-        foreach ($nested in $nestedThumbs) {
-            Write-Verbose "Lösche verschachtelten .thumbs: $($nested.FullName)"
-            
+        foreach ($dir in $allThumbsDirs) {
             # Größe berechnen
-            $size = (Get-ChildItem -LiteralPath $nested.FullName -Recurse -File -ErrorAction SilentlyContinue | 
-                     Measure-Object -Property Length -Sum).Sum
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
+            $size = ($files | Measure-Object -Property Length -Sum).Sum
             
-            Remove-Item -LiteralPath $nested.FullName -Recurse -Force -ErrorAction SilentlyContinue
+            # Löschen
+            Write-Verbose "Lösche: $($dir.FullName)"
+            Remove-Item -LiteralPath $dir.FullName -Recurse -Force -ErrorAction Stop
             
             $deletedCount++
             $deletedSize += $size
         }
         
-        # Alte/ungültige Thumbnails löschen (optional: älter als X Tage)
-        # Hier können später weitere Cleanup-Regeln hinzugefügt werden
-        
-        Write-Verbose "Cleanup abgeschlossen: $deletedCount Ordner, $([Math]::Round($deletedSize / 1MB, 2)) MB"
+        Write-Verbose "Alle .thumbs gelöscht: $deletedCount Ordner, $([Math]::Round($deletedSize / 1MB, 2)) MB"
         
         return [PSCustomObject]@{
             DeletedCount = $deletedCount
@@ -78,108 +339,7 @@ function Clean-ThumbsDirectory {
         }
         
     } catch {
-        Write-Error "Fehler beim Cleanup: $($_.Exception.Message)"
+        Write-Error "Fehler beim Löschen aller .thumbs: $($_.Exception.Message)"
         throw
-    }
-}
-
-function Get-ThumbsStatistics {
-    <#
-    .SYNOPSIS
-        Gibt Statistiken über .thumbs Cache zurück
-    
-    .PARAMETER RootPath
-        Root-Ordner der Medien
-    
-    .EXAMPLE
-        $stats = Get-ThumbsStatistics -RootPath "C:\Photos"
-    
-    .OUTPUTS
-        PSCustomObject mit Count, TotalSize, Path
-    #>
-    [CmdletBinding()]
-    [OutputType([PSCustomObject])]
-    param(
-        [Parameter(Mandatory)]
-        [string]$RootPath
-    )
-    
-    try {
-        $thumbsDir = Join-Path $RootPath ".thumbs"
-        
-        if (-not (Test-Path -LiteralPath $thumbsDir -PathType Container)) {
-            return [PSCustomObject]@{
-                Count = 0
-                TotalSize = 0
-                Path = $thumbsDir
-            }
-        }
-        
-        $files = Get-ChildItem -LiteralPath $thumbsDir -File -Recurse -ErrorAction SilentlyContinue
-        $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
-        
-        return [PSCustomObject]@{
-            Count = $files.Count
-            TotalSize = $totalSize
-            Path = $thumbsDir
-        }
-        
-    } catch {
-        Write-Error "Fehler beim Abrufen der Statistiken: $($_.Exception.Message)"
-        throw
-    }
-}
-
-function Clear-AllThumbnails {
-    <#
-    .SYNOPSIS
-        Löscht alle Thumbnails (kompletter .thumbs Ordner)
-    
-    .PARAMETER RootPath
-        Root-Ordner der Medien
-    
-    .EXAMPLE
-        Clear-AllThumbnails -RootPath "C:\Photos"
-    
-    .OUTPUTS
-        PSCustomObject mit Success, DeletedSize
-    #>
-    [CmdletBinding()]
-    [OutputType([PSCustomObject])]
-    param(
-        [Parameter(Mandatory)]
-        [string]$RootPath
-    )
-    
-    try {
-        $thumbsDir = Join-Path $RootPath ".thumbs"
-        
-        if (-not (Test-Path -LiteralPath $thumbsDir -PathType Container)) {
-            return [PSCustomObject]@{
-                Success = $true
-                DeletedSize = 0
-            }
-        }
-        
-        # Größe berechnen
-        $files = Get-ChildItem -LiteralPath $thumbsDir -File -Recurse -ErrorAction SilentlyContinue
-        $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
-        
-        # Löschen
-        Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction Stop
-        
-        Write-Verbose "Alle Thumbnails gelöscht: $([Math]::Round($totalSize / 1MB, 2)) MB"
-        
-        return [PSCustomObject]@{
-            Success = $true
-            DeletedSize = $totalSize
-        }
-        
-    } catch {
-        Write-Error "Fehler beim Löschen: $($_.Exception.Message)"
-        return [PSCustomObject]@{
-            Success = $false
-            DeletedSize = 0
-        }
     }
 }

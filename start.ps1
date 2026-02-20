@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.4.0
+    Version: 0.4.1
 #>
 
 #Requires -Version 5.1
@@ -39,10 +39,11 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptRoot "Lib\Lib_State.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_FileSystem.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_FFmpeg.ps1")
+. (Join-Path $ScriptRoot "Lib\Lib_Tools.ps1")
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  Foto Viewer V2 - Phase 4" -ForegroundColor White
+Write-Host "  Foto Viewer V2 - Phase 4.1" -ForegroundColor White
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -243,6 +244,234 @@ try {
             font-weight: 600;
             font-size: 0.9em;
         }
+
+        .tools-btn {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+            color: white;
+        }
+        
+        /* Tools Overlay */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .overlay.show {
+            display: flex;
+        }
+        
+        .overlay-content {
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 12px;
+            padding: 32px;
+            max-width: 700px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .overlay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        
+        .overlay-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .overlay-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .overlay-close:hover {
+            background: #3a3a3a;
+            color: #e0e0e0;
+        }
+        
+        .overlay-section {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        
+        .overlay-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .overlay-section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .overlay-button {
+            width: 100%;
+            padding: 12px 20px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        
+        .overlay-button:hover {
+            background: #454545;
+            border-color: #555;
+        }
+        
+        .overlay-button.danger {
+            background: #dc2626;
+            border-color: #b91c1c;
+        }
+        
+        .overlay-button.danger:hover {
+            background: #b91c1c;
+        }
+        
+        .overlay-info {
+            background: #252525;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #888;
+            margin-top: 12px;
+        }
+        
+        .overlay-result {
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #252525;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        
+        .overlay-result.success {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+            color: #4ade80;
+        }
+        
+        .overlay-result.error {
+            border-color: #dc2626;
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+        }
+        
+        .thumbs-list {
+            background: #252525;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 12px;
+        }
+        
+        .thumbs-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            transition: background 0.2s;
+        }
+        
+        .thumbs-item:hover {
+            background: #303030;
+        }
+        
+        .thumbs-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .thumbs-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .thumbs-info {
+            flex: 1;
+            color: #e0e0e0;
+            font-size: 13px;
+        }
+        
+        .thumbs-path {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .thumbs-details {
+            color: #888;
+            font-size: 11px;
+        }
+        
+        .list-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .list-action-btn {
+            padding: 8px 16px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .list-action-btn:hover {
+            background: #454545;
+        }        
         
         /* Moderne Sidebar */
         .sidebar {
@@ -476,6 +705,11 @@ try {
                 ⏻
             </button>
         </div>
+        <div class="sidebar-row">
+            <button class="sidebar-btn tools-btn" onclick="openTools()" data-tooltip="Tools">
+                🧰
+            </button>
+        </div>
         <button class="folder-change-btn" onclick="changeRoot()" data-tooltip="Root-Ordner wechseln">
             Ordner
         </button>
@@ -489,6 +723,48 @@ try {
         
         <div class="folder-list">
 $folderListHtml
+        </div>
+    </div>
+    
+    <!-- Tools Overlay -->
+    <div class="overlay" id="toolsOverlay">
+        <div class="overlay-content">
+            <div class="overlay-header">
+                <div class="overlay-title">
+                    <span>🧰</span>
+                    <span>Tools</span>
+                </div>
+                <button class="overlay-close" onclick="closeTools()">×</button>
+            </div>
+            
+            <div class="overlay-section">
+                <div class="overlay-section-title">📊 Cache-Statistik</div>
+                <button class="overlay-button" onclick="getCacheStats()">
+                    <span>📈</span>
+                    <span>Statistik anzeigen</span>
+                </button>
+                <div id="statsResult"></div>
+            </div>
+            
+            <div class="overlay-section">
+                <div class="overlay-section-title">📂 .thumbs Ordner verwalten</div>
+                <button class="overlay-button" onclick="listThumbs()">
+                    <span>📋</span>
+                    <span>Liste laden</span>
+                </button>
+                <div id="thumbsList"></div>
+            </div>
+            
+            <div class="overlay-section">
+                <div class="overlay-section-title">🗑️ Alle löschen</div>
+                <button class="overlay-button danger" onclick="deleteAllThumbs()">
+                    <span>🗑️</span>
+                    <span>ALLE .thumbs löschen</span>
+                </button>
+                <div class="overlay-info">
+                    ⚠️ Löscht alle .thumbs Ordner im gesamten Root rekursiv!
+                </div>
+            </div>
         </div>
     </div>
     
