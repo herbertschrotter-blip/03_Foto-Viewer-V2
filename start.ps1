@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.2
+    Version: 0.1.3
 #>
 
 #Requires -Version 5.1
@@ -249,20 +249,22 @@ try {
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
             transition: all 0.3s ease;
-            font-size: 1.5em;
+            font-size: 1.8em;
             display: flex;
             align-items: center;
             justify-content: center;
+            line-height: 1;
+            padding: 0;
         }
         
         .shutdown-btn:hover {
             background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
-            transform: translateY(-2px) rotate(90deg);
-            box-shadow: 0 6px 16px rgba(245, 101, 101, 0.5);
+            transform: translateY(-2px) scale(1.1);
+            box-shadow: 0 6px 20px rgba(245, 101, 101, 0.6);
         }
         
         .shutdown-btn:active {
-            transform: translateY(0) rotate(90deg);
+            transform: translateY(0) scale(1.05);
         }
     </style>
 </head>
@@ -306,8 +308,7 @@ try {
             
             try {
                 await fetch('/shutdown', { method: 'POST' });
-                document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:white;">Server wird beendet...</div>';
-                setTimeout(() => window.close(), 1000);
+                document.body.innerHTML = '<div style="display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:white;"><div style="font-size:60px;">✓</div><div>Server beendet!</div><div style="font-size:16px;opacity:0.8;">Du kannst dieses Fenster jetzt schließen.</div></div>';
             } catch (err) {
                 console.log('Server beendet');
             }
