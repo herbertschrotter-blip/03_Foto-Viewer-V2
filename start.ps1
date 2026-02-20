@@ -1042,8 +1042,17 @@ $folderListHtml
                 </div>
                 <div class="settings-category-content">
                     <div class="settings-group">
-                        <label class="settings-label">Thumbnail-Größe (px)</label>
+                        <label class="settings-label">Standard Thumbnail-Größe beim Start</label>
+                        <select class="settings-input" id="setting-ui-defaultsize">
+                            <option value="small">Klein</option>
+                            <option value="medium">Mittel</option>
+                            <option value="large">Groß</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Thumbnail-Größe Mittel (px)</label>
                         <input type="number" class="settings-input" id="setting-ui-thumbsize" min="100" max="400">
+                        <div style="font-size: 11px; color: #888; margin-top: 4px;">Klein = 75%, Groß = 150%</div>
                     </div>
                     <div class="settings-group">
                         <label class="settings-label">Grid-Spalten</label>
@@ -1368,6 +1377,7 @@ $folderListHtml
                 document.getElementById('setting-video-autoconvert').checked = config.Video.EnableAutoConversion;
                 document.getElementById('setting-video-hls').checked = config.Video.UseHLS;
                 
+                document.getElementById('setting-ui-defaultsize').value = config.UI.DefaultThumbSize || 'medium';
                 document.getElementById('setting-ui-thumbsize').value = config.UI.ThumbnailSize;
                 document.getElementById('setting-ui-columns').value = config.UI.GridColumns;
                 
@@ -1401,6 +1411,7 @@ $folderListHtml
                         UseHLS: document.getElementById('setting-video-hls').checked
                     },
                     UI: {
+                        DefaultThumbSize: document.getElementById('setting-ui-defaultsize').value,
                         ThumbnailSize: parseInt(document.getElementById('setting-ui-thumbsize').value),
                         GridColumns: parseInt(document.getElementById('setting-ui-columns').value)
                     },
@@ -1457,18 +1468,20 @@ $folderListHtml
             if (e.target === this) closeSettings();
         });
         
+        var baseThumbnailSize = 200;
+        
         function setThumbSize(size) {
             document.querySelectorAll('.size-btn').forEach(function(btn) {
                 btn.classList.remove('active');
             });
             
-            var sizeMap = {
-                'small': 150,
-                'medium': 200,
-                'large': 300
+            var sizeMultiplier = {
+                'small': 0.75,
+                'medium': 1,
+                'large': 1.5
             };
             
-            var pixelSize = sizeMap[size];
+            var pixelSize = Math.round(baseThumbnailSize * sizeMultiplier[size]);
             
             document.querySelector('.size-' + size).classList.add('active');
             
@@ -1481,6 +1494,21 @@ $folderListHtml
             
             style.textContent = '.media-grid { grid-template-columns: repeat(auto-fill, minmax(' + pixelSize + 'px, 1fr)); }';
         }
+        
+        async function initThumbSize() {
+            try {
+                var response = await fetch('/settings/get');
+                var config = await response.json();
+                baseThumbnailSize = config.UI.ThumbnailSize || 200;
+                var defaultSize = config.UI.DefaultThumbSize || 'medium';
+                setThumbSize(defaultSize);
+            } catch (err) {
+                console.error('Fehler beim Laden der Thumbnail-Größe:', err);
+                setThumbSize('medium');
+            }
+        }
+        
+        initThumbSize();
     </script>
 </body>
 </html>
@@ -1647,6 +1675,7 @@ $folderListHtml
                     $currentConfig.Video.EnableAutoConversion = $newSettings.Video.EnableAutoConversion
                     $currentConfig.Video.UseHLS = $newSettings.Video.UseHLS
                     
+                    $currentConfig.UI.DefaultThumbSize = $newSettings.UI.DefaultThumbSize
                     $currentConfig.UI.ThumbnailSize = $newSettings.UI.ThumbnailSize
                     $currentConfig.UI.GridColumns = $newSettings.UI.GridColumns
                     

@@ -11,8 +11,29 @@
     "ConvertedFolder": ".converted"
   },
   "Media": {
-    "ImageExtensions": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff"],
-    "VideoExtensions": [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp"]
+    "ImageExtensions": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".webp",
+      ".gif",
+      ".bmp",
+      ".tif",
+      ".tiff"
+    ],
+    "VideoExtensions": [
+      ".mp4",
+      ".mov",
+      ".avi",
+      ".mkv",
+      ".webm",
+      ".m4v",
+      ".wmv",
+      ".flv",
+      ".mpg",
+      ".mpeg",
+      ".3gp"
+    ]
   },
   "Video": {
     "EnableAutoConversion": true,
@@ -30,8 +51,9 @@
   "UI": {
     "PreviewThumbnailCount": 10,
     "Theme": "dark",
-    "GridColumns": 6,
+    "GridColumns": 3,
     "ThumbnailSize": 200,
+    "DefaultThumbSize": "medium",
     "ShowVideoMetadata": true,
     "ShowVideoCodec": true,
     "ShowVideoDuration": true,
@@ -53,7 +75,13 @@
   },
   "Features": {
     "ArchiveExtraction": true,
-    "ArchiveExtensions": [".zip", ".rar", ".7z", ".tar", ".gz"],
+    "ArchiveExtensions": [
+      ".zip",
+      ".rar",
+      ".7z",
+      ".tar",
+      ".gz"
+    ],
     "VideoThumbnailPreGeneration": true,
     "LazyVideoConversion": true,
     "OpenInVLC": true,
