@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Startet HTTP Server mit Hybrid PowerShell 5.1/7+ Support.
-    Phase 3: Bilder Grid anzeigen + Root-Wechsel.
+    Phase 3: Bilder Grid + Moderne Sidebar ohne Emojis.
 
 .PARAMETER Port
     Server Port (Default aus config.json)
@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.1
+    Version: 0.3.3
 #>
 
 #Requires -Version 5.1
@@ -197,7 +197,7 @@ try {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: #f7fafc;
             min-height: 100vh;
-            padding: 80px 20px 20px 20px;
+            padding: 20px 20px 20px 140px;
         }
         
         .container {
@@ -226,23 +226,104 @@ try {
             font-size: 0.9em;
         }
         
-        .change-root-btn {
-            margin-top: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 32px;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 1em;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        /* Moderne Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 100px;
         }
         
-        .change-root-btn:hover {
+        .sidebar-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .sidebar-btn {
+            width: 46px;
+            height: 46px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3em;
+            transition: all 0.3s ease;
+            background: #f7fafc;
+            position: relative;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .sidebar-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .sidebar-btn:active {
+            transform: translateY(0);
+        }
+        
+        .status-btn {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        
+        .status-btn.offline {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(0.9); }
+        }
+        
+        .power-btn {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            color: white;
+        }
+        
+        .folder-change-btn {
+            width: 100%;
+            height: 46px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .folder-change-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
+        }
+        
+        .folder-change-btn:active {
+            transform: translateY(0);
         }
         
         .folder-card {
@@ -340,93 +421,22 @@ try {
             font-weight: 600;
         }
         
-        .server-status {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 12px;
-            padding: 12px 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.2em;
-            cursor: default;
-            z-index: 1000;
-        }
-        
-        .status-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #48bb78;
-            animation: pulse 2s ease-in-out infinite;
-        }
-        
-        .status-dot.offline {
-            background: #f56565;
-            animation: none;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        .shutdown-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
-            color: white;
-            border: none;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(245, 101, 101, 0.3);
-            transition: all 0.3s ease;
-            font-size: 1.8em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            padding: 0;
-            z-index: 1000;
-        }
-        
-        .shutdown-btn:hover {
-            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
-            transform: translateY(-2px) scale(1.1);
-            box-shadow: 0 6px 20px rgba(245, 101, 101, 0.6);
-        }
-        
-        .shutdown-btn:active {
-            transform: translateY(0) scale(1.05);
-        }
-        
-        /* Globaler Custom Tooltip */
-        [data-tooltip]::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            z-index: -1;
+        /* Tooltips */
+        [data-tooltip] {
+            position: relative;
         }
         
         [data-tooltip]::after {
             content: attr(data-tooltip);
-            position: fixed;
-            transform: translate(-50%, 10px);
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%) translateX(10px);
             background: #2d3748;
             color: white;
-            padding: 10px 18px;
+            padding: 8px 12px;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             white-space: nowrap;
             opacity: 0;
@@ -434,40 +444,34 @@ try {
             transition: all 0.3s ease;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             z-index: 1001;
-            min-width: 140px;
-            text-align: center;
         }
         
-        .server-status:hover::after {
+        [data-tooltip]:hover::after {
             opacity: 1;
-            left: 20px;
-            top: 80px;
-            transform: translate(0, 0);
-        }
-        
-        .shutdown-btn:hover::after {
-            opacity: 1;
-            right: 20px;
-            left: auto;
-            top: 80px;
-            transform: translate(0, 0);
+            transform: translateY(-50%) translateX(5px);
         }
     </style>
 </head>
 <body>
-    <div class="server-status" id="serverStatus" data-tooltip="Server läuft">
-        <span>🖥️</span>
-        <span class="status-dot" id="statusDot"></span>
+    <!-- Moderne Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-row">
+            <button class="sidebar-btn status-btn" id="statusBtn" data-tooltip="Server läuft">
+                <span class="status-dot"></span>
+            </button>
+            <button class="sidebar-btn power-btn" onclick="shutdownServer()" data-tooltip="Server beenden">
+                ⏻
+            </button>
+        </div>
+        <button class="folder-change-btn" onclick="changeRoot()" data-tooltip="Root-Ordner wechseln">
+            Ordner
+        </button>
     </div>
-    
-    <button class="shutdown-btn" onclick="shutdownServer()" data-tooltip="Server beenden">⏻</button>
     
     <div class="container">
         <div class="header">
             <h1>Foto Viewer V2</h1>
             <span class="phase-badge">Phase 3: Bilder Grid</span>
-            <br>
-            <button class="change-root-btn" onclick="changeRoot()">📁 Ordner wechseln</button>
         </div>
         
         <div class="folder-list">
@@ -512,8 +516,6 @@ $folderListHtml
         }
         
         async function changeRoot() {
-            if (!confirm('Ordner wechseln? Die aktuelle Ansicht wird neu geladen.')) return;
-            
             try {
                 const response = await fetch('/changeroot', { method: 'POST' });
                 const result = await response.json();
@@ -545,16 +547,15 @@ $folderListHtml
         
         // Server-Status Ping
         async function checkServerStatus() {
-            const dot = document.getElementById('statusDot');
-            const status = document.getElementById('serverStatus');
+            const btn = document.getElementById('statusBtn');
             
             try {
                 await fetch('/ping');
-                dot.classList.remove('offline');
-                status.setAttribute('data-tooltip', 'Server läuft');
+                btn.classList.remove('offline');
+                btn.setAttribute('data-tooltip', 'Server läuft');
             } catch {
-                dot.classList.add('offline');
-                status.setAttribute('data-tooltip', 'Server offline');
+                btn.classList.add('offline');
+                btn.setAttribute('data-tooltip', 'Server offline');
             }
         }
         
