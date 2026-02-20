@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.4
+    Version: 0.1.5
 #>
 
 #Requires -Version 5.1
@@ -247,6 +247,30 @@ try {
             align-items: center;
             gap: 10px;
             font-size: 1.2em;
+            cursor: default;
+        }
+        
+        .server-status::after {
+            content: attr(data-status);
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: #2d3748;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.75em;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .server-status:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(5px);
         }
         
         .status-dot {
@@ -301,7 +325,7 @@ try {
     </style>
 </head>
 <body>
-    <div class="server-status">
+    <div class="server-status" id="serverStatus" data-status="Server läuft">
         <span>🖥️</span>
         <span class="status-dot" id="statusDot"></span>
     </div>
@@ -353,11 +377,16 @@ try {
         
         // Server-Status Ping
         async function checkServerStatus() {
+            const dot = document.getElementById('statusDot');
+            const status = document.getElementById('serverStatus');
+            
             try {
                 await fetch('/ping');
-                document.getElementById('statusDot').classList.remove('offline');
+                dot.classList.remove('offline');
+                status.setAttribute('data-status', 'Server läuft');
             } catch {
-                document.getElementById('statusDot').classList.add('offline');
+                dot.classList.add('offline');
+                status.setAttribute('data-status', 'Server offline');
             }
         }
         
@@ -377,7 +406,7 @@ try {
                 continue
             }
             
-            # Route: /shutdown (für spätere Phasen)
+            # Route: /shutdown
             if ($path -eq "/shutdown" -and $req.HttpMethod -eq "POST") {
                 $ServerRunning = $false
                 Send-ResponseText -Response $res -Text "Server wird beendet..."
