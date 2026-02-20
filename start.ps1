@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Startet HTTP Server mit Hybrid PowerShell 5.1/7+ Support.
-    Phase 3: Bilder Grid + Moderne Sidebar ohne Emojis.
+    Phase 3: Bilder Grid + Sidebar mit fixen Tooltips.
 
 .PARAMETER Port
     Server Port (Default aus config.json)
@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.3
+    Version: 0.3.4
 #>
 
 #Requires -Version 5.1
@@ -315,6 +315,7 @@ try {
             font-size: 0.9em;
             transition: all 0.3s ease;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            position: relative;
         }
         
         .folder-change-btn:hover {
@@ -421,17 +422,9 @@ try {
             font-weight: 600;
         }
         
-        /* Tooltips */
-        [data-tooltip] {
-            position: relative;
-        }
-        
-        [data-tooltip]::after {
-            content: attr(data-tooltip);
-            position: absolute;
-            left: 100%;
-            top: 50%;
-            transform: translateY(-50%) translateX(10px);
+        /* Tooltip Container */
+        .tooltip {
+            position: fixed;
             background: #2d3748;
             color: white;
             padding: 8px 12px;
@@ -439,20 +432,22 @@ try {
             font-size: 13px;
             font-weight: 500;
             white-space: nowrap;
-            opacity: 0;
             pointer-events: none;
-            transition: all 0.3s ease;
+            opacity: 0;
+            transition: opacity 0.3s ease;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1001;
+            z-index: 10000;
         }
         
-        [data-tooltip]:hover::after {
+        .tooltip.show {
             opacity: 1;
-            transform: translateY(-50%) translateX(5px);
         }
     </style>
 </head>
 <body>
+    <!-- Tooltip Container -->
+    <div class="tooltip" id="tooltip"></div>
+    
     <!-- Moderne Sidebar -->
     <div class="sidebar">
         <div class="sidebar-row">
@@ -480,6 +475,26 @@ $folderListHtml
     </div>
     
     <script>
+        // Tooltip System
+        const tooltip = document.getElementById('tooltip');
+        
+        document.querySelectorAll('[data-tooltip]').forEach(el => {
+            el.addEventListener('mouseenter', function(e) {
+                const text = this.getAttribute('data-tooltip');
+                const rect = this.getBoundingClientRect();
+                
+                tooltip.textContent = text;
+                tooltip.style.left = (rect.right + 10) + 'px';
+                tooltip.style.top = (rect.top + rect.height / 2) + 'px';
+                tooltip.style.transform = 'translateY(-50%)';
+                tooltip.classList.add('show');
+            });
+            
+            el.addEventListener('mouseleave', function() {
+                tooltip.classList.remove('show');
+            });
+        });
+        
         function toggleFolder(header) {
             const card = header.closest('.folder-card');
             const grid = card.querySelector('.media-grid');
