@@ -1367,7 +1367,7 @@ $folderListHtml
             
             <div class="settings-actions">
                 <button class="settings-btn settings-btn-secondary" onclick="closeSettings()">Abbrechen</button>
-                <button class="settings-btn settings-btn-secondary" onclick="resetSettings()">Zurücksetzen</button>
+                <button class="settings-btn settings-btn-secondary" onclick="resetSettings()">Standard wiederherstellen</button>
                 <button class="settings-btn settings-btn-primary" onclick="saveSettings()">Speichern</button>
             </div>
         </div>
@@ -1769,15 +1769,15 @@ $folderListHtml
         }
         
         async function resetSettings() {
-            if (!confirm('Einstellungen auf Standard zurücksetzen?')) return;
+            if (!confirm('Alle Einstellungen auf Standardwerte zurücksetzen?')) return;
             
             try {
                 var response = await fetch('/settings/reset', { method: 'POST' });
                 var result = await response.json();
                 
                 if (result.success) {
-                    alert('✓ Einstellungen zurückgesetzt!');
-                    loadSettings();
+                    alert('✓ Einstellungen auf Standard zurückgesetzt!\n\nServer wird neu gestartet...');
+                    location.reload();
                 } else {
                     alert('❌ Fehler: ' + (result.error || 'Unbekannt'));
                 }
@@ -2058,15 +2058,86 @@ $folderListHtml
             if ($path -eq "/settings/reset" -and $req.HttpMethod -eq "POST") {
                 try {
                     $configPath = Join-Path $ScriptRoot "config.json"
-                    $backupPath = Join-Path $ScriptRoot "config.json.backup"
                     
-                    if (Test-Path -LiteralPath $backupPath) {
-                        Copy-Item -LiteralPath $backupPath -Destination $configPath -Force
-                        $json = @{ success = $true } | ConvertTo-Json -Compress
-                    } else {
-                        $json = @{ success = $false; error = "Keine Backup-Datei gefunden" } | ConvertTo-Json -Compress
+                    # Hardcoded Default-Config
+                    $defaultConfig = @{
+                        Server = @{
+                            Port = 8888
+                            AutoOpenBrowser = $true
+                            Host = "localhost"
+                        }
+                        Paths = @{
+                            RootFolder = ""
+                            ThumbsFolder = ".thumbs"
+                            TempFolder = ".temp"
+                            ConvertedFolder = ".converted"
+                        }
+                        Media = @{
+                            ImageExtensions = @(".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff")
+                            VideoExtensions = @(".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp")
+                        }
+                        Video = @{
+                            EnableAutoConversion = $true
+                            PreferredCodec = "h264"
+                            ThumbnailQuality = 85
+                            ConversionPreset = "medium"
+                            ThumbnailCount = 9
+                            ThumbnailFPS = 1
+                            ThumbnailStartPercent = 10
+                            ThumbnailEndPercent = 90
+                            PreviewAsGIF = $true
+                            GIFDuration = 3
+                            GIFFrameRate = 10
+                            GIFLoop = $true
+                            UseHLS = $true
+                            HLSSegmentDuration = 10
+                        }
+                        UI = @{
+                            PreviewThumbnailCount = 10
+                            Theme = "light"
+                            GridColumns = 3
+                            ThumbnailSize = 200
+                            DefaultThumbSize = "medium"
+                            ShowVideoMetadata = $true
+                            ShowVideoCodec = $true
+                            ShowVideoDuration = $true
+                            ShowBrowserCompatibility = $true
+                        }
+                        Performance = @{
+                            UseParallelProcessing = $true
+                            MaxParallelJobs = 8
+                            CacheThumbnails = $true
+                            LazyLoading = $true
+                            DeleteJobTimeout = 10
+                        }
+                        FileOperations = @{
+                            UseRecycleBin = $true
+                            ConfirmDelete = $true
+                            EnableMove = $false
+                            EnableFlattenAndMove = $false
+                            RangeRequestSupport = $true
+                        }
+                        Cache = @{
+                            UseScanCache = $true
+                            CacheFolder = ".cache"
+                            VideoMetadataCache = $true
+                        }
+                        Features = @{
+                            ArchiveExtraction = $false
+                            ArchiveExtensions = @(".zip", ".rar", ".7z", ".tar", ".gz")
+                            VideoThumbnailPreGeneration = $false
+                            LazyVideoConversion = $true
+                            OpenInVLC = $false
+                            CollapsibleFolders = $true
+                            LightboxViewer = $true
+                            KeyboardNavigation = $true
+                        }
                     }
                     
+                    # Als JSON speichern
+                    $defaultConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
+                    
+                    $json = @{ success = $true } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
                 } catch {
                     $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
