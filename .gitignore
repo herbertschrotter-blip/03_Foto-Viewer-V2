@@ -1,0 +1,38 @@
+# Runtime State
+state.json
+
+# Media Thumbnails & Converted
+.thumbs/
+.converted/
+
+# Temp & Cache
+.temp/
+.cache/
+
+# PowerShell
+*.ps1~
+*.swp
+*~
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# Logs
+*.log
+*.tmp
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Build Artifacts
+*.dll
+*.exe
+*.pdb
+
+# User Specific
+*.user
+*.suo
