@@ -81,7 +81,10 @@ function Get-ThumbsCacheStats {
         foreach ($dir in $allThumbsDirs) {
             $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
             $totalFiles += $files.Count
-            $totalSize += ($files | Measure-Object -Property Length -Sum).Sum
+            if ($files.Count -gt 0) {
+                $size = ($files | Measure-Object -Property Length -Sum).Sum
+                if ($size) { $totalSize += $size }
+            }
         }
         
         # Formatiere Größe
@@ -166,7 +169,11 @@ function Get-ThumbsDirectoriesList {
             # Dateien zählen
             $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
             $fileCount = $files.Count
-            $size = ($files | Measure-Object -Property Length -Sum).Sum
+            $size = 0
+            if ($files.Count -gt 0) {
+                $measured = ($files | Measure-Object -Property Length -Sum).Sum
+                if ($measured) { $size = $measured }
+            }
             
             # Größe formatieren
             $sizeFormatted = if ($size -gt 1GB) {
@@ -246,7 +253,11 @@ function Remove-SelectedThumbsDirectories {
             
             # Größe berechnen
             $files = @(Get-ChildItem -LiteralPath $path -File -Recurse -ErrorAction SilentlyContinue)
-            $size = ($files | Measure-Object -Property Length -Sum).Sum
+            $size = 0
+            if ($files.Count -gt 0) {
+                $measured = ($files | Measure-Object -Property Length -Sum).Sum
+                if ($measured) { $size = $measured }
+            }
             
             # Löschen
             Write-Verbose "Lösche: $path"
@@ -321,7 +332,11 @@ function Remove-AllThumbsDirectories {
         foreach ($dir in $allThumbsDirs) {
             # Größe berechnen
             $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
-            $size = ($files | Measure-Object -Property Length -Sum).Sum
+            $size = 0
+            if ($files.Count -gt 0) {
+                $measured = ($files | Measure-Object -Property Length -Sum).Sum
+                if ($measured) { $size = $measured }
+            }
             
             # Löschen
             Write-Verbose "Lösche: $($dir.FullName)"
