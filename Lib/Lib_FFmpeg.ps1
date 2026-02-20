@@ -3,17 +3,18 @@
     FFmpeg Helper für Foto_Viewer_V2
 
 .DESCRIPTION
-    Prüft FFmpeg-Installation und generiert Video-Thumbnails.
+    Prüft FFmpeg-Installation (Projekt-Ordner) und generiert Video-Thumbnails.
     Thumbnails werden in .thumbs/ gecacht.
 
 .EXAMPLE
-    if (Test-FFmpegInstalled) {
-        $thumbPath = Get-VideoThumbnail -VideoPath "video.mp4" -CacheDir ".thumbs"
+    $ffmpegPath = Test-FFmpegInstalled -ScriptRoot $PSScriptRoot
+    if ($ffmpegPath) {
+        $thumbPath = Get-VideoThumbnail -VideoPath "video.mp4" -CacheDir ".thumbs" -ScriptRoot $PSScriptRoot
     }
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
 #>
 
 #Requires -Version 5.1
@@ -22,25 +23,38 @@ Set-StrictMode -Version Latest
 function Test-FFmpegInstalled {
     <#
     .SYNOPSIS
-        Prüft ob FFmpeg installiert ist
+        Prüft ob FFmpeg im Projekt-Ordner existiert
+    
+    .PARAMETER ScriptRoot
+        Projekt-Root-Pfad
     
     .EXAMPLE
-        if (Test-FFmpegInstalled) { Write-Host "FFmpeg OK" }
+        $ffmpegPath = Test-FFmpegInstalled -ScriptRoot $PSScriptRoot
+        if ($ffmpegPath) { Write-Host "FFmpeg OK: $ffmpegPath" }
     
     .OUTPUTS
-        Boolean - True wenn FFmpeg verfügbar
+        String - Pfad zu ffmpeg.exe oder $null
     #>
     [CmdletBinding()]
-    [OutputType([bool])]
-    param()
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ScriptRoot
+    )
     
     try {
-        $null = Get-Command ffmpeg -ErrorAction Stop
-        Write-Verbose "FFmpeg gefunden"
-        return $true
+        $ffmpegPath = Join-Path $ScriptRoot "ffmpeg\ffmpeg.exe"
+        
+        if (Test-Path -LiteralPath $ffmpegPath -PathType Leaf) {
+            Write-Verbose "FFmpeg gefunden: $ffmpegPath"
+            return $ffmpegPath
+        } else {
+            Write-Warning "FFmpeg nicht gefunden in: $ffmpegPath"
+            return $null
+        }
     } catch {
-        Write-Verbose "FFmpeg nicht gefunden"
-        return $false
+        Write-Warning "Fehler beim Suchen von FFmpeg: $($_.Exception.Message)"
+        return $null
     }
 }
 
@@ -55,11 +69,14 @@ function Get-VideoThumbnail {
     .PARAMETER CacheDir
         Cache-Verzeichnis für Thumbnails
     
+    .PARAMETER ScriptRoot
+        Projekt-Root-Pfad (für FFmpeg)
+    
     .PARAMETER TimePosition
         Position im Video (Default: 00:00:01)
     
     .EXAMPLE
-        $thumb = Get-VideoThumbnail -VideoPath "C:\video.mp4" -CacheDir "C:\cache"
+        $thumb = Get-VideoThumbnail -VideoPath "C:\video.mp4" -CacheDir "C:\cache" -ScriptRoot $PSScriptRoot
     
     .OUTPUTS
         String - Pfad zum Thumbnail oder $null bei Fehler
@@ -72,6 +89,9 @@ function Get-VideoThumbnail {
         
         [Parameter(Mandatory)]
         [string]$CacheDir,
+        
+        [Parameter(Mandatory)]
+        [string]$ScriptRoot,
         
         [Parameter()]
         [string]$TimePosition = "00:00:01"
@@ -108,7 +128,8 @@ function Get-VideoThumbnail {
         }
         
         # FFmpeg verfügbar?
-        if (-not (Test-FFmpegInstalled)) {
+        $ffmpegExe = Test-FFmpegInstalled -ScriptRoot $ScriptRoot
+        if (-not $ffmpegExe) {
             Write-Warning "FFmpeg nicht installiert - kann kein Thumbnail generieren"
             return $null
         }
@@ -125,7 +146,7 @@ function Get-VideoThumbnail {
             $thumbPath
         )
         
-        $process = Start-Process -FilePath 'ffmpeg' -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
+        $process = Start-Process -FilePath $ffmpegExe -ArgumentList $ffmpegArgs -NoNewWindow -Wait -PassThru
         
         if ($process.ExitCode -ne 0) {
             Write-Warning "FFmpeg Fehler (Exit: $($process.ExitCode)) für: $VideoPath"
