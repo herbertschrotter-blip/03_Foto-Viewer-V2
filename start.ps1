@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Startet HTTP Server mit Hybrid PowerShell 5.1/7+ Support.
-    Phase 3: Bilder Grid + Sidebar mit fixen Tooltips.
+    Phase 4: Video-Thumbnails mit FFmpeg.
 
 .PARAMETER Port
     Server Port (Default aus config.json)
@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.4
+    Version: 0.4.0
 #>
 
 #Requires -Version 5.1
@@ -38,10 +38,11 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptRoot "Lib\Lib_Scanner.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_State.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_FileSystem.ps1")
+. (Join-Path $ScriptRoot "Lib\Lib_FFmpeg.ps1")
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  Foto Viewer V2 - Phase 3" -ForegroundColor White
+Write-Host "  Foto Viewer V2 - Phase 4" -ForegroundColor White
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -71,6 +72,16 @@ if ($psInfo.IsPS7) {
 
 Write-Host ""
 
+# FFmpeg Check
+$script:FFmpegPath = Test-FFmpegInstalled -ScriptRoot $ScriptRoot
+if ($script:FFmpegPath) {
+    Write-Host "✓ FFmpeg gefunden: $script:FFmpegPath" -ForegroundColor Green
+} else {
+    Write-Warning "FFmpeg nicht gefunden - Video-Thumbnails deaktiviert"
+}
+
+Write-Host ""
+
 # State laden
 $script:State = Get-State
 Write-Host "✓ State geladen" -ForegroundColor Green
@@ -93,6 +104,13 @@ if ([string]::IsNullOrWhiteSpace($script:State.RootPath) -or
     Write-Host "✓ Root gewählt: $rootPath" -ForegroundColor Green
 } else {
     Write-Host "✓ Root aus State: $($script:State.RootPath)" -ForegroundColor Green
+}
+
+# Thumbnail-Cache Verzeichnis
+$script:ThumbsDir = Join-Path $script:State.RootPath ".thumbs"
+if (-not (Test-Path -LiteralPath $script:ThumbsDir)) {
+    New-Item -Path $script:ThumbsDir -ItemType Directory -Force | Out-Null
+    Write-Host "✓ Thumbnail-Cache erstellt: $script:ThumbsDir" -ForegroundColor Green
 }
 
 # Medien-Extensions aus Config
@@ -185,7 +203,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Foto Viewer V2 - Phase 3</title>
+    <title>Foto Viewer V2 - Phase 4</title>
     <style>
         * {
             margin: 0;
@@ -466,7 +484,7 @@ try {
     <div class="container">
         <div class="header">
             <h1>Foto Viewer V2</h1>
-            <span class="phase-badge">Phase 3: Bilder Grid</span>
+            <span class="phase-badge">Phase 4: Video-Thumbnails</span>
         </div>
         
         <div class="folder-list">
@@ -603,6 +621,12 @@ $folderListHtml
                 # Root wechseln und neu scannen
                 $script:State.RootPath = $newRoot
                 
+                # Thumbnail-Cache neu setzen
+                $script:ThumbsDir = Join-Path $script:State.RootPath ".thumbs"
+                if (-not (Test-Path -LiteralPath $script:ThumbsDir)) {
+                    New-Item -Path $script:ThumbsDir -ItemType Directory -Force | Out-Null
+                }
+                
                 try {
                     $script:State.Folders = @(Get-MediaFolders -RootPath $script:State.RootPath -Extensions $mediaExtensions)
                     Save-State -State $script:State
@@ -617,7 +641,7 @@ $folderListHtml
                 continue
             }
             
-            # Route: /img (Bilder ausliefern)
+            # Route: /img (Bilder/Video-Thumbnails ausliefern)
             if ($path -eq "/img" -and $req.HttpMethod -eq "GET") {
                 $relativePath = $req.QueryString["path"]
                 
@@ -634,6 +658,18 @@ $folderListHtml
                 }
                 
                 try {
+                    # Video? → Thumbnail generieren
+                    if (Test-IsVideoFile -Path $fullPath) {
+                        if ($script:FFmpegPath) {
+                            $thumbPath = Get-VideoThumbnail -VideoPath $fullPath -CacheDir $script:ThumbsDir -ScriptRoot $ScriptRoot
+                            
+                            if ($thumbPath -and (Test-Path -LiteralPath $thumbPath -PathType Leaf)) {
+                                $fullPath = $thumbPath
+                            }
+                        }
+                    }
+                    
+                    # Datei ausliefern
                     $contentType = Get-MediaContentType -Path $fullPath
                     $fileInfo = [System.IO.FileInfo]::new($fullPath)
                     
