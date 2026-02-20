@@ -1601,7 +1601,26 @@ $folderListHtml
         });
         function toggleCategory(header) {
             var category = header.closest('.settings-category');
-            category.classList.toggle('expanded');
+            var isExpanded = category.classList.contains('expanded');
+            
+            // Schließe alle anderen Kategorien
+            document.querySelectorAll('.settings-category.expanded').forEach(function(cat) {
+                if (cat !== category) {
+                    cat.classList.remove('expanded');
+                }
+            });
+            
+            // Toggle aktuelle Kategorie
+            if (isExpanded) {
+                category.classList.remove('expanded');
+            } else {
+                category.classList.add('expanded');
+                
+                // Scroll zum Kategorie-Header
+                setTimeout(function() {
+                    header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
         }
         
         function openSettings() {
