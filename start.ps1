@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Startet HTTP Server mit Hybrid PowerShell 5.1/7+ Support.
-    Phase 3: Bilder Grid anzeigen.
+    Phase 3: Bilder Grid anzeigen + Root-Wechsel.
 
 .PARAMETER Port
     Server Port (Default aus config.json)
@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.0
+    Version: 0.3.1
 #>
 
 #Requires -Version 5.1
@@ -224,6 +224,25 @@ try {
             border-radius: 50px;
             font-weight: 600;
             font-size: 0.9em;
+        }
+        
+        .change-root-btn {
+            margin-top: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .change-root-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
         }
         
         .folder-card {
@@ -447,6 +466,8 @@ try {
         <div class="header">
             <h1>Foto Viewer V2</h1>
             <span class="phase-badge">Phase 3: Bilder Grid</span>
+            <br>
+            <button class="change-root-btn" onclick="changeRoot()">📁 Ordner wechseln</button>
         </div>
         
         <div class="folder-list">
@@ -490,6 +511,27 @@ $folderListHtml
             }
         }
         
+        async function changeRoot() {
+            if (!confirm('Ordner wechseln? Die aktuelle Ansicht wird neu geladen.')) return;
+            
+            try {
+                const response = await fetch('/changeroot', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.cancelled) {
+                    return;
+                }
+                
+                if (result.ok) {
+                    location.reload();
+                } else {
+                    alert('Fehler: ' + (result.error || 'Unbekannter Fehler'));
+                }
+            } catch (err) {
+                console.error('Fehler beim Root-Wechsel:', err);
+            }
+        }
+        
         async function shutdownServer() {
             if (!confirm('Server wirklich beenden?')) return;
             
@@ -523,6 +565,39 @@ $folderListHtml
 </html>
 "@
                 Send-ResponseHtml -Response $res -Html $html
+                continue
+            }
+            
+            # Route: /changeroot (Ordner wechseln)
+            if ($path -eq "/changeroot" -and $req.HttpMethod -eq "POST") {
+                $newRoot = Show-FolderDialog -Title "Neuen Root-Ordner wählen"
+                
+                if (-not $newRoot) {
+                    $json = @{ cancelled = $true } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                    continue
+                }
+                
+                if (-not (Test-Path -LiteralPath $newRoot -PathType Container)) {
+                    $json = @{ error = "Ordner existiert nicht" } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
+                    continue
+                }
+                
+                # Root wechseln und neu scannen
+                $script:State.RootPath = $newRoot
+                
+                try {
+                    $script:State.Folders = @(Get-MediaFolders -RootPath $script:State.RootPath -Extensions $mediaExtensions)
+                    Save-State -State $script:State
+                    
+                    $json = @{ ok = $true } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                
                 continue
             }
             
