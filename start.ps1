@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.6
+    Version: 0.1.7
 #>
 
 #Requires -Version 5.1
@@ -301,32 +301,49 @@ try {
         }
         
         /* Globaler Custom Tooltip */
-        [data-tooltip] {
-            position: relative;
+        [data-tooltip]::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: -1;
         }
         
         [data-tooltip]::after {
             content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-10px);
+            position: fixed;
+            transform: translate(-50%, 10px);
             background: #2d3748;
             color: white;
-            padding: 8px 16px;
+            padding: 10px 18px;
             border-radius: 8px;
-            font-size: 0.85em;
+            font-size: 14px;
+            font-weight: 500;
             white-space: nowrap;
             opacity: 0;
             pointer-events: none;
             transition: all 0.3s ease;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             z-index: 1000;
+            min-width: 140px;
+            text-align: center;
         }
         
-        [data-tooltip]:hover::after {
+        .server-status:hover::after {
             opacity: 1;
-            transform: translateX(-50%) translateY(-5px);
+            left: 20px;
+            top: 80px;
+            transform: translate(0, 0);
+        }
+        
+        .shutdown-btn:hover::after {
+            opacity: 1;
+            right: 20px;
+            left: auto;
+            top: 80px;
+            transform: translate(0, 0);
         }
     </style>
 </head>
