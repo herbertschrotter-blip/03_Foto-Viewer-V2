@@ -869,6 +869,21 @@ try {
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         
+        .media-checkbox {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            z-index: 10;
+            accent-color: #667eea;
+        }
+        
+        .media-item.selected {
+            box-shadow: 0 0 0 3px #667eea;
+        }
+        
         .media-item:hover {
             transform: translateY(-4px);
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
@@ -911,6 +926,97 @@ try {
         .tooltip.show {
             opacity: 1;
         }
+        
+        /* Floating Action Bar */
+        .floating-action-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border-radius: 16px;
+            padding: 12px 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            display: none;
+            gap: 12px;
+            align-items: center;
+            z-index: 1500;
+            backdrop-filter: blur(10px);
+        }
+        
+        .floating-action-bar.show {
+            display: flex;
+        }
+        
+        .action-bar-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .action-bar-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .action-bar-btn-select {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .action-bar-btn-select:hover {
+            background: #38a169;
+        }
+        
+        .action-bar-btn-deselect {
+            background: #a0aec0;
+            color: white;
+        }
+        
+        .action-bar-btn-deselect:hover {
+            background: #718096;
+        }
+        
+        .action-bar-btn-invert {
+            background: #4299e1;
+            color: white;
+        }
+        
+        .action-bar-btn-invert:hover {
+            background: #3182ce;
+        }
+        
+        .action-bar-btn-delete {
+            background: #f56565;
+            color: white;
+        }
+        
+        .action-bar-btn-delete:hover {
+            background: #e53e3e;
+        }
+        
+        .action-bar-count {
+            color: #2d3748;
+            font-weight: 600;
+            padding: 0 12px;
+            border-left: 2px solid #e2e8f0;
+            border-right: 2px solid #e2e8f0;
+        }
+        
+        .media-checkbox {
+            display: none;
+        }
+        
+        body.review-mode .media-checkbox {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -951,6 +1057,31 @@ try {
                 ⚙️
             </button>
         </div>
+        <div class="sidebar-row">
+            <button class="sidebar-btn" id="reviewModeBtn" onclick="toggleReviewMode()" data-tooltip="Review-Modus" style="background: linear-gradient(135deg, #a0aec0 0%, #718096 100%); color: white; font-size: 1.5em;">
+                ☑
+            </button>
+        </div>
+    </div>
+    
+    <div class="floating-action-bar" id="floatingActionBar">
+        <button class="action-bar-btn action-bar-btn-select" onclick="selectAll()">
+            <span>☑</span>
+            <span>Alle</span>
+        </button>
+        <button class="action-bar-btn action-bar-btn-deselect" onclick="selectNone()">
+            <span>☐</span>
+            <span>Keine</span>
+        </button>
+        <button class="action-bar-btn action-bar-btn-invert" onclick="invertSelection()">
+            <span>⇆</span>
+            <span>Invertieren</span>
+        </button>
+        <div class="action-bar-count" id="selectedCount">0 ausgewählt</div>
+        <button class="action-bar-btn action-bar-btn-delete" onclick="deleteSelected()">
+            <span>🗑️</span>
+            <span>Löschen</span>
+        </button>
     </div>
     
     <div class="container">
@@ -1391,6 +1522,108 @@ $folderListHtml
             });
         });
         
+        function toggleSelect(event, checkbox) {
+            event.stopPropagation();
+            var item = checkbox.closest('.media-item');
+            if (checkbox.checked) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+            updateSelectedCount();
+        }
+        
+        function toggleReviewMode() {
+            var btn = document.getElementById('reviewModeBtn');
+            var bar = document.getElementById('floatingActionBar');
+            
+            if (document.body.classList.contains('review-mode')) {
+                // Deaktivieren
+                document.body.classList.remove('review-mode');
+                bar.classList.remove('show');
+                btn.style.background = 'linear-gradient(135deg, #a0aec0 0%, #718096 100%)';
+                selectNone();
+            } else {
+                // Aktivieren
+                document.body.classList.add('review-mode');
+                bar.classList.add('show');
+                btn.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
+            }
+        }
+        
+        function updateSelectedCount() {
+            var count = document.querySelectorAll('.media-checkbox:checked').length;
+            document.getElementById('selectedCount').textContent = count + ' ausgewählt';
+        }
+        
+        function selectAll() {
+            document.querySelectorAll('.media-checkbox').forEach(function(cb) {
+                cb.checked = true;
+                cb.closest('.media-item').classList.add('selected');
+            });
+            updateSelectedCount();
+        }
+        
+        function selectNone() {
+            document.querySelectorAll('.media-checkbox').forEach(function(cb) {
+                cb.checked = false;
+                cb.closest('.media-item').classList.remove('selected');
+            });
+            updateSelectedCount();
+        }
+        
+        function invertSelection() {
+            document.querySelectorAll('.media-checkbox').forEach(function(cb) {
+                cb.checked = !cb.checked;
+                var item = cb.closest('.media-item');
+                if (cb.checked) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+            updateSelectedCount();
+        }
+        
+        async function deleteSelected() {
+            var selected = document.querySelectorAll('.media-checkbox:checked');
+            if (selected.length === 0) {
+                alert('Keine Dateien ausgewählt!');
+                return;
+            }
+            
+            if (!confirm(selected.length + ' Datei(en) wirklich löschen?')) {
+                return;
+            }
+            
+            var paths = Array.from(selected).map(function(cb) {
+                return cb.closest('.media-item').dataset.filepath;
+            });
+            
+            try {
+                var response = await fetch('/delete-files', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paths: paths })
+                });
+                
+                var result = await response.json();
+                
+                if (result.success) {
+                    // Remove deleted items from DOM
+                    selected.forEach(function(cb) {
+                        cb.closest('.media-item').remove();
+                    });
+                    updateSelectedCount();
+                    alert('✓ ' + result.deletedCount + ' Datei(en) gelöscht');
+                } else {
+                    alert('❌ Fehler: ' + (result.error || 'Unbekannt'));
+                }
+            } catch (err) {
+                alert('❌ Fehler: ' + err.message);
+            }
+        }
+        
         function toggleFolder(header) {
             const card = header.closest('.folder-card');
             const grid = card.querySelector('.media-grid');
@@ -1410,7 +1643,9 @@ $folderListHtml
                         const imgUrl = '/img?path=' + encodeURIComponent(filePath);
                         const item = document.createElement('div');
                         item.className = 'media-item';
-                        item.innerHTML = '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">' +
+                        item.dataset.filepath = filePath;
+                        item.innerHTML = '<input type="checkbox" class="media-checkbox" onclick="toggleSelect(event, this)">' +
+                                        '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">' +
                                         (isVideo ? '<span class="video-badge">▶ VIDEO</span>' : '');
                         grid.appendChild(item);
                     });
@@ -2158,6 +2393,55 @@ $folderListHtml
                     
                     $json = @{ success = $true } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
+            # Route: /delete-files
+            if ($path -eq "/delete-files" -and $req.HttpMethod -eq "POST") {
+                try {
+                    $reader = [System.IO.StreamReader]::new($req.InputStream)
+                    $body = $reader.ReadToEnd()
+                    $reader.Close()
+                    
+                    $data = $body | ConvertFrom-Json
+                    $paths = $data.paths
+                    
+                    if (-not $paths -or $paths.Count -eq 0) {
+                        $json = @{ success = $false; error = "Keine Dateien angegeben" } | ConvertTo-Json -Compress
+                        Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
+                        continue
+                    }
+                    
+                    $deletedCount = 0
+                    $useRecycleBin = $config.FileOperations.UseRecycleBin
+                    
+                    foreach ($relativePath in $paths) {
+                        $fullPath = Resolve-SafePath -RootPath $script:State.RootPath -RelativePath $relativePath
+                        
+                        if ($fullPath -and (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                            if ($useRecycleBin) {
+                                # Papierkorb verwenden
+                                $shell = New-Object -ComObject Shell.Application
+                                $item = $shell.Namespace(0).ParseName($fullPath)
+                                $item.InvokeVerb("delete")
+                            } else {
+                                # Permanent löschen
+                                Remove-Item -LiteralPath $fullPath -Force
+                            }
+                            $deletedCount++
+                        }
+                    }
+                    
+                    $json = @{ 
+                        success = $true
+                        deletedCount = $deletedCount
+                    } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                    
                 } catch {
                     $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
