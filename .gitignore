@@ -36,3 +36,9 @@ ehthumbs.db
 # User Specific
 *.user
 *.suo
+
+# FFmpeg Binaries
+ffmpeg/
+ffmpeg.exe
+ffplay.exe
+ffprobe.exe
