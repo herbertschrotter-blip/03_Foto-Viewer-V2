@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.4.1
+    Version: 0.4.6
 #>
 
 #Requires -Version 5.1
@@ -1261,6 +1261,24 @@ $folderListHtml
                             <label class="settings-checkbox-label" for="setting-file-confirm">Löschen bestätigen</label>
                         </div>
                     </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-move">
+                            <label class="settings-checkbox-label" for="setting-file-move">Dateien verschieben aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-flatten">
+                            <label class="settings-checkbox-label" for="setting-file-flatten">Flatten & Move aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-range">
+                            <label class="settings-checkbox-label" for="setting-file-range">Range-Request Unterstützung (Video-Streaming)</label>
+                        </div>
+                    </div>
                                 </div>
             </div>
             </div>
@@ -1558,6 +1576,9 @@ $folderListHtml
                 
                 document.getElementById('setting-file-recycle').checked = config.FileOperations.UseRecycleBin;
                 document.getElementById('setting-file-confirm').checked = config.FileOperations.ConfirmDelete;
+                document.getElementById('setting-file-move').checked = config.FileOperations.EnableMove;
+                document.getElementById('setting-file-flatten').checked = config.FileOperations.EnableFlattenAndMove;
+                document.getElementById('setting-file-range').checked = config.FileOperations.RangeRequestSupport;
             } catch (err) {
                 alert('Fehler beim Laden der Einstellungen: ' + err.message);
             }
@@ -1611,7 +1632,10 @@ $folderListHtml
                     },
                     FileOperations: {
                         UseRecycleBin: document.getElementById('setting-file-recycle').checked,
-                        ConfirmDelete: document.getElementById('setting-file-confirm').checked
+                        ConfirmDelete: document.getElementById('setting-file-confirm').checked,
+                        EnableMove: document.getElementById('setting-file-move').checked,
+                        EnableFlattenAndMove: document.getElementById('setting-file-flatten').checked,
+                        RangeRequestSupport: document.getElementById('setting-file-range').checked
                     }
                 };
                 
@@ -1892,6 +1916,9 @@ $folderListHtml
                     
                     $currentConfig.FileOperations.UseRecycleBin = $newSettings.FileOperations.UseRecycleBin
                     $currentConfig.FileOperations.ConfirmDelete = $newSettings.FileOperations.ConfirmDelete
+                    $currentConfig.FileOperations.EnableMove = $newSettings.FileOperations.EnableMove
+                    $currentConfig.FileOperations.EnableFlattenAndMove = $newSettings.FileOperations.EnableFlattenAndMove
+                    $currentConfig.FileOperations.RangeRequestSupport = $newSettings.FileOperations.RangeRequestSupport
                     
                     $currentConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
                     
