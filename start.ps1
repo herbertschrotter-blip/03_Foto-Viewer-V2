@@ -279,8 +279,8 @@ try {
         }
         
         .overlay-content {
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
+            background: white;
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
             max-width: 700px;
             width: 90%;
@@ -288,6 +288,7 @@ try {
             position: relative;
             display: flex;
             flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
         
         .overlay-header {
@@ -295,8 +296,8 @@ try {
             align-items: center;
             justify-content: space-between;
             padding: 32px 32px 24px 32px;
-            background: #2a2a2a;
-            border-bottom: 1px solid #3a3a3a;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
             flex-shrink: 0;
         }
         
@@ -309,7 +310,7 @@ try {
         .overlay-title {
             font-size: 20px;
             font-weight: 600;
-            color: #ffffff;
+            color: #2d3748;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -318,7 +319,7 @@ try {
         .overlay-close {
             background: none;
             border: none;
-            color: #888;
+            color: #718096;
             font-size: 24px;
             cursor: pointer;
             padding: 0;
@@ -332,14 +333,14 @@ try {
         }
         
         .overlay-close:hover {
-            background: #3a3a3a;
-            color: #e0e0e0;
+            background: #f7fafc;
+            color: #2d3748;
         }
         
         .overlay-section {
             margin-bottom: 24px;
             padding-bottom: 24px;
-            border-bottom: 1px solid #3a3a3a;
+            border-bottom: 1px solid #e2e8f0;
         }
         
         .overlay-section:last-child {
@@ -351,7 +352,7 @@ try {
         .overlay-section-title {
             font-size: 14px;
             font-weight: 600;
-            color: #ffffff;
+            color: #2d3748;
             margin-bottom: 12px;
             display: flex;
             align-items: center;
@@ -361,10 +362,10 @@ try {
         .overlay-button {
             width: 100%;
             padding: 12px 20px;
-            background: #3a3a3a;
-            border: 1px solid #4a4a4a;
+            background: white;
+            border: 1px solid #cbd5e0;
             border-radius: 6px;
-            color: #e0e0e0;
+            color: #2d3748;
             font-size: 14px;
             cursor: pointer;
             transition: all 0.2s;
@@ -376,13 +377,14 @@ try {
         }
         
         .overlay-button:hover {
-            background: #454545;
-            border-color: #555;
+            background: #f7fafc;
+            border-color: #a0aec0;
         }
         
         .overlay-button.danger {
             background: #dc2626;
             border-color: #b91c1c;
+            color: white;
         }
         
         .overlay-button.danger:hover {
@@ -390,28 +392,29 @@ try {
         }
         
         .overlay-info {
-            background: #252525;
-            border: 1px solid #3a3a3a;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
             border-radius: 6px;
             padding: 12px 16px;
             font-size: 13px;
-            color: #888;
+            color: #718096;
             margin-top: 12px;
         }
         
         .overlay-result {
             margin-top: 16px;
             padding: 12px 16px;
-            background: #252525;
-            border: 1px solid #3a3a3a;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
             border-radius: 6px;
             font-size: 13px;
+            color: #2d3748;
         }
         
         .overlay-result.success {
             border-color: #4ade80;
             background: rgba(74, 222, 128, 0.1);
-            color: #4ade80;
+            color: #16a34a;
         }
         
         .overlay-result.error {
@@ -421,8 +424,8 @@ try {
         }
         
         .thumbs-list {
-            background: #252525;
-            border: 1px solid #3a3a3a;
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
             border-radius: 6px;
             padding: 12px;
             max-height: 300px;
@@ -435,14 +438,16 @@ try {
             align-items: center;
             gap: 12px;
             padding: 10px 12px;
-            background: #2a2a2a;
+            background: white;
+            border: 1px solid #e2e8f0;
             border-radius: 6px;
             margin-bottom: 8px;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
         
         .thumbs-item:hover {
-            background: #303030;
+            border-color: #cbd5e0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
         
         .thumbs-item:last-child {
@@ -453,11 +458,12 @@ try {
             width: 18px;
             height: 18px;
             cursor: pointer;
+            accent-color: #667eea;
         }
         
         .thumbs-info {
             flex: 1;
-            color: #e0e0e0;
+            color: #2d3748;
             font-size: 13px;
         }
         
@@ -467,7 +473,7 @@ try {
         }
         
         .thumbs-details {
-            color: #888;
+            color: #718096;
             font-size: 11px;
         }
         
@@ -479,29 +485,40 @@ try {
         
         .list-action-btn {
             padding: 8px 16px;
-            background: #3a3a3a;
-            border: 1px solid #4a4a4a;
+            background: white;
+            border: 1px solid #cbd5e0;
             border-radius: 6px;
-            color: #e0e0e0;
+            color: #2d3748;
             font-size: 12px;
             cursor: pointer;
             transition: all 0.2s;
         }
         
         .list-action-btn:hover {
-            background: #454545;
+            background: #f7fafc;
+            border-color: #a0aec0;
+        }
+        
+        .list-action-btn.danger {
+            background: #dc2626;
+            border-color: #b91c1c;
+            color: white;
+        }
+        
+        .list-action-btn.danger:hover {
+            background: #b91c1c;
         }
         
         .settings-category {
             margin-bottom: 16px;
-            border: 1px solid #3a3a3a;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
             overflow: hidden;
         }
         
         .settings-category-header {
             padding: 14px 16px;
-            background: #333;
+            background: #f7fafc;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -510,17 +527,17 @@ try {
         }
         
         .settings-category-header:hover {
-            background: #3a3a3a;
+            background: #edf2f7;
         }
         
         .settings-category-title {
             font-size: 14px;
             font-weight: 600;
-            color: #e0e0e0;
+            color: #2d3748;
         }
         
         .settings-category-toggle {
-            color: #888;
+            color: #718096;
             transition: transform 0.3s;
         }
         
@@ -531,7 +548,7 @@ try {
         .settings-category-content {
             display: none;
             padding: 16px;
-            background: #2a2a2a;
+            background: white;
         }
         
         .settings-category.expanded .settings-category-content {
@@ -550,17 +567,17 @@ try {
             display: block;
             font-size: 13px;
             font-weight: 500;
-            color: #e0e0e0;
+            color: #2d3748;
             margin-bottom: 6px;
         }
         
         .settings-input {
             width: 100%;
             padding: 8px 12px;
-            background: #333;
-            border: 1px solid #4a4a4a;
+            background: white;
+            border: 1px solid #cbd5e0;
             border-radius: 6px;
-            color: #e0e0e0;
+            color: #2d3748;
             font-size: 13px;
             font-family: inherit;
         }
@@ -568,7 +585,13 @@ try {
         .settings-input:focus {
             outline: none;
             border-color: #667eea;
-            background: #3a3a3a;
+            background: white;
+        }
+        
+        .settings-input:disabled {
+            background: #f7fafc;
+            color: #a0aec0;
+            cursor: not-allowed;
         }
         
         .settings-input[type="number"] {
@@ -602,7 +625,7 @@ try {
         
         .settings-checkbox-label {
             font-size: 13px;
-            color: #e0e0e0;
+            color: #2d3748;
             cursor: pointer;
         }
         
@@ -610,8 +633,8 @@ try {
             display: flex;
             gap: 12px;
             padding: 20px 32px 32px 32px;
-            border-top: 1px solid #3a3a3a;
-            background: #2a2a2a;
+            border-top: 1px solid #e2e8f0;
+            background: white;
             flex-shrink: 0;
         }
         
@@ -636,13 +659,14 @@ try {
         }
         
         .settings-btn-secondary {
-            background: #3a3a3a;
-            border: 1px solid #4a4a4a;
-            color: #e0e0e0;
+            background: white;
+            border: 1px solid #cbd5e0;
+            color: #2d3748;
         }
         
         .settings-btn-secondary:hover {
-            background: #454545;
+            background: #f7fafc;
+            border-color: #a0aec0;
         }
         
 /* Moderne Sidebar */
@@ -1127,6 +1151,15 @@ $folderListHtml
                 </div>
                 <div class="settings-category-content">
                     <div class="settings-group">
+                        <label class="settings-label">Farbschema</label>
+                        <select class="settings-input" id="setting-ui-theme" disabled>
+                            <option value="light">Hell (Standard)</option>
+                            <option value="dark">Dunkel (in Entwicklung)</option>
+                        </select>
+                        <div style="font-size: 11px; color: #888; margin-top: 4px;">Momentan nur helles Design verfügbar</div>
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
                         <label class="settings-label">Standard Thumbnail-Größe beim Start</label>
                         <select class="settings-input" id="setting-ui-defaultsize">
                             <option value="small">Klein</option>
@@ -1142,6 +1175,35 @@ $folderListHtml
                     <div class="settings-group">
                         <label class="settings-label">Grid-Spalten</label>
                         <input type="number" class="settings-input" id="setting-ui-columns" min="2" max="12">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Anzahl Vorschau-Thumbnails</label>
+                        <input type="number" class="settings-input" id="setting-ui-previewcount" min="1" max="20">
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showmetadata">
+                            <label class="settings-checkbox-label" for="setting-ui-showmetadata">Video-Metadaten anzeigen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showcodec">
+                            <label class="settings-checkbox-label" for="setting-ui-showcodec">Video-Codec anzeigen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showduration">
+                            <label class="settings-checkbox-label" for="setting-ui-showduration">Video-Dauer anzeigen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showcompat">
+                            <label class="settings-checkbox-label" for="setting-ui-showcompat">Browser-Kompatibilität anzeigen</label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1474,9 +1536,15 @@ $folderListHtml
                 document.getElementById('setting-video-thumbstart').value = config.Video.ThumbnailStartPercent;
                 document.getElementById('setting-video-thumbend').value = config.Video.ThumbnailEndPercent;
                 
+                document.getElementById('setting-ui-theme').value = config.UI.Theme;
                 document.getElementById('setting-ui-defaultsize').value = config.UI.DefaultThumbSize || 'medium';
                 document.getElementById('setting-ui-thumbsize').value = config.UI.ThumbnailSize;
                 document.getElementById('setting-ui-columns').value = config.UI.GridColumns;
+                document.getElementById('setting-ui-previewcount').value = config.UI.PreviewThumbnailCount;
+                document.getElementById('setting-ui-showmetadata').checked = config.UI.ShowVideoMetadata;
+                document.getElementById('setting-ui-showcodec').checked = config.UI.ShowVideoCodec;
+                document.getElementById('setting-ui-showduration').checked = config.UI.ShowVideoDuration;
+                document.getElementById('setting-ui-showcompat').checked = config.UI.ShowBrowserCompatibility;
                 
                 document.getElementById('setting-perf-parallel').checked = config.Performance.UseParallelProcessing;
                 document.getElementById('setting-perf-maxjobs').value = config.Performance.MaxParallelJobs;
@@ -1519,9 +1587,15 @@ $folderListHtml
                         ThumbnailEndPercent: parseInt(document.getElementById('setting-video-thumbend').value)
                     },
                     UI: {
+                        Theme: document.getElementById('setting-ui-theme').value,
                         DefaultThumbSize: document.getElementById('setting-ui-defaultsize').value,
                         ThumbnailSize: parseInt(document.getElementById('setting-ui-thumbsize').value),
-                        GridColumns: parseInt(document.getElementById('setting-ui-columns').value)
+                        GridColumns: parseInt(document.getElementById('setting-ui-columns').value),
+                        PreviewThumbnailCount: parseInt(document.getElementById('setting-ui-previewcount').value),
+                        ShowVideoMetadata: document.getElementById('setting-ui-showmetadata').checked,
+                        ShowVideoCodec: document.getElementById('setting-ui-showcodec').checked,
+                        ShowVideoDuration: document.getElementById('setting-ui-showduration').checked,
+                        ShowBrowserCompatibility: document.getElementById('setting-ui-showcompat').checked
                     },
                     Performance: {
                         UseParallelProcessing: document.getElementById('setting-perf-parallel').checked,
@@ -1794,9 +1868,15 @@ $folderListHtml
                     $currentConfig.Video.ThumbnailStartPercent = $newSettings.Video.ThumbnailStartPercent
                     $currentConfig.Video.ThumbnailEndPercent = $newSettings.Video.ThumbnailEndPercent
                     
+                    $currentConfig.UI.Theme = $newSettings.UI.Theme
                     $currentConfig.UI.DefaultThumbSize = $newSettings.UI.DefaultThumbSize
                     $currentConfig.UI.ThumbnailSize = $newSettings.UI.ThumbnailSize
                     $currentConfig.UI.GridColumns = $newSettings.UI.GridColumns
+                    $currentConfig.UI.PreviewThumbnailCount = $newSettings.UI.PreviewThumbnailCount
+                    $currentConfig.UI.ShowVideoMetadata = $newSettings.UI.ShowVideoMetadata
+                    $currentConfig.UI.ShowVideoCodec = $newSettings.UI.ShowVideoCodec
+                    $currentConfig.UI.ShowVideoDuration = $newSettings.UI.ShowVideoDuration
+                    $currentConfig.UI.ShowBrowserCompatibility = $newSettings.UI.ShowBrowserCompatibility
                     
                     $currentConfig.Performance.UseParallelProcessing = $newSettings.Performance.UseParallelProcessing
                     $currentConfig.Performance.MaxParallelJobs = $newSettings.Performance.MaxParallelJobs
