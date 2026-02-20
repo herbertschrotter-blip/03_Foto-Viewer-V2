@@ -1,0 +1,69 @@
+{
+  "Server": {
+    "Port": 8888,
+    "AutoOpenBrowser": true,
+    "Host": "localhost"
+  },
+  "Paths": {
+    "RootFolder": "",
+    "ThumbsFolder": ".thumbs",
+    "TempFolder": ".temp",
+    "ConvertedFolder": ".converted"
+  },
+  "Media": {
+    "ImageExtensions": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff"],
+    "VideoExtensions": [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp"]
+  },
+  "Video": {
+    "EnableAutoConversion": true,
+    "PreferredCodec": "h264",
+    "ThumbnailQuality": 85,
+    "ConversionPreset": "medium",
+    "ThumbnailCount": 9,
+    "ThumbnailFPS": 1,
+    "PreviewAsGIF": true,
+    "GIFDuration": 3,
+    "GIFFrameRate": 10,
+    "UseHLS": true,
+    "HLSSegmentDuration": 10
+  },
+  "UI": {
+    "PreviewThumbnailCount": 10,
+    "Theme": "dark",
+    "GridColumns": 6,
+    "ThumbnailSize": 200,
+    "ShowVideoMetadata": true,
+    "ShowVideoCodec": true,
+    "ShowVideoDuration": true,
+    "ShowBrowserCompatibility": true
+  },
+  "Performance": {
+    "UseParallelProcessing": true,
+    "MaxParallelJobs": 8,
+    "CacheThumbnails": true,
+    "LazyLoading": true,
+    "DeleteJobTimeout": 10
+  },
+  "FileOperations": {
+    "UseRecycleBin": true,
+    "ConfirmDelete": true,
+    "EnableMove": true,
+    "EnableFlattenAndMove": true,
+    "RangeRequestSupport": true
+  },
+  "Features": {
+    "ArchiveExtraction": true,
+    "ArchiveExtensions": [".zip", ".rar", ".7z", ".tar", ".gz"],
+    "VideoThumbnailPreGeneration": true,
+    "LazyVideoConversion": true,
+    "OpenInVLC": true,
+    "CollapsibleFolders": true,
+    "LightboxViewer": true,
+    "KeyboardNavigation": true
+  },
+  "Cache": {
+    "UseScanCache": true,
+    "CacheFolder": ".cache",
+    "VideoMetadataCache": true
+  }
+}
