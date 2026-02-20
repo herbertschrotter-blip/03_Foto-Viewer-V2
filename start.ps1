@@ -665,9 +665,53 @@ try {
             color: white;
         }
         
-        .sidebar-row:not(:first-child) .sidebar-btn {
+        .sidebar-row:not(:first-child):not(.sidebar-row-triple) .sidebar-btn {
             font-size: 1.8em;
             width: 100%;
+        }
+        
+        .sidebar-row-triple {
+            gap: 4px;
+        }
+        
+        .sidebar-row-triple {
+            width: 100%;
+        }
+        
+        .sidebar-row-triple .sidebar-btn {
+            width: 28px;
+            height: 28px;
+            font-size: 1em;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+        
+        .size-btn {
+            background: #e2e8f0;
+        }
+        
+        .size-btn.active {
+            background: #cbd5e0;
+        }
+        
+        .size-dots {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: 20px;
+            gap: 3px;
+        }
+        
+        .dot {
+            width: 4px;
+            height: 4px;
+            background: #2d3748;
+            border-radius: 50%;
+        }
+        
+        .size-btn.active .dot {
+            background: white;
         }
         
         .sidebar-btn:hover {
@@ -834,6 +878,17 @@ try {
             </button>
             <button class="sidebar-btn power-btn" onclick="shutdownServer()" data-tooltip="Server beenden">
                 ⏻
+            </button>
+        </div>
+        <div class="sidebar-row sidebar-row-triple">
+            <button class="sidebar-btn size-btn size-small active" onclick="setThumbSize('small')" data-tooltip="Klein (150px)">
+                <span class="size-dots one-dot"><span class="dot"></span></span>
+            </button>
+            <button class="sidebar-btn size-btn size-medium" onclick="setThumbSize('medium')" data-tooltip="Mittel (200px)">
+                <span class="size-dots two-dots"><span class="dot"></span><span class="dot"></span></span>
+            </button>
+            <button class="sidebar-btn size-btn size-large" onclick="setThumbSize('large')" data-tooltip="Groß (300px)">
+                <span class="size-dots three-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
             </button>
         </div>
         <div class="sidebar-row">
@@ -1401,6 +1456,31 @@ $folderListHtml
         document.getElementById('settingsOverlay').addEventListener('click', function(e) {
             if (e.target === this) closeSettings();
         });
+        
+        function setThumbSize(size) {
+            document.querySelectorAll('.size-btn').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+            
+            var sizeMap = {
+                'small': 150,
+                'medium': 200,
+                'large': 300
+            };
+            
+            var pixelSize = sizeMap[size];
+            
+            document.querySelector('.size-' + size).classList.add('active');
+            
+            var style = document.querySelector('style.dynamic-thumb-size');
+            if (!style) {
+                style = document.createElement('style');
+                style.className = 'dynamic-thumb-size';
+                document.head.appendChild(style);
+            }
+            
+            style.textContent = '.media-grid { grid-template-columns: repeat(auto-fill, minmax(' + pixelSize + 'px, 1fr)); }';
+        }
     </script>
 </body>
 </html>
