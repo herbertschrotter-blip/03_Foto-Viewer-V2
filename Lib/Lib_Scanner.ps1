@@ -20,15 +20,17 @@ Set-StrictMode -Version Latest
 function ConvertTo-NaturalSortKey {
     <#
     .SYNOPSIS
-        Erstellt Sortier-Schlüssel für natürliche Sortierung
+        Erstellt Sortier-Schlüssel für Windows Explorer Natural Sort
     
     .DESCRIPTION
-        Zerlegt String in Text- und Zahlen-Teile.
-        Zahlen werden auf 20 Stellen gepaddet für korrekte Sortierung.
+        Implementiert Natural Sort wie Windows Explorer (StrCmpLogicalW):
+        - Zahlen numerisch sortieren (2 < 10)
+        - Führende Nullen berücksichtigen (02 < 2)
+        - Bei gleichem numerischen Wert: Original-String entscheidet
         
     .EXAMPLE
         ConvertTo-NaturalSortKey "ebene2/bild10" 
-        # → "ebene00000000000000000002/bild00000000000000000010"
+        # Sortiert: ebene01, ebene02, ebene2, ebene10
     #>
     [CmdletBinding()]
     param(
@@ -39,13 +41,16 @@ function ConvertTo-NaturalSortKey {
     # Regex: Findet Zahlenblöcke
     $pattern = '\d+'
     
-    $result = [regex]::Replace($InputString, $pattern, {
+    # Phase 1: Zahlen padden für numerische Sortierung
+    $paddedString = [regex]::Replace($InputString, $pattern, {
         param($match)
-        # Zahlen auf 20 Stellen padden (funktioniert bis zu sehr großen Zahlen)
+        # Zahlen auf 20 Stellen padden
         $match.Value.PadLeft(20, '0')
     })
     
-    return $result
+    # Phase 2: Original als Tiebreaker anhängen
+    # Damit ebene02 vor ebene2 kommt (bei gleichem Zahlenwert)
+    return "$paddedString`t$InputString"
 }
 
 function Get-MediaFolders {
