@@ -82,7 +82,7 @@ if ([string]::IsNullOrWhiteSpace($script:State.RootPath) -or
     Write-Host ""
     Write-Host "Bitte wähle einen Root-Ordner..." -ForegroundColor Yellow
     
-    $rootPath = Show-FolderDialog -Title "Root-Ordner für Foto-Gallery wählen"
+    $rootPath = Show-FolderDialog -Title "Root-Ordner für Foto-Gallery wählen" -InitialDirectory $script:State.RootPath
     
     if (-not $rootPath) {
         Write-Warning "Kein Ordner gewählt. Beende."
@@ -586,7 +586,7 @@ $folderListHtml
             
             # Route: /changeroot (Ordner wechseln)
             if ($path -eq "/changeroot" -and $req.HttpMethod -eq "POST") {
-                $newRoot = Show-FolderDialog -Title "Neuen Root-Ordner wählen"
+                $newRoot = Show-FolderDialog -Title "Neuen Root-Ordner wählen" -InitialDirectory $script:State.RootPath
                 
                 if (-not $newRoot) {
                     $json = @{ cancelled = $true } | ConvertTo-Json -Compress
