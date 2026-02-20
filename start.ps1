@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.3
+    Version: 0.1.4
 #>
 
 #Requires -Version 5.1
@@ -235,6 +235,38 @@ try {
             margin-right: 10px;
         }
         
+        .server-status {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 12px 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2em;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #48bb78;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .status-dot.offline {
+            background: #f56565;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
         .shutdown-btn {
             position: fixed;
             top: 20px;
@@ -269,6 +301,11 @@ try {
     </style>
 </head>
 <body>
+    <div class="server-status">
+        <span>🖥️</span>
+        <span class="status-dot" id="statusDot"></span>
+    </div>
+    
     <button class="shutdown-btn" onclick="shutdownServer()" title="Server beenden">⏻</button>
     
     <div class="container">
@@ -313,6 +350,19 @@ try {
                 console.log('Server beendet');
             }
         }
+        
+        // Server-Status Ping
+        async function checkServerStatus() {
+            try {
+                await fetch('/ping');
+                document.getElementById('statusDot').classList.remove('offline');
+            } catch {
+                document.getElementById('statusDot').classList.add('offline');
+            }
+        }
+        
+        setInterval(checkServerStatus, 2000);
+        checkServerStatus();
     </script>
 </body>
 </html>
@@ -320,7 +370,12 @@ try {
                 Send-ResponseHtml -Response $res -Html $html
                 continue
             }
-
+            
+            # Route: /ping (Server-Status)
+            if ($path -eq "/ping" -and $req.HttpMethod -eq "GET") {
+                Send-ResponseText -Response $res -Text "OK" -StatusCode 200
+                continue
+            }
             
             # Route: /shutdown (für spätere Phasen)
             if ($path -eq "/shutdown" -and $req.HttpMethod -eq "POST") {
