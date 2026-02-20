@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.5
+    Version: 0.1.6
 #>
 
 #Requires -Version 5.1
@@ -250,29 +250,6 @@ try {
             cursor: default;
         }
         
-        .server-status::after {
-            content: attr(data-status);
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(10px);
-            background: #2d3748;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 0.75em;
-            white-space: nowrap;
-            opacity: 0;
-            pointer-events: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .server-status:hover::after {
-            opacity: 1;
-            transform: translateX(-50%) translateY(5px);
-        }
-        
         .status-dot {
             width: 12px;
             height: 12px;
@@ -322,15 +299,44 @@ try {
         .shutdown-btn:active {
             transform: translateY(0) scale(1.05);
         }
+        
+        /* Globaler Custom Tooltip */
+        [data-tooltip] {
+            position: relative;
+        }
+        
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-10px);
+            background: #2d3748;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        
+        [data-tooltip]:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-5px);
+        }
     </style>
 </head>
 <body>
-    <div class="server-status" id="serverStatus" data-status="Server läuft">
+    <div class="server-status" id="serverStatus" data-tooltip="Server läuft">
         <span>🖥️</span>
         <span class="status-dot" id="statusDot"></span>
     </div>
     
-    <button class="shutdown-btn" onclick="shutdownServer()" title="Server beenden">⏻</button>
+    <button class="shutdown-btn" onclick="shutdownServer()" data-tooltip="Server beenden">⏻</button>
     
     <div class="container">
         <div class="success-icon">✓</div>
@@ -383,10 +389,10 @@ try {
             try {
                 await fetch('/ping');
                 dot.classList.remove('offline');
-                status.setAttribute('data-status', 'Server läuft');
+                status.setAttribute('data-tooltip', 'Server läuft');
             } catch {
                 dot.classList.add('offline');
-                status.setAttribute('data-status', 'Server offline');
+                status.setAttribute('data-tooltip', 'Server offline');
             }
         }
         
