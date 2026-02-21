@@ -70,6 +70,36 @@ function updateActionBarVisibility() {
     }
 }
 
+function getSelectedItems() {
+    var paths = [];
+    
+    document.querySelectorAll('.folder-card').forEach(function(card) {
+        var folderCheckbox = card.querySelector('.folder-checkbox');
+        var folderPath = card.dataset.path;
+        var mediaGrid = card.querySelector('.media-grid');
+        
+        if (folderCheckbox.checked) {
+            if (mediaGrid.children.length > 0) {
+                mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
+                    paths.push(cb.closest('.media-item').dataset.filepath);
+                });
+            } else {
+                var files = JSON.parse(card.dataset.files);
+                files.forEach(function(file) {
+                    var filePath = folderPath === '.' ? file : folderPath + '/' + file;
+                    paths.push(filePath);
+                });
+            }
+        } else {
+            mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
+                paths.push(cb.closest('.media-item').dataset.filepath);
+            });
+        }
+    });
+    
+    return paths;
+}
+
 function toggleFolderSelection(checkbox) {
     var folderCard = checkbox.closest('.folder-card');
     var mediaGrid = folderCard.querySelector('.media-grid');
@@ -147,20 +177,16 @@ function invertSelection() {
 }
 
 async function deleteSelected() {
-    // Nur ausgewählte Items in expanded folders
-    var selected = document.querySelectorAll('.folder-card.expanded .media-checkbox:checked');
-    if (selected.length === 0) {
+    var paths = getSelectedItems();
+    
+    if (paths.length === 0) {
         alert('Keine Dateien ausgewählt!');
         return;
     }
     
-    if (!confirm(selected.length + ' Datei(en) wirklich löschen?')) {
+    if (!confirm(paths.length + ' Datei(en) wirklich löschen?')) {
         return;
     }
-    
-    var paths = Array.from(selected).map(function(cb) {
-        return cb.closest('.media-item').dataset.filepath;
-    });
     
     try {
         var response = await fetch('/delete-files', {
@@ -172,11 +198,22 @@ async function deleteSelected() {
         var result = await response.json();
         
         if (result.success) {
-            // Remove deleted items from DOM
-            selected.forEach(function(cb) {
-                cb.closest('.media-item').remove();
+            document.querySelectorAll('.folder-card').forEach(function(card) {
+                var folderCheckbox = card.querySelector('.folder-checkbox');
+                var mediaGrid = card.querySelector('.media-grid');
+                
+                if (folderCheckbox.checked && mediaGrid.children.length === 0) {
+                    card.remove();
+                } else {
+                    mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
+                        cb.closest('.media-item').remove();
+                    });
+                    folderCheckbox.checked = false;
+                }
             });
+            
             updateSelectedCount();
+            updateActionBarVisibility();
             alert('✓ ' + result.deletedCount + ' Datei(en) gelöscht');
         } else {
             alert('❌ Fehler: ' + (result.error || 'Unbekannt'));
