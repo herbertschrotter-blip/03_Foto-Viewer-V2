@@ -40,6 +40,7 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptRoot "Lib\Lib_FileSystem.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_FFmpeg.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_Tools.ps1")
+. (Join-Path $ScriptRoot "Lib\Lib_UI_Template.ps1")
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
@@ -198,6 +199,11 @@ try {
                     $folderListHtml = $folderRows -join "`n"
                 }
                 
+                # HTML aus Templates generieren
+                $html = Get-IndexHTML -RootPath $script:State.RootPath -FolderCards $folderListHtml -Config $config
+                
+                # Alte Here-String Variante (auskommentiert):
+                <#
                 $html = @"
 <!DOCTYPE html>
 <html lang="de">
@@ -2089,6 +2095,8 @@ $folderListHtml
 </body>
 </html>
 "@
+                #>
+                
                 Send-ResponseHtml -Response $res -Html $html
                 continue
             }
