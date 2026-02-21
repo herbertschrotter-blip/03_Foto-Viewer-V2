@@ -23,6 +23,11 @@ Funktionen:
   - Test-OneDriveProtection: Prüft OneDrive-Schutz (kein Admin)
   - Enable-OneDriveProtection: Aktiviert Registry-Schutz (benötigt Admin)
 
+ÄNDERUNGEN v0.3.1:
+  - thumbs.db Filter: Verhindert Crash bei Windows Thumbnail-Cache
+  - Test-ThumbnailCacheValid filtert thumbs.db/Thumbs.db
+  - Update-ThumbnailCache filtert thumbs.db/Thumbs.db
+
 ÄNDERUNGEN v0.3.0:
   - OneDrive-Schutz: Hidden+System Attribute
   - OneDrive-Schutz: Registry EnableODIgnoreListFromGPO
@@ -702,9 +707,13 @@ function Test-ThumbnailCacheValid {
         $manifestJson = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8
         $manifest = $manifestJson | ConvertFrom-Json
         
-        # Aktuelle Medien im Ordner
+        # Aktuelle Medien im Ordner (thumbs.db ausfiltern!)
         $currentFiles = @(Get-ChildItem -LiteralPath $FolderPath -File -ErrorAction SilentlyContinue | 
-            Where-Object { (Test-IsImageFile -Path $_.FullName) -or (Test-IsVideoFile -Path $_.FullName) })
+            Where-Object { 
+                $_.Name -ne 'Thumbs.db' -and 
+                $_.Name -ne 'thumbs.db' -and
+                ((Test-IsImageFile -Path $_.FullName) -or (Test-IsVideoFile -Path $_.FullName))
+            })
         
         # Quick Check: Anzahl unterschiedlich?
         if ($currentFiles.Count -ne $manifest.mediaCount) {
