@@ -27,24 +27,22 @@ function toggleSelect(event, checkbox) {
 }
 
 function updateSelectedCount() {
-    // Ordner zählen
     var folderCount = document.querySelectorAll('.folder-checkbox:checked').length;
-    
-    // Dateien zählen (alle, auch in geschlossenen Ordnern)
     var fileCount = 0;
     
-    document.querySelectorAll('.folder-checkbox:checked').forEach(function(fcb) {
-        var folderCard = fcb.closest('.folder-card');
-        var files = JSON.parse(folderCard.dataset.files);
-        fileCount += files.length;
-    });
-    
-    // Zusätzlich einzeln markierte Dateien in nicht-markierten Ordnern
     document.querySelectorAll('.folder-card').forEach(function(card) {
         var folderCheckbox = card.querySelector('.folder-checkbox');
-        if (!folderCheckbox.checked) {
-            var checkedMedia = card.querySelectorAll('.media-checkbox:checked').length;
-            fileCount += checkedMedia;
+        var mediaGrid = card.querySelector('.media-grid');
+        
+        if (folderCheckbox.checked) {
+            if (mediaGrid.children.length > 0) {
+                fileCount += mediaGrid.querySelectorAll('.media-checkbox:checked').length;
+            } else {
+                var files = JSON.parse(card.dataset.files);
+                fileCount += files.length;
+            }
+        } else {
+            fileCount += mediaGrid.querySelectorAll('.media-checkbox:checked').length;
         }
     });
     
