@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.5.0
+    Version: 0.6.0
     
     ÄNDERUNGEN v0.5.0:
     - Lokale .thumbs/ pro Ordner (statt zentral)
@@ -59,6 +59,21 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Libs laden - Utils
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_Tools.ps1")
+
+#region OneDrive-Schutz Check
+
+Write-Verbose "Prüfe OneDrive-Schutz für Thumbnail-Cache..."
+
+$hasRegistryProtection = Test-OneDriveProtection
+
+if ($hasRegistryProtection) {
+    Write-Verbose "OneDrive-Schutz: ✓ Vollständig (Hidden+System + Registry)"
+}
+else {
+    # ... Info-Screen + Setup ...
+}
+
+#endregion
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
