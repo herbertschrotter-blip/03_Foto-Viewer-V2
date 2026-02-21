@@ -61,7 +61,7 @@ function Get-IndexHTML {
     
     try {
         # Template-Pfade
-        $templateRoot = Join-Path $PSScriptRoot "..\Templates"
+        $templateRoot = Join-Path $PSScriptRoot "..\..\Templates"
         $htmlPath = Join-Path $templateRoot "index.html"
         $cssPath = Join-Path $templateRoot "styles.css"
         $jsPath = Join-Path $templateRoot "app.js"

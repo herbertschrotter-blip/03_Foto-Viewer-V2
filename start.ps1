@@ -31,19 +31,27 @@ $ErrorActionPreference = 'Stop'
 # Script-Root ermitteln
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# Libs laden
-. (Join-Path $ScriptRoot "Lib\Lib_Config.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_Http.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_Dialogs.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_Scanner.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_State.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_FileSystem.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_FFmpeg.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_Tools.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_UI_Template.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_Routes_Tools.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_Routes_Settings.ps1")
-. (Join-Path $ScriptRoot "Lib\Lib_Routes_Files.ps1")
+# Libs laden - Core
+. (Join-Path $ScriptRoot "Lib\Core\Lib_Config.ps1")
+. (Join-Path $ScriptRoot "Lib\Core\Lib_State.ps1")
+. (Join-Path $ScriptRoot "Lib\Core\Lib_Http.ps1")
+
+# Libs laden - Media
+. (Join-Path $ScriptRoot "Lib\Media\Lib_Scanner.ps1")
+. (Join-Path $ScriptRoot "Lib\Media\Lib_FileSystem.ps1")
+. (Join-Path $ScriptRoot "Lib\Media\Lib_FFmpeg.ps1")
+
+# Libs laden - UI
+. (Join-Path $ScriptRoot "Lib\UI\Lib_Dialogs.ps1")
+. (Join-Path $ScriptRoot "Lib\UI\Lib_UI_Template.ps1")
+
+# Libs laden - Routes
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Tools.ps1")
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Settings.ps1")
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Files.ps1")
+
+# Libs laden - Utils
+. (Join-Path $ScriptRoot "Lib\Utils\Lib_Tools.ps1")
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan

@@ -37,7 +37,7 @@ function Get-State {
     param()
     
     try {
-        $scriptRoot = Split-Path -Parent $PSScriptRoot
+        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         $statePath = Join-Path $scriptRoot "state.json"
         
         if (Test-Path -LiteralPath $statePath) {
@@ -91,7 +91,7 @@ function Save-State {
     )
     
     try {
-        $scriptRoot = Split-Path -Parent $PSScriptRoot
+        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         $statePath = Join-Path $scriptRoot "state.json"
         
         $json = $State | ConvertTo-Json -Depth 10

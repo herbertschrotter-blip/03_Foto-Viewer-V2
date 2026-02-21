@@ -36,7 +36,7 @@ function Get-Config {
     param()
     
     try {
-        $scriptRoot = Split-Path -Parent $PSScriptRoot
+        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         $configPath = Join-Path $scriptRoot "config.json"
         
         if (-not (Test-Path -LiteralPath $configPath)) {
@@ -109,7 +109,7 @@ function Save-Config {
     )
     
     try {
-        $scriptRoot = Split-Path -Parent $PSScriptRoot
+        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         $configPath = Join-Path $scriptRoot "config.json"
         
         $json = $Config | ConvertTo-Json -Depth 10
