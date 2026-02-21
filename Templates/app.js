@@ -138,8 +138,22 @@ function toggleFolder(header) {
             document.getElementById('floatingActionBar').classList.remove('show');
         }
     } else {
+        // ACCORDION: Schließe alle anderen Ordner
+        document.querySelectorAll('.folder-card.expanded').forEach(function(otherCard) {
+            if (otherCard !== card) {
+                otherCard.querySelector('.media-grid').style.display = 'none';
+                otherCard.classList.remove('expanded');
+            }
+        });
+        
         // Ordner öffnen
         card.classList.add('expanded');
+        
+        // Auto-Scroll zum geöffneten Ordner
+        setTimeout(function() {
+            header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+        
         if (grid.children.length === 0) {
             const files = JSON.parse(card.dataset.files);
             const folderPath = card.dataset.path;
