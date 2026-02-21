@@ -5,10 +5,15 @@
 .DESCRIPTION
     Lädt HTML/CSS/JS Templates aus separaten Dateien und kombiniert sie
     zu einer vollständigen HTML-Response mit Platzhalter-Ersetzung.
+    
+    Templates:
+    - index.html: HTML-Struktur mit Placeholders
+    - styles.css: Komplettes CSS
+    - app.js: Komplettes JavaScript
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
 #>
 
 #Requires -Version 5.1
@@ -21,7 +26,12 @@ function Get-IndexHTML {
     
     .DESCRIPTION
         Lädt Templates aus Templates/ Ordner, ersetzt Platzhalter
-        und gibt fertiges HTML zurück
+        und gibt fertiges HTML zurück.
+        
+        Lädt automatisch:
+        - index.html (HTML-Struktur)
+        - styles.css (eingebettet in <style>)
+        - app.js (eingebettet in <script>)
     
     .PARAMETER RootPath
         Aktueller Root-Pfad für Medien
@@ -80,11 +90,13 @@ function Get-IndexHTML {
         # Platzhalter ersetzen
         $html = $htmlTemplate
         
-        # 1. CSS einbetten
-        $html = $html -replace '\{\{STYLES\}\}', $cssContent
+        # 1. CSS einbetten (als <style> Tag)
+        $cssEmbedded = "<style>`n$cssContent`n</style>"
+        $html = $html -replace '\{\{STYLES\}\}', $cssEmbedded
         
-        # 2. JavaScript einbetten
-        $html = $html -replace '\{\{SCRIPTS\}\}', $jsContent
+        # 2. JavaScript einbetten (als <script> Tag)
+        $jsEmbedded = "<script>`n$jsContent`n</script>"
+        $html = $html -replace '\{\{SCRIPTS\}\}', $jsEmbedded
         
         # 3. Root-Pfad
         $html = $html -replace '\{\{ROOT_PATH\}\}', [System.Web.HttpUtility]::HtmlEncode($RootPath)
