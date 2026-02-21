@@ -794,9 +794,13 @@ function Update-ThumbnailCache {
         # .thumbs erstellen (mit OneDrive-Schutz)
         $thumbsDir = New-ThumbnailCacheFolder -FolderPath $FolderPath
         
-        # Aktuelle Medien
+        # Aktuelle Medien (thumbs.db ausfiltern!)
         $mediaFiles = @(Get-ChildItem -LiteralPath $FolderPath -File -ErrorAction SilentlyContinue | 
-            Where-Object { (Test-IsImageFile -Path $_.FullName) -or (Test-IsVideoFile -Path $_.FullName) })
+            Where-Object { 
+                $_.Name -ne 'Thumbs.db' -and 
+                $_.Name -ne 'thumbs.db' -and
+                ((Test-IsImageFile -Path $_.FullName) -or (Test-IsVideoFile -Path $_.FullName))
+            })
         
         if ($mediaFiles.Count -eq 0) {
             Write-Verbose "Keine Medien in $FolderPath"
