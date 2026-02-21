@@ -15,7 +15,13 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.4.9
+    Version: 0.5.0
+    
+    ÄNDERUNGEN v0.5.0:
+    - Lokale .thumbs/ pro Ordner (statt zentral)
+    - Get-MediaThumbnail für Fotos UND Videos
+    - Cache-Validierung beim Scan (EAGER)
+    - Entfernt: Zentrale $script:ThumbsDir Logik
 #>
 
 #Requires -Version 5.1
@@ -38,6 +44,7 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Libs laden - Media
 . (Join-Path $ScriptRoot "Lib\Media\Lib_Scanner.ps1")
+. (Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1")
 . (Join-Path $ScriptRoot "Lib\Media\Lib_FileSystem.ps1")
 . (Join-Path $ScriptRoot "Lib\Media\Lib_FFmpeg.ps1")
 
@@ -119,12 +126,8 @@ if ([string]::IsNullOrWhiteSpace($script:State.RootPath) -or
     Write-Host "✓ Root aus State: $($script:State.RootPath)" -ForegroundColor Green
 }
 
-# Thumbnail-Cache Verzeichnis
-$script:ThumbsDir = Join-Path $script:State.RootPath ".thumbs"
-if (-not (Test-Path -LiteralPath $script:ThumbsDir)) {
-    New-Item -Path $script:ThumbsDir -ItemType Directory -Force | Out-Null
-    Write-Host "✓ Thumbnail-Cache erstellt: $script:ThumbsDir" -ForegroundColor Green
-}
+# Thumbnail-Cache wird lokal in jedem Ordner (.thumbs/) erstellt
+# Keine zentrale ThumbsDir-Logik mehr nötig
 
 # Medien-Extensions aus Config
 $mediaExtensions = $config.Media.ImageExtensions + $config.Media.VideoExtensions
@@ -133,7 +136,7 @@ $mediaExtensions = $config.Media.ImageExtensions + $config.Media.VideoExtensions
 Write-Host ""
 Write-Host "Scanne Ordner..." -ForegroundColor Cyan
 try {
-    $script:State.Folders = @(Get-MediaFolders -RootPath $script:State.RootPath -Extensions $mediaExtensions)
+    $script:State.Folders = @(Get-MediaFolders -RootPath $script:State.RootPath -Extensions $mediaExtensions -ScriptRoot $ScriptRoot)
     
     $totalMedia = ($script:State.Folders | Measure-Object -Property MediaCount -Sum).Sum
     Write-Host "✓ Gefunden: $($script:State.Folders.Count) Ordner mit $totalMedia Medien" -ForegroundColor Green
@@ -232,12 +235,8 @@ try {
                     continue
                 }
                 $script:State.RootPath = $newRoot
-                $script:ThumbsDir = Join-Path $script:State.RootPath ".thumbs"
-                if (-not (Test-Path -LiteralPath $script:ThumbsDir)) {
-                    New-Item -Path $script:ThumbsDir -ItemType Directory -Force | Out-Null
-                }
                 try {
-                    $script:State.Folders = @(Get-MediaFolders -RootPath $script:State.RootPath -Extensions $mediaExtensions)
+                    $script:State.Folders = @(Get-MediaFolders -RootPath $script:State.RootPath -Extensions $mediaExtensions -ScriptRoot $ScriptRoot)
                     Save-State -State $script:State
                     $json = @{ ok = $true } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
@@ -282,14 +281,12 @@ try {
                     continue
                 }
                 try {
-                    if (Test-IsVideoFile -Path $fullPath) {
-                        if ($script:FFmpegPath) {
-                            $thumbPath = Get-VideoThumbnail -VideoPath $fullPath -CacheDir $script:ThumbsDir -ScriptRoot $ScriptRoot
-                            if ($thumbPath -and (Test-Path -LiteralPath $thumbPath -PathType Leaf)) {
-                                $fullPath = $thumbPath
-                            }
-                        }
+                    # Thumbnail holen (automatisch für Fotos UND Videos)
+                    $thumbPath = Get-MediaThumbnail -Path $fullPath -ScriptRoot $ScriptRoot
+                    if ($thumbPath -and (Test-Path -LiteralPath $thumbPath -PathType Leaf)) {
+                        $fullPath = $thumbPath
                     }
+                    
                     $contentType = Get-MediaContentType -Path $fullPath
                     $fileInfo = [System.IO.FileInfo]::new($fullPath)
                     $res.StatusCode = 200
