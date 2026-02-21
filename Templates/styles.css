@@ -38,18 +38,30 @@ h1 {
 }
 
 .folder-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: transparent;
+    color: #6b7280;
+}
+
+.folder-btn:hover {
+    background: #f3f4f6;
 }
 
 .tools-btn {
-    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
-    color: white;
+    background: transparent;
+    color: #6b7280;
+}
+
+.tools-btn:hover {
+    background: #f3f4f6;
 }
 
 .settings-btn {
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-    color: white;
+    background: transparent;
+    color: #6b7280;
+}
+
+.settings-btn:hover {
+    background: #f3f4f6;
 }
 
 /* Tools Overlay */
@@ -461,16 +473,16 @@ h1 {
     border-color: #a0aec0;
 }
 
-/* Moderne Sidebar */
+/* Moderne Sidebar - Spectrum Style */
 .sidebar {
     position: fixed;
     top: 20px;
     left: 20px;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
     padding: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     z-index: 1000;
     display: flex;
     flex-direction: column;
@@ -489,17 +501,17 @@ h1 {
     width: 46px;
     height: 46px;
     border: none;
-    border-radius: 12px;
+    border-radius: 8px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.3em;
-    transition: all 0.3s ease;
-    background: #f7fafc;
+    transition: background 0.2s;
+    background: transparent;
     position: relative;
-    font-weight: 600;
-    color: white;
+    font-weight: 500;
+    color: #6b7280;
 }
 
 .sidebar-row:not(:first-child):not(.sidebar-row-triple) .sidebar-btn {
@@ -524,19 +536,21 @@ h1 {
 }
 
 .size-btn {
-    background: #e2e8f0;
+    background: transparent;
+    border: 1px solid #d1d5db;
 }
 
 .size-btn.active {
-    background: #cbd5e0;
+    background: #f3f4f6;
+    border-color: #9ca3af;
 }
 
 .size-dots {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
-    height: 20px;
+    justify-content: center;
+    height: 100%;
     gap: 3px;
 }
 
@@ -548,32 +562,39 @@ h1 {
 }
 
 .size-btn.active .dot {
-    background: white;
+    background: #2d3748;
 }
 
 .sidebar-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: #f3f4f6;
 }
 
 .sidebar-btn:active {
-    transform: translateY(0);
+    background: #e5e7eb;
 }
 
 .status-btn {
-    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+    background: transparent;
+    color: #10b981;
+}
+
+.status-btn:hover {
+    background: #ecfdf5;
 }
 
 .status-btn.offline {
-    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+    color: #ef4444;
+}
+
+.status-btn.offline:hover {
+    background: #fef2f2;
 }
 
 .status-dot {
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: white;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+    background: currentColor;
     animation: pulse 2s ease-in-out infinite;
 }
 
@@ -583,8 +604,12 @@ h1 {
 }
 
 .power-btn {
-    background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
-    color: white;
+    background: transparent;
+    color: #dc2626;
+}
+
+.power-btn:hover {
+    background: #fef2f2;
 }
 
 .folder-card {
@@ -785,8 +810,8 @@ h1 {
     color: #374151;
     font-weight: 500;
     font-size: 13px;
-    padding: 0 16px;
-    border-left: 1px solid #e5e7eb;
+    padding-right: 24px;
+    margin-right: 8px;
     border-right: 1px solid #e5e7eb;
 }
 
