@@ -269,7 +269,7 @@ try {
             
             # Routes: /tools/*
             if ($path -match "^/tools/") {
-                if (Handle-ToolsRoute -Context $ctx -RootPath $script:State.RootPath -ScriptRoot $ScriptRoot) {
+                if (Handle-ToolsRoute -Context $ctx -RootPath $script:State.RootPath) {
                     continue
                 }
             }
