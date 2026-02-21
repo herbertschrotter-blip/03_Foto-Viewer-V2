@@ -117,9 +117,6 @@ function toggleFolderSelection(checkbox) {
     });
     
     updateSelectedCount();
-
-
-
     updateActionBarVisibility();
 }
 
@@ -462,90 +459,7 @@ async function deleteAllThumbs() {
     }
 }
 
-var cacheRebuildStatusInterval = null;
-
-async function startCacheRebuild() {
-    var resultDiv = document.getElementById('cacheRebuildResult');
-    resultDiv.innerHTML = '<div class="overlay-result">⏳ Starte Background-Job...</div>';
-    
-    try {
-        var response = await fetch('/tools/cache/start', { method: 'POST' });
-        var result = await response.json();
-        
-        if (result.success) {
-            resultDiv.innerHTML = '<div class="overlay-result success">✓ Job gestartet (ID: ' + result.data.JobId + ')</div>';
-            
-            if (cacheRebuildStatusInterval) clearInterval(cacheRebuildStatusInterval);
-            cacheRebuildStatusInterval = setInterval(updateCacheRebuildStatus, 2000);
-            updateCacheRebuildStatus();
-        } else {
-            resultDiv.innerHTML = '<div class="overlay-result error">❌ ' + (result.error || 'Fehler') + '</div>';
-        }
-    } catch (err) {
-        resultDiv.innerHTML = '<div class="overlay-result error">❌ ' + err.message + '</div>';
-    }
-}
-
-async function updateCacheRebuildStatus() {
-    try {
-        var response = await fetch('/tools/cache/status');
-        var result = await response.json();
-        
-        if (!result.success) return;
-        
-        var data = result.data;
-        var statusDiv = document.getElementById('cacheRebuildStatus');
-        
-        if (data.Status === 'NotStarted') {
-            statusDiv.innerHTML = '<div class="overlay-result">Kein Job aktiv</div>';
-            if (cacheRebuildStatusInterval) clearInterval(cacheRebuildStatusInterval);
-            return;
-        }
-        
-        if (data.Status === 'Running') {
-            statusDiv.innerHTML = 
-                '<div class="overlay-result">' +
-                '<div style="font-weight: 600; margin-bottom: 8px;">⏳ Cache-Rebuild läuft...</div>' +
-                '<div class="progress-bar"><div class="progress-fill" style="width: ' + data.Progress + '%"></div></div>' +
-                '<div style="margin-top: 8px;">' + data.Progress + '% (' + data.ProcessedFolders + ' / ' + data.TotalFolders + ' Ordner)</div>' +
-                '<div>✓ Aktualisiert: ' + data.UpdatedFolders + ' | ✓ Valide: ' + data.ValidFolders + '</div>' +
-                '<div style="font-size: 12px; color: #718096; margin-top: 4px;">Aktuell: ' + data.CurrentFolder + '</div>' +
-                '<div style="font-size: 12px; color: #718096;">Laufzeit: ' + data.Duration + 's</div>' +
-                '<button class="list-action-btn danger" onclick="stopCacheRebuild()" style="margin-top: 8px;">⏹ Job stoppen</button>' +
-                '</div>';
-        }
-        else if (data.Status === 'Completed') {
-            statusDiv.innerHTML =
-                '<div class="overlay-result success">' +
-                '<div style="font-weight: 600; margin-bottom: 8px;">✓ Cache-Rebuild abgeschlossen!</div>' +
-                '<div>' + data.TotalFolders + ' Ordner verarbeitet</div>' +
-                '<div>✓ Aktualisiert: ' + data.UpdatedFolders + ' | ✓ Valide: ' + data.ValidFolders + '</div>' +
-                '<div style="font-size: 12px; color: #718096;">Dauer: ' + data.Duration + 's</div>' +
-                '</div>';
-            if (cacheRebuildStatusInterval) clearInterval(cacheRebuildStatusInterval);
-        }
-        else if (data.Status === 'Error') {
-            statusDiv.innerHTML = '<div class="overlay-result error">❌ Fehler: ' + (data.Error || 'Unbekannt') + '</div>';
-            if (cacheRebuildStatusInterval) clearInterval(cacheRebuildStatusInterval);
-        }
-    } catch (err) {
-        console.error('Status-Update Fehler:', err);
-    }
-}
-
-async function stopCacheRebuild() {
-    try {
-        var response = await fetch('/tools/cache/stop', { method: 'POST' });
-        var result = await response.json();
-        
-        if (result.success && result.data.Stopped) {
-            if (cacheRebuildStatusInterval) clearInterval(cacheRebuildStatusInterval);
-            document.getElementById('cacheRebuildStatus').innerHTML = '<div class="overlay-result">Job gestoppt</div>';
-        }
-    } catch (err) {
-        console.error('Stop Fehler:', err);
-    }
-}
+// Cache-Rebuild Funktionen entfernt - Cache wird automatisch on-demand rebuilt
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') closeTools();
