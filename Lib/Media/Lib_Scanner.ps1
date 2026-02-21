@@ -91,12 +91,34 @@ function Get-MediaFolders {
         
         $rootFull = [System.IO.Path]::GetFullPath($RootPath)
         
-        Write-Verbose "Scanne: $rootFull"
+                Write-Verbose "Scanne: $rootFull"
         Write-Verbose "Extensions: $($Extensions -join ', ')"
         
-        # Alle Dateien rekursiv
-        $allFiles = Get-ChildItem -LiteralPath $rootFull -Recurse -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Extension -in $Extensions }
+        # Ordner zählen für Progress
+        Write-Host "  → Zähle Ordner..." -ForegroundColor DarkGray
+        $allDirs = @(Get-ChildItem -LiteralPath $rootFull -Recurse -Directory -ErrorAction SilentlyContinue)
+        $totalDirs = $allDirs.Count
+        Write-Host "  → Scanne $totalDirs Ordner..." -ForegroundColor DarkGray
+        
+        # Alle Dateien rekursiv mit Progress
+        $allFiles = @()
+        $currentDir = 0
+        
+        foreach ($dir in $allDirs) {
+            $currentDir++
+            
+            Write-Progress -Activity "Scanne Ordner" `
+                           -Status "Ordner $currentDir von $totalDirs" `
+                           -PercentComplete (($currentDir / $totalDirs) * 100) `
+                           -CurrentOperation $dir.Name
+            
+            $files = Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue |
+                Where-Object { $_.Extension -in $Extensions }
+            
+            $allFiles += $files
+        }
+        
+        Write-Progress -Activity "Scanne Ordner" -Completed
         
         # Nach Ordner gruppieren
         $grouped = $allFiles | Group-Object -Property DirectoryName
