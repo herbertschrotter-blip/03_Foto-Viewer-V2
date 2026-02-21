@@ -45,12 +45,14 @@ function toggleReviewMode() {
 }
 
 function updateSelectedCount() {
-    var count = document.querySelectorAll('.media-checkbox:checked').length;
+    // Nur Checkboxen in expanded folders zählen
+    var count = document.querySelectorAll('.folder-card.expanded .media-checkbox:checked').length;
     document.getElementById('selectedCount').textContent = count + ' ausgewählt';
 }
 
 function selectAll() {
-    document.querySelectorAll('.media-checkbox').forEach(function(cb) {
+    // Nur sichtbare Items in expanded folders
+    document.querySelectorAll('.folder-card.expanded .media-checkbox').forEach(function(cb) {
         cb.checked = true;
         cb.closest('.media-item').classList.add('selected');
     });
@@ -58,7 +60,8 @@ function selectAll() {
 }
 
 function selectNone() {
-    document.querySelectorAll('.media-checkbox').forEach(function(cb) {
+    // Nur sichtbare Items in expanded folders
+    document.querySelectorAll('.folder-card.expanded .media-checkbox').forEach(function(cb) {
         cb.checked = false;
         cb.closest('.media-item').classList.remove('selected');
     });
@@ -66,7 +69,8 @@ function selectNone() {
 }
 
 function invertSelection() {
-    document.querySelectorAll('.media-checkbox').forEach(function(cb) {
+    // Nur sichtbare Items in expanded folders
+    document.querySelectorAll('.folder-card.expanded .media-checkbox').forEach(function(cb) {
         cb.checked = !cb.checked;
         var item = cb.closest('.media-item');
         if (cb.checked) {
@@ -79,7 +83,8 @@ function invertSelection() {
 }
 
 async function deleteSelected() {
-    var selected = document.querySelectorAll('.media-checkbox:checked');
+    // Nur ausgewählte Items in expanded folders
+    var selected = document.querySelectorAll('.folder-card.expanded .media-checkbox:checked');
     if (selected.length === 0) {
         alert('Keine Dateien ausgewählt!');
         return;
