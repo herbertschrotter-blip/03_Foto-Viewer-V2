@@ -197,11 +197,12 @@ try {
                         
                         @"
                         <div class="folder-card" data-path="$relativePath" data-files="$filesJson">
-                            <div class="folder-header" onclick="toggleFolder(this)">
-                                <span class="folder-icon">📁</span>
-                                <span class="folder-name">$pathDisplay</span>
-                                <span class="folder-count">$($folder.MediaCount) Medien</span>
-                                <span class="toggle-icon">▼</span>
+                            <div class="folder-header">
+                                <input type="checkbox" class="folder-checkbox" onclick="event.stopPropagation(); toggleFolderSelection(this)">
+                                <span class="folder-icon" onclick="toggleFolder(this.parentElement)">📁</span>
+                                <span class="folder-name" onclick="toggleFolder(this.parentElement)">$pathDisplay</span>
+                                <span class="folder-count" onclick="toggleFolder(this.parentElement)">$($folder.MediaCount) Medien</span>
+                                <span class="toggle-icon" onclick="toggleFolder(this.parentElement)">▼</span>
                             </div>
                             <div class="media-grid" style="display: none;"></div>
                         </div>

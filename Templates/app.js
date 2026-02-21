@@ -32,27 +32,64 @@ function updateSelectedCount() {
     document.getElementById('selectedCount').textContent = count + ' ausgewählt';
 }
 
+function toggleFolderSelection(checkbox) {
+    var folderCard = checkbox.closest('.folder-card');
+    var mediaGrid = folderCard.querySelector('.media-grid');
+    
+    // Alle Media-Checkboxen im Ordner
+    var mediaCheckboxes = mediaGrid.querySelectorAll('.media-checkbox');
+    
+    mediaCheckboxes.forEach(function(cb) {
+        cb.checked = checkbox.checked;
+        var item = cb.closest('.media-item');
+        if (cb.checked) {
+            item.classList.add('selected');
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+    
+    updateSelectedCount();
+}
+
 function selectAll() {
-    // Nur sichtbare Items in expanded folders
-    document.querySelectorAll('.folder-card.expanded .media-checkbox').forEach(function(cb) {
+    // Alle Folder-Checkboxen
+    document.querySelectorAll('.folder-checkbox').forEach(function(fcb) {
+        fcb.checked = true;
+    });
+    
+    // Alle Media-Checkboxen
+    document.querySelectorAll('.media-checkbox').forEach(function(cb) {
         cb.checked = true;
         cb.closest('.media-item').classList.add('selected');
     });
+    
     updateSelectedCount();
 }
 
 function selectNone() {
-    // Nur sichtbare Items in expanded folders
-    document.querySelectorAll('.folder-card.expanded .media-checkbox').forEach(function(cb) {
+    // Alle Folder-Checkboxen
+    document.querySelectorAll('.folder-checkbox').forEach(function(fcb) {
+        fcb.checked = false;
+    });
+    
+    // Alle Media-Checkboxen
+    document.querySelectorAll('.media-checkbox').forEach(function(cb) {
         cb.checked = false;
         cb.closest('.media-item').classList.remove('selected');
     });
+    
     updateSelectedCount();
 }
 
 function invertSelection() {
-    // Nur sichtbare Items in expanded folders
-    document.querySelectorAll('.folder-card.expanded .media-checkbox').forEach(function(cb) {
+    // Alle Folder-Checkboxen invertieren
+    document.querySelectorAll('.folder-checkbox').forEach(function(fcb) {
+        fcb.checked = !fcb.checked;
+    });
+    
+    // Alle Media-Checkboxen invertieren
+    document.querySelectorAll('.media-checkbox').forEach(function(cb) {
         cb.checked = !cb.checked;
         var item = cb.closest('.media-item');
         if (cb.checked) {
@@ -61,6 +98,7 @@ function invertSelection() {
             item.classList.remove('selected');
         }
     });
+    
     updateSelectedCount();
 }
 

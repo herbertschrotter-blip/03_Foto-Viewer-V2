@@ -630,13 +630,28 @@ h1 {
     align-items: center;
     gap: 12px;
     padding: 20px;
-    cursor: pointer;
     user-select: none;
     transition: background 0.2s ease;
 }
 
 .folder-header:hover {
     background: #f7fafc;
+}
+
+.folder-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    z-index: 10;
+    accent-color: #667eea;
+    flex-shrink: 0;
+}
+
+.folder-icon,
+.folder-name,
+.folder-count,
+.toggle-icon {
+    cursor: pointer;
 }
 
 .folder-icon {
