@@ -138,6 +138,13 @@ function Get-MediaFolders {
         
         $result = foreach ($group in $grouped) {
             $folderPath = $group.Name
+            
+            # Sicherstellen dass $folderPath nicht null ist
+            if ([string]::IsNullOrEmpty($folderPath)) {
+                Write-Warning "Überspringe Gruppe ohne Pfad"
+                continue
+            }
+            
             $relativePath = $folderPath.Substring($rootFull.Length).TrimStart('\', '/')
             
             if ([string]::IsNullOrEmpty($relativePath)) {
@@ -158,9 +165,11 @@ function Get-MediaFolders {
         }
         
         # ============================================
-        # THUMBNAIL-CACHE VALIDIERUNG (OPTION B: EAGER)
+        # THUMBNAIL-CACHE VALIDIERUNG (DEAKTIVIERT - ZU LANGSAM BEIM START)
+        # TODO: Als Background-Job implementieren
         # ============================================
         
+        <#
         Write-Host "  → Validiere Thumbnail-Cache..." -ForegroundColor DarkGray
         
         # Lade Thumbnail-Lib (falls noch nicht geladen)
@@ -203,6 +212,7 @@ function Get-MediaFolders {
                 Write-Verbose "Cache valide: $cacheValid Ordner"
             }
         }
+        #>
         
         Write-Verbose "Gefunden: $($sorted.Count) Ordner mit Medien"
         return $sorted
