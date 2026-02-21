@@ -177,6 +177,11 @@ function toggleFolder(header) {
         if (grid.children.length === 0) {
             const files = JSON.parse(card.dataset.files);
             const folderPath = card.dataset.path;
+            
+            // Check ob Folder-Checkbox aktiv ist
+            const folderCheckbox = card.querySelector('.folder-checkbox');
+            const shouldSelectAll = folderCheckbox && folderCheckbox.checked;
+            
             files.forEach(function(file) {
                 const isVideo = /\.(mp4|mov|avi|mkv|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i.test(file);
                 const filePath = folderPath === '.' ? file : folderPath + '/' + file;
@@ -184,11 +189,22 @@ function toggleFolder(header) {
                 const item = document.createElement('div');
                 item.className = 'media-item';
                 item.dataset.filepath = filePath;
-                item.innerHTML = '<input type="checkbox" class="media-checkbox" onclick="toggleSelect(event, this)">' +
+                
+                // Wenn Folder-Checkbox aktiv → Media auch markieren
+                const checkedAttr = shouldSelectAll ? ' checked' : '';
+                const selectedClass = shouldSelectAll ? ' selected' : '';
+                
+                item.className = 'media-item' + selectedClass;
+                item.innerHTML = '<input type="checkbox" class="media-checkbox"' + checkedAttr + ' onclick="toggleSelect(event, this)">' +
                                 '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">' +
                                 (isVideo ? '<span class="video-badge">▶ VIDEO</span>' : '');
                 grid.appendChild(item);
             });
+            
+            // Update Counter falls Medien markiert wurden
+            if (shouldSelectAll) {
+                updateSelectedCount();
+            }
         }
         grid.style.display = 'grid';
         
