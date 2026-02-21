@@ -717,21 +717,21 @@ h1 {
     opacity: 1;
 }
 
-/* Floating Action Bar */
+/* Floating Action Bar - Adobe Spectrum Style */
 .floating-action-bar {
     position: fixed;
-    bottom: 20px;
+    bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
     background: white;
-    border-radius: 16px;
-    padding: 12px 24px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     display: none;
-    gap: 12px;
+    gap: 8px;
     align-items: center;
     z-index: 1500;
-    backdrop-filter: blur(10px);
 }
 
 .floating-action-bar.show {
@@ -739,82 +739,58 @@ h1 {
 }
 
 .action-bar-btn {
-    min-width: 110px;
-    padding: 12px 20px;
+    background: transparent;
+    color: #2d3748;
     border: none;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 4px;
+    min-width: 70px;
 }
 
 .action-bar-btn span:first-child {
-    font-size: 1.4em;
+    font-size: 1.3em;
 }
 
 .action-bar-btn span:last-child {
     font-size: 0.85em;
-    font-weight: 500;
+    font-weight: 400;
 }
 
 .action-bar-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: #f3f4f6;
 }
 
-.action-bar-btn-select {
-    background: #48bb78;
-    color: white;
+.action-bar-btn:active {
+    background: #e5e7eb;
 }
 
-.action-bar-btn-select:hover {
-    background: #38a169;
-}
-
-.action-bar-btn-deselect {
-    background: #a0aec0;
-    color: white;
-}
-
-.action-bar-btn-deselect:hover {
-    background: #718096;
-}
-
-.action-bar-btn-invert {
-    background: #4299e1;
-    color: white;
-}
-
-.action-bar-btn-invert:hover {
-    background: #3182ce;
-}
-
+/* Delete Button - Rot wie in Spectrum */
 .action-bar-btn-delete {
-    background: #f56565;
-    color: white;
+    color: #dc2626;
 }
 
 .action-bar-btn-delete:hover {
-    background: #e53e3e;
+    background: #fef2f2;
 }
 
 .action-bar-count {
-    color: #2d3748;
-    font-weight: 600;
-    padding: 0 12px;
-    border-left: 2px solid #e2e8f0;
-    border-right: 2px solid #e2e8f0;
+    color: #374151;
+    font-weight: 500;
+    font-size: 13px;
+    padding: 0 16px;
+    border-left: 1px solid #e5e7eb;
+    border-right: 1px solid #e5e7eb;
 }
 
+/* Checkboxen immer anzeigen */
 .media-checkbox {
-    display: none;
-}
-
-body.review-mode .media-checkbox {
     display: block;
 }
