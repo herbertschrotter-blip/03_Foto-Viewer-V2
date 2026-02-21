@@ -16,7 +16,7 @@
     ÄNDERUNGEN v0.3.0:
     - Cache-Rebuild Routes entfernt (/tools/cache/*)
     - Cache wird automatisch bei Änderungen rebuilt
-    - Nur noch Cleanup-Routes vorhanden
+    - Cleanup-Routes bleiben erhalten
     
     ÄNDERUNGEN v0.2.0:
     - /tools/cache/start - Startet Background-Job für Cache-Rebuild
