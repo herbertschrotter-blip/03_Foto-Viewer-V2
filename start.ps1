@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.4.7
+    Version: 0.4.9
 #>
 
 #Requires -Version 5.1
@@ -43,6 +43,7 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptRoot "Lib\Lib_UI_Template.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_Routes_Tools.ps1")
 . (Join-Path $ScriptRoot "Lib\Lib_Routes_Settings.ps1")
+. (Join-Path $ScriptRoot "Lib\Lib_Routes_Files.ps1")
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
@@ -204,7 +205,6 @@ try {
                 # HTML aus Templates generieren
                 $html = Get-IndexHTML -RootPath $script:State.RootPath -FolderCards $folderListHtml -Config $config
                 
-                
                 Send-ResponseHtml -Response $res -Html $html
                 continue
             }
@@ -252,54 +252,12 @@ try {
                     continue
                 }
             }
-                        
+            
             # Route: /delete-files
-            if ($path -eq "/delete-files" -and $req.HttpMethod -eq "POST") {
-                try {
-                    $reader = [System.IO.StreamReader]::new($req.InputStream)
-                    $body = $reader.ReadToEnd()
-                    $reader.Close()
-                    
-                    $data = $body | ConvertFrom-Json
-                    $paths = $data.paths
-                    
-                    if (-not $paths -or $paths.Count -eq 0) {
-                        $json = @{ success = $false; error = "Keine Dateien angegeben" } | ConvertTo-Json -Compress
-                        Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
-                        continue
-                    }
-                    
-                    $deletedCount = 0
-                    $useRecycleBin = $config.FileOperations.UseRecycleBin
-                    
-                    foreach ($relativePath in $paths) {
-                        $fullPath = Resolve-SafePath -RootPath $script:State.RootPath -RelativePath $relativePath
-                        
-                        if ($fullPath -and (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-                            if ($useRecycleBin) {
-                                # Papierkorb verwenden
-                                $shell = New-Object -ComObject Shell.Application
-                                $item = $shell.Namespace(0).ParseName($fullPath)
-                                $item.InvokeVerb("delete")
-                            } else {
-                                # Permanent löschen
-                                Remove-Item -LiteralPath $fullPath -Force
-                            }
-                            $deletedCount++
-                        }
-                    }
-                    
-                    $json = @{ 
-                        success = $true
-                        deletedCount = $deletedCount
-                    } | ConvertTo-Json -Compress
-                    Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
-                    
-                } catch {
-                    $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
-                    Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+            if ($path -eq "/delete-files") {
+                if (Handle-FileOperationsRoute -Context $ctx -RootPath $script:State.RootPath -Config $config) {
+                    continue
                 }
-                continue
             }
             
             # Route: /img
@@ -372,4 +330,4 @@ finally {
     Write-Host ""
     Write-Host "✓ Server beendet" -ForegroundColor Green
     Write-Host ""
-}            
+}
