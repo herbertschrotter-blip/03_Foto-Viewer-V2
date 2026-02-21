@@ -396,6 +396,9 @@ function Start-CacheRebuildJob {
     .PARAMETER ScriptRoot
         Projekt-Root (für FFmpeg)
     
+    .PARAMETER LogFile
+        Optional: Pfad zur Log-Datei (Default: ScriptRoot\cache-rebuild.log)
+    
     .EXAMPLE
         $job = Start-CacheRebuildJob -RootPath $RootPath -Folders $script:State.Folders -ScriptRoot $PSScriptRoot
         # Job läuft im Hintergrund
@@ -413,16 +416,37 @@ function Start-CacheRebuildJob {
         [array]$Folders,
         
         [Parameter(Mandatory)]
-        [string]$ScriptRoot
+        [string]$ScriptRoot,
+        
+        [Parameter()]
+        [string]$LogFile
     )
     
     try {
+        # Log-Datei initialisieren
+        if (-not $LogFile) {
+            $LogFile = Join-Path $ScriptRoot "cache-rebuild.log"
+        }
+        
+        # Alte Log-Datei löschen
+        if (Test-Path -LiteralPath $LogFile) {
+            Remove-Item -LiteralPath $LogFile -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Log-Header schreiben
+        $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        "[$timestamp] Cache-Rebuild Job gestartet" | Out-File -FilePath $LogFile -Encoding UTF8
+        "[$timestamp] Total Folders: $($Folders.Count)" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+        "" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+        
         # Stoppe alten Job falls noch läuft
-        if ($script:CacheRebuildJob -and $script:CacheRebuildJob.Job) {
-            if ($script:CacheRebuildJob.Job.State -eq 'Running') {
-                Write-Verbose "Stoppe alten Cache-Rebuild Job"
-                Stop-Job -Job $script:CacheRebuildJob.Job
-                Remove-Job -Job $script:CacheRebuildJob.Job -Force
+        if (Get-Variable -Name 'CacheRebuildJob' -Scope Script -ErrorAction SilentlyContinue) {
+            if ($script:CacheRebuildJob -and $script:CacheRebuildJob.Job) {
+                if ($script:CacheRebuildJob.Job.State -eq 'Running') {
+                    Write-Verbose "Stoppe alten Cache-Rebuild Job"
+                    Stop-Job -Job $script:CacheRebuildJob.Job
+                    Remove-Job -Job $script:CacheRebuildJob.Job -Force
+                }
             }
         }
         
@@ -439,53 +463,95 @@ function Start-CacheRebuildJob {
         
         # ScriptBlock für Background-Job
         $jobScript = {
-            param($RootPath, $Folders, $ScriptRoot, $Progress)
+            param($RootPath, $Folders, $ScriptRoot, $Progress, $LogFile)
+            
+            function Write-JobLog {
+                param([string]$Message, [string]$Level = "INFO")
+                $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+                "[$timestamp] [$Level] $Message" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+            }
+            
+            Write-JobLog "Job gestartet im Background"
+            Write-JobLog "ScriptRoot: $ScriptRoot"
+            Write-JobLog "Total Folders: $($Folders.Count)"
             
             # Libs laden (im Job-Context)
             $libThumbsPath = Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1"
+            Write-JobLog "Lade Lib: $libThumbsPath"
+            
             if (Test-Path -LiteralPath $libThumbsPath) {
-                . $libThumbsPath
+                try {
+                    . $libThumbsPath
+                    Write-JobLog "Lib geladen: OK"
+                } catch {
+                    $Progress.Status = "Error"
+                    $Progress.Error = "Fehler beim Laden: $($_.Exception.Message)"
+                    Write-JobLog "Fehler beim Laden: $($_.Exception.Message)" "ERROR"
+                    Write-JobLog "StackTrace: $($_.ScriptStackTrace)" "ERROR"
+                    return
+                }
             } else {
                 $Progress.Status = "Error"
                 $Progress.Error = "Lib_Thumbnails.ps1 nicht gefunden: $libThumbsPath"
+                Write-JobLog "Lib nicht gefunden: $libThumbsPath" "ERROR"
                 return
             }
             
             try {
                 foreach ($folder in $Folders) {
-                    $Progress.CurrentFolder = $folder.RelativePath
-                    
-                    # Cache validieren
-                    if (-not (Test-ThumbnailCacheValid -FolderPath $folder.Path)) {
-                        # Rebuild nötig
-                        $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize 300
+                    try {
+                        $Progress.CurrentFolder = $folder.RelativePath
+                        Write-JobLog "Verarbeite: $($folder.RelativePath)"
                         
-                        if ($generated -gt 0) {
-                            # Orphans aufräumen
-                            Remove-OrphanedThumbnails -FolderPath $folder.Path | Out-Null
-                            $Progress.UpdatedFolders++
+                        # Cache validieren
+                        if (-not (Test-ThumbnailCacheValid -FolderPath $folder.Path)) {
+                            Write-JobLog "  Cache ungültig, rebuild nötig"
+                            
+                            # Rebuild nötig
+                            $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize 300
+                            Write-JobLog "  Generiert: $generated Thumbnails"
+                            
+                            if ($generated -gt 0) {
+                                # Orphans aufräumen
+                                $removed = Remove-OrphanedThumbnails -FolderPath $folder.Path
+                                Write-JobLog "  Orphans entfernt: $removed"
+                                $Progress.UpdatedFolders++
+                            }
+                        } else {
+                            # Cache valide
+                            Write-JobLog "  Cache valide"
+                            $Progress.ValidFolders++
                         }
-                    } else {
-                        # Cache valide
-                        $Progress.ValidFolders++
+                        
+                        $Progress.ProcessedFolders++
                     }
-                    
-                    $Progress.ProcessedFolders++
+                    catch {
+                        $errorMsg = "Fehler bei $($folder.RelativePath): $($_.Exception.Message)"
+                        Write-JobLog $errorMsg "ERROR"
+                        Write-JobLog "  StackTrace: $($_.ScriptStackTrace)" "ERROR"
+                        $Progress.CurrentFolder = "ERROR: $($folder.RelativePath)"
+                        $Progress.ProcessedFolders++
+                    }
                 }
                 
                 $Progress.Status = "Completed"
                 $Progress.CurrentFolder = ""
+                Write-JobLog "Job erfolgreich abgeschlossen"
+                Write-JobLog "Verarbeitet: $($Progress.ProcessedFolders), Aktualisiert: $($Progress.UpdatedFolders), Valide: $($Progress.ValidFolders)"
                 
             } catch {
                 $Progress.Status = "Error"
-                $Progress.Error = $_.Exception.Message
+                $Progress.Error = "FATAL: $($_.Exception.Message)"
+                Write-JobLog "FATAL ERROR: $($_.Exception.Message)" "ERROR"
+                Write-JobLog "StackTrace: $($_.ScriptStackTrace)" "ERROR"
             }
         }
         
         # Job starten
         Write-Verbose "Starte Cache-Rebuild Job für $($Folders.Count) Ordner"
+        Write-Verbose "Log-Datei: $LogFile"
         
-        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $RootPath, $Folders, $ScriptRoot, $progress
+        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $RootPath, $Folders, $ScriptRoot, $progress, $LogFile
         
         # In Script-Scope speichern
         $script:CacheRebuildJob = [PSCustomObject]@{
@@ -531,7 +597,7 @@ function Get-CacheRebuildStatus {
     
     try {
         # Kein Job vorhanden?
-        if (-not $script:CacheRebuildJob) {
+        if (-not (Get-Variable -Name 'CacheRebuildJob' -Scope Script -ErrorAction SilentlyContinue)) {
             return [PSCustomObject]@{
                 Status = "NotStarted"
                 Progress = 0
@@ -621,7 +687,7 @@ function Stop-CacheRebuildJob {
     param()
     
     try {
-        if (-not $script:CacheRebuildJob) {
+        if (-not (Get-Variable -Name 'CacheRebuildJob' -Scope Script -ErrorAction SilentlyContinue)) {
             Write-Verbose "Kein Cache-Rebuild Job aktiv"
             return $false
         }
