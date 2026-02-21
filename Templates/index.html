@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foto Viewer V2 - Phase 4.1</title>
+    {{STYLES}}
+</head>
+<body>
+    <div class="tooltip" id="tooltip"></div>
+    
+    <div class="sidebar">
+        <div class="sidebar-row">
+            <button class="sidebar-btn status-btn" id="statusBtn" data-tooltip="Server läuft">
+                <span class="status-dot"></span>
+            </button>
+            <button class="sidebar-btn power-btn" onclick="shutdownServer()" data-tooltip="Server beenden">
+                ⏻
+            </button>
+        </div>
+        <div class="sidebar-row sidebar-row-triple">
+            <button class="sidebar-btn size-btn size-small active" onclick="setThumbSize('small')" data-tooltip="Klein (150px)">
+                <span class="size-dots one-dot"><span class="dot"></span></span>
+            </button>
+            <button class="sidebar-btn size-btn size-medium" onclick="setThumbSize('medium')" data-tooltip="Mittel (200px)">
+                <span class="size-dots two-dots"><span class="dot"></span><span class="dot"></span></span>
+            </button>
+            <button class="sidebar-btn size-btn size-large" onclick="setThumbSize('large')" data-tooltip="Groß (300px)">
+                <span class="size-dots three-dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+            </button>
+        </div>
+        <div class="sidebar-row">
+            <button class="sidebar-btn folder-btn" onclick="changeRoot()" data-tooltip="Ordner wechseln">
+                📂
+            </button>
+        </div>
+        <div class="sidebar-row">
+            <button class="sidebar-btn tools-btn" onclick="openTools()" data-tooltip="Tools">
+                🛠️
+            </button>
+        </div>
+        <div class="sidebar-row">
+            <button class="sidebar-btn settings-btn" onclick="openSettings()" data-tooltip="Einstellungen">
+                ⚙️
+            </button>
+        </div>
+        <div class="sidebar-row">
+            <button class="sidebar-btn" id="reviewModeBtn" onclick="toggleReviewMode()" data-tooltip="Review-Modus" style="background: linear-gradient(135deg, #a0aec0 0%, #718096 100%); color: white; font-size: 1.5em;">
+                ☑
+            </button>
+        </div>
+    </div>
+    
+    <div class="floating-action-bar" id="floatingActionBar">
+        <button class="action-bar-btn action-bar-btn-select" onclick="selectAll()">
+            <span>☑</span>
+            <span>Alle</span>
+        </button>
+        <button class="action-bar-btn action-bar-btn-deselect" onclick="selectNone()">
+            <span>☐</span>
+            <span>Keine</span>
+        </button>
+        <button class="action-bar-btn action-bar-btn-invert" onclick="invertSelection()">
+            <span>⇆</span>
+            <span>Invertieren</span>
+        </button>
+        <div class="action-bar-count" id="selectedCount">0 ausgewählt</div>
+        <button class="action-bar-btn action-bar-btn-delete" onclick="deleteSelected()">
+            <span>🗑️</span>
+            <span>Löschen</span>
+        </button>
+    </div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>Foto Viewer V2</h1>
+            <span class="phase-badge">Phase 4.1: Tools-Menü</span>
+        </div>
+        
+        <div class="folder-list">
+{{FOLDER_CARDS}}
+        </div>
+    </div>
+    
+    <div class="overlay" id="toolsOverlay">
+        <div class="overlay-content">
+            <div class="overlay-header">
+                <div class="overlay-title">
+                    <span>🧰</span>
+                    <span>Tools</span>
+                </div>
+                <button class="overlay-close" onclick="closeTools()">×</button>
+            </div>
+            
+            <div class="overlay-section">
+                <div class="overlay-section-title">📊 Cache-Statistik</div>
+                <button class="overlay-button" onclick="getCacheStats()">
+                    <span>📈</span>
+                    <span>Statistik anzeigen</span>
+                </button>
+                <div id="statsResult"></div>
+            </div>
+            
+            <div class="overlay-section">
+                <div class="overlay-section-title">📂 .thumbs Ordner verwalten</div>
+                <button class="overlay-button" onclick="listThumbs()">
+                    <span>📋</span>
+                    <span>Liste laden</span>
+                </button>
+                <div id="thumbsList"></div>
+            </div>
+            
+            <div class="overlay-section">
+                <div class="overlay-section-title">🗑️ Alle löschen</div>
+                <button class="overlay-button danger" onclick="deleteAllThumbs()">
+                    <span>🗑️</span>
+                    <span>ALLE .thumbs löschen</span>
+                </button>
+                <div class="overlay-info">
+                    ⚠️ Löscht alle .thumbs Ordner im gesamten Root rekursiv!
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overlay" id="settingsOverlay">
+        <div class="overlay-content">
+            <div class="overlay-header">
+                <div class="overlay-title">
+                    <span>⚙️</span>
+                    <span>Einstellungen</span>
+                </div>
+                <button class="overlay-close" onclick="closeSettings()">×</button>
+            </div>
+            
+            <div class="overlay-body">
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🌐 Server</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Port</label>
+                        <input type="number" class="settings-input" id="setting-server-port" min="1000" max="65535">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Host</label>
+                        <input type="text" class="settings-input" id="setting-server-host">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-server-autoopen">
+                            <label class="settings-checkbox-label" for="setting-server-autoopen">Browser automatisch öffnen</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">📁 Medien</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Bild-Dateitypen (mit ; trennen)</label>
+                        <input type="text" class="settings-input" id="setting-media-images" placeholder=".jpg;.png;.gif">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Video-Dateitypen (mit ; trennen)</label>
+                        <input type="text" class="settings-input" id="setting-media-videos" placeholder=".mp4;.mov;.avi">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🎬 Video</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Thumbnail-Qualität</label>
+                        <input type="number" class="settings-input" id="setting-video-quality" min="1" max="100">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-autoconvert">
+                            <label class="settings-checkbox-label" for="setting-video-autoconvert">Auto-Konvertierung aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Bevorzugter Video-Codec</label>
+                        <select class="settings-input" id="setting-video-codec">
+                            <option value="h264">H.264</option>
+                            <option value="h265">H.265 (HEVC)</option>
+                            <option value="vp9">VP9</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Konvertierungs-Preset</label>
+                        <select class="settings-input" id="setting-video-preset">
+                            <option value="fast">Schnell</option>
+                            <option value="medium">Mittel</option>
+                            <option value="slow">Langsam (beste Qualität)</option>
+                        </select>
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <label class="settings-label">Anzahl Thumbnails pro Video</label>
+                        <input type="number" class="settings-input" id="setting-video-thumbcount" min="1" max="20">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Thumbnails pro Sekunde (FPS)</label>
+                        <input type="number" class="settings-input" id="setting-video-thumbfps" min="1" max="10">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label" style="margin-bottom: 8px;">Zeitbereich (% der Video-Dauer)</label>
+                        <div class="settings-row">
+                            <div class="settings-group">
+                                <label class="settings-label" style="font-size: 12px; color: #aaa;">Von</label>
+                                <input type="number" class="settings-input" id="setting-video-thumbstart" min="0" max="100">
+                            </div>
+                            <div class="settings-group">
+                                <label class="settings-label" style="font-size: 12px; color: #aaa;">Bis</label>
+                                <input type="number" class="settings-input" id="setting-video-thumbend" min="0" max="100">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-hls">
+                            <label class="settings-checkbox-label" for="setting-video-hls">HLS Streaming aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">HLS Segment-Länge (Sekunden)</label>
+                        <input type="number" class="settings-input" id="setting-video-hlssegment" min="5" max="30">
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifpreview">
+                            <label class="settings-checkbox-label" for="setting-video-gifpreview">Video-Vorschau als animiertes GIF</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">GIF-Länge (Sekunden)</label>
+                        <input type="number" class="settings-input" id="setting-video-gifduration" min="1" max="10">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">GIF Bilder pro Sekunde (FPS)</label>
+                        <input type="number" class="settings-input" id="setting-video-gifframerate" min="5" max="30">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifloop">
+                            <label class="settings-checkbox-label" for="setting-video-gifloop">GIF endlos wiederholen</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🎨 Oberfläche</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <label class="settings-label">Farbschema</label>
+                        <select class="settings-input" id="setting-ui-theme" disabled>
+                            <option value="light">Hell (Standard)</option>
+                            <option value="dark">Dunkel (in Entwicklung)</option>
+                        </select>
+                        <div style="font-size: 11px; color: #888; margin-top: 4px;">Momentan nur helles Design verfügbar</div>
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <label class="settings-label">Standard Thumbnail-Größe beim Start</label>
+                        <select class="settings-input" id="setting-ui-defaultsize">
+                            <option value="small">Klein</option>
+                            <option value="medium">Mittel</option>
+                            <option value="large">Groß</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Thumbnail-Größe Mittel (px)</label>
+                        <input type="number" class="settings-input" id="setting-ui-thumbsize" min="100" max="400">
+                        <div style="font-size: 11px; color: #888; margin-top: 4px;">Klein = 75%, Groß = 150%</div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Grid-Spalten</label>
+                        <input type="number" class="settings-input" id="setting-ui-columns" min="2" max="12">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Anzahl Vorschau-Thumbnails</label>
+                        <input type="number" class="settings-input" id="setting-ui-previewcount" min="1" max="20">
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showmetadata">
+                            <label class="settings-checkbox-label" for="setting-ui-showmetadata">Video-Metadaten anzeigen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showcodec">
+                            <label class="settings-checkbox-label" for="setting-ui-showcodec">Video-Codec anzeigen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showduration">
+                            <label class="settings-checkbox-label" for="setting-ui-showduration">Video-Dauer anzeigen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-ui-showcompat">
+                            <label class="settings-checkbox-label" for="setting-ui-showcompat">Browser-Kompatibilität anzeigen</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">⚡ Performance</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-perf-parallel">
+                            <label class="settings-checkbox-label" for="setting-perf-parallel">Parallel-Processing (PS7+)</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Max. Parallele Jobs</label>
+                        <input type="number" class="settings-input" id="setting-perf-maxjobs" min="1" max="32">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-perf-cache">
+                            <label class="settings-checkbox-label" for="setting-perf-cache">Thumbnails cachen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-perf-lazy">
+                            <label class="settings-checkbox-label" for="setting-perf-lazy">Lazy Loading</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Lösch-Job Timeout (Sekunden)</label>
+                        <input type="number" class="settings-input" id="setting-perf-timeout" min="1" max="60">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">🗑️ Datei-Operationen</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-recycle">
+                            <label class="settings-checkbox-label" for="setting-file-recycle">Papierkorb verwenden</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-confirm">
+                            <label class="settings-checkbox-label" for="setting-file-confirm">Löschen bestätigen</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-move">
+                            <label class="settings-checkbox-label" for="setting-file-move">Dateien verschieben aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-flatten">
+                            <label class="settings-checkbox-label" for="setting-file-flatten">Flatten & Move aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-file-range">
+                            <label class="settings-checkbox-label" for="setting-file-range">Range-Request Unterstützung (Video-Streaming)</label>
+                        </div>
+                    </div>
+                                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">💾 Cache</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-cache-scan">
+                            <label class="settings-checkbox-label" for="setting-cache-scan">Scan-Cache verwenden</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Cache-Ordner</label>
+                        <input type="text" class="settings-input" id="setting-cache-folder" placeholder=".cache">
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-cache-videometa">
+                            <label class="settings-checkbox-label" for="setting-cache-videometa">Video-Metadaten cachen</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-category">
+                <div class="settings-category-header" onclick="toggleCategory(this)">
+                    <span class="settings-category-title">✨ Features</span>
+                    <span class="settings-category-toggle">▼</span>
+                </div>
+                <div class="settings-category-content">
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-archive">
+                            <label class="settings-checkbox-label" for="setting-feat-archive">Archiv-Extraktion aktivieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Archiv-Dateitypen (mit ; trennen)</label>
+                        <input type="text" class="settings-input" id="setting-feat-archiveext" placeholder=".zip;.rar;.7z">
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-thumbpre">
+                            <label class="settings-checkbox-label" for="setting-feat-thumbpre">Video-Thumbnails vorab generieren</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-lazyconv">
+                            <label class="settings-checkbox-label" for="setting-feat-lazyconv">Lazy Video-Konvertierung</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-vlc">
+                            <label class="settings-checkbox-label" for="setting-feat-vlc">In VLC öffnen</label>
+                        </div>
+                    </div>
+                    <div style="height: 12px;"></div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-collapse">
+                            <label class="settings-checkbox-label" for="setting-feat-collapse">Ordner einklappbar</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-lightbox">
+                            <label class="settings-checkbox-label" for="setting-feat-lightbox">Lightbox-Viewer</label>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <div class="settings-checkbox-wrapper">
+                            <input type="checkbox" class="settings-checkbox" id="setting-feat-keyboard">
+                            <label class="settings-checkbox-label" for="setting-feat-keyboard">Tastatur-Navigation</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
+            
+            <div class="settings-actions">
+                <button class="settings-btn settings-btn-secondary" onclick="closeSettings()">Abbrechen</button>
+                <button class="settings-btn settings-btn-secondary" onclick="resetSettings()">Standard wiederherstellen</button>
+                <button class="settings-btn settings-btn-primary" onclick="saveSettings()">Speichern</button>
+            </div>
+        </div>
+    </div>
+    
+    {{SCRIPTS}}
+</body>
+</html>
