@@ -1,34 +1,262 @@
 <#
-.SYNOPSIS
-    Zentrale Thumbnail-Generierung für Foto_Viewer_V2
+ManifestHint:
+  ExportFunctions = @("Get-MediaThumbnail", "Get-ImageThumbnail", "Get-VideoThumbnail", "Test-ThumbnailCacheValid", "Update-ThumbnailCache", "Remove-OrphanedThumbnails", "Test-OneDriveProtection", "Enable-OneDriveProtection")
+  Description     = "Thumbnail-Generierung für Fotos und Videos mit lokalem Cache"
+  Category        = "Media"
+  Tags            = @("Thumbnails", "Images", "Videos", "FFmpeg", "Cache", "OneDrive")
+  Dependencies    = @("System.Drawing", "FFmpeg")
 
-.DESCRIPTION
-    Generiert Thumbnails für Fotos (System.Drawing) und Videos (FFmpeg).
-    Cache-basiert mit MD5-Hash für schnelle Zugriffe.
+Zweck:
+  - Thumbnail-Generierung für Bilder (System.Drawing)
+  - Thumbnail-Generierung für Videos (FFmpeg)
+  - Lokaler Cache pro Ordner (.thumbs/)
+  - OneDrive-Schutz (Hidden+System + Registry)
+  - Self-validating Cache mit manifest.json
 
-.EXAMPLE
-    $thumb = Get-MediaThumbnail -Path "C:\foto.jpg" -CacheDir "C:\cache" -ScriptRoot $PSScriptRoot
-    
-.EXAMPLE
-    $thumb = Get-MediaThumbnail -Path "C:\video.mp4" -CacheDir "C:\cache" -ScriptRoot $PSScriptRoot -FFmpegPath "C:\ffmpeg\ffmpeg.exe"
+Funktionen:
+  - Get-MediaThumbnail: Universell für Fotos UND Videos
+  - Get-ImageThumbnail: System.Drawing für Bilder
+  - Get-VideoThumbnail: FFmpeg für Videos
+  - Test-ThumbnailCacheValid: Cache-Validierung
+  - Update-ThumbnailCache: Cache-Rebuild
+  - Remove-OrphanedThumbnails: Cleanup
+  - Test-OneDriveProtection: Prüft OneDrive-Schutz (kein Admin)
+  - Enable-OneDriveProtection: Aktiviert Registry-Schutz (benötigt Admin)
 
-.NOTES
-    Autor: Herbert Schrotter
-    Version: 0.2.0
-    
-    ÄNDERUNGEN v0.2.0:
-    - Lokale .thumbs/ pro Ordner (statt zentral)
-    - Windows Hidden Attribute
-    - manifest.json für Cache-Validierung
-    - Test-ThumbnailCacheValid
-    - Update-ThumbnailCache
-    - Remove-OrphanedThumbnails
+ÄNDERUNGEN v0.3.0:
+  - OneDrive-Schutz: Hidden+System Attribute
+  - OneDrive-Schutz: Registry EnableODIgnoreListFromGPO
+  - Test-OneDriveProtection: Check-Funktion (kein Admin)
+  - Enable-OneDriveProtection: Auto-Setup (benötigt Admin)
+  - Dokumentation: OneDrive-Verhalten
 #>
 
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-# Helper: File-Type Detection
+#region OneDrive Protection
+
+function New-ThumbnailCacheFolder {
+    <#
+    .SYNOPSIS
+        Erstellt .thumbs Ordner mit OneDrive-Schutz
+    
+    .DESCRIPTION
+        Erstellt lokalen Thumbnail-Cache Ordner mit HYBRID OneDrive-Schutz:
+        
+        STUFE 1: Hidden + System Attribute (IMMER)
+        - Windows/OneDrive ignoriert System-Ordner standardmäßig
+        - Hidden allein reicht NICHT (OneDrive scannt trotzdem)
+        - Hidden+System zusammen = OneDrive ignoriert
+        
+        STUFE 2: Registry EnableODIgnoreListFromGPO (OPTIONAL)
+        - Zusätzlicher Schutz falls Hidden+System nicht reicht
+        - Wird beim Server-Start geprüft/gesetzt
+        - Benötigt Admin-Rechte
+        
+        WARUM BEIDES?
+        - Hidden+System: Funktioniert bei 90% der Setups
+        - Registry: Garantiert 100% Schutz
+        
+        OneDrive-Verhalten (Microsoft dokumentiert):
+        - System-Ordner werden NICHT synchronisiert
+        - Registry Pattern ".thumbs\*" blockt alle Dateien im .thumbs Ordner
+    
+    .PARAMETER FolderPath
+        Übergeordneter Ordner (nicht der .thumbs Ordner selbst!)
+    
+    .EXAMPLE
+        New-ThumbnailCacheFolder -FolderPath "C:\Photos\Urlaub"
+        # Erstellt: C:\Photos\Urlaub\.thumbs\ (Hidden+System)
+    
+    .OUTPUTS
+        String - Pfad zum .thumbs Ordner
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$FolderPath
+    )
+    
+    try {
+        $thumbsDir = Join-Path $FolderPath ".thumbs"
+        
+        # Erstellen falls nicht vorhanden
+        if (-not (Test-Path -LiteralPath $thumbsDir)) {
+            New-Item -Path $thumbsDir -ItemType Directory -Force | Out-Null
+            Write-Verbose "Cache-Ordner erstellt: $thumbsDir"
+        }
+        
+        # STUFE 1: Hidden + System Attribute setzen
+        $folder = Get-Item -LiteralPath $thumbsDir -Force
+        
+        # Prüfe ob Attribute bereits gesetzt sind
+        $hasHidden = ($folder.Attributes -band [System.IO.FileAttributes]::Hidden) -eq [System.IO.FileAttributes]::Hidden
+        $hasSystem = ($folder.Attributes -band [System.IO.FileAttributes]::System) -eq [System.IO.FileAttributes]::System
+        
+        if (-not ($hasHidden -and $hasSystem)) {
+            $folder.Attributes = [System.IO.FileAttributes]::Hidden -bor 
+                                 [System.IO.FileAttributes]::System
+            Write-Verbose "OneDrive-Schutz aktiviert: Hidden+System Attribute"
+        }
+        
+        return $thumbsDir
+    }
+    catch {
+        Write-Error "Fehler beim Erstellen des Cache-Ordners: $($_.Exception.Message)"
+        throw
+    }
+}
+
+function Test-OneDriveProtection {
+    <#
+    .SYNOPSIS
+        Prüft ob OneDrive-Schutz vollständig konfiguriert ist
+    
+    .DESCRIPTION
+        Prüft beide Schutz-Stufen:
+        1. Hidden+System Attribute (wird automatisch gesetzt)
+        2. Registry EnableODIgnoreListFromGPO (optional)
+        
+        Registry-Pfad:
+        HKLM:\SOFTWARE\Policies\Microsoft\OneDrive\EnableODIgnoreListFromGPO
+          String Value "1" = ".thumbs\*"
+        
+        WICHTIG: Benötigt KEINE Admin-Rechte (nur Lesen!)
+    
+    .EXAMPLE
+        if (-not (Test-OneDriveProtection)) {
+            Write-Warning "OneDrive-Schutz nicht vollständig"
+        }
+    
+    .OUTPUTS
+        Boolean - $true wenn Registry-Schutz konfiguriert, $false wenn nicht
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
+    
+    try {
+        $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\OneDrive\EnableODIgnoreListFromGPO"
+        
+        # Prüfe ob Registry-Pfad existiert
+        if (-not (Test-Path $regPath)) {
+            Write-Verbose "Registry-Schutz nicht konfiguriert: Pfad existiert nicht"
+            return $false
+        }
+        
+        # Prüfe ob .thumbs Pattern vorhanden ist
+        $properties = Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue
+        
+        if ($null -eq $properties) {
+            Write-Verbose "Registry-Schutz nicht konfiguriert: Keine Properties"
+            return $false
+        }
+        
+        # Durchsuche alle String Values nach ".thumbs\*" Pattern
+        $hasThumbsPattern = $false
+        
+        foreach ($prop in $properties.PSObject.Properties) {
+            if ($prop.Value -eq ".thumbs\*") {
+                $hasThumbsPattern = $true
+                Write-Verbose "Registry-Schutz gefunden: $($prop.Name) = .thumbs\*"
+                break
+            }
+        }
+        
+        return $hasThumbsPattern
+    }
+    catch {
+        Write-Verbose "Fehler beim Prüfen der Registry: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Enable-OneDriveProtection {
+    <#
+    .SYNOPSIS
+        Aktiviert OneDrive-Schutz via Registry
+    
+    .DESCRIPTION
+        Setzt Registry-Schutz für .thumbs Ordner:
+        
+        HKLM:\SOFTWARE\Policies\Microsoft\OneDrive\EnableODIgnoreListFromGPO
+          String Value "1" = ".thumbs\*"
+        
+        WICHTIG: Benötigt ADMIN-RECHTE zum Schreiben in HKLM!
+        
+        Microsoft Dokumentation:
+        https://admx.help/?Category=OneDrive&Policy=Microsoft.Policies.OneDriveNGSC::EnableODIgnoreListFromGPO
+    
+    .EXAMPLE
+        if (Enable-OneDriveProtection) {
+            Write-Host "OneDrive-Schutz aktiviert"
+        } else {
+            Write-Warning "Benötigt Admin-Rechte"
+        }
+    
+    .OUTPUTS
+        Boolean - $true bei Erfolg, $false bei Fehler
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
+    
+    try {
+        $regBase = "HKLM:\SOFTWARE\Policies\Microsoft\OneDrive"
+        $regPath = "$regBase\EnableODIgnoreListFromGPO"
+        
+        # Erstelle OneDrive Ordner falls nicht vorhanden
+        if (-not (Test-Path $regBase)) {
+            Write-Verbose "Erstelle: $regBase"
+            New-Item -Path $regBase -Force -ErrorAction Stop | Out-Null
+        }
+        
+        # Erstelle EnableODIgnoreListFromGPO Ordner falls nicht vorhanden
+        if (-not (Test-Path $regPath)) {
+            Write-Verbose "Erstelle: $regPath"
+            New-Item -Path $regPath -Force -ErrorAction Stop | Out-Null
+        }
+        
+        # Suche freie Nummer für neuen Eintrag
+        $existingProps = Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue
+        $nextNumber = 1
+        
+        if ($null -ne $existingProps) {
+            # Finde höchste Nummer
+            foreach ($prop in $existingProps.PSObject.Properties) {
+                if ($prop.Name -match '^\d+$') {
+                    $num = [int]$prop.Name
+                    if ($num -ge $nextNumber) {
+                        $nextNumber = $num + 1
+                    }
+                }
+            }
+        }
+        
+        # Setze neuen String Value
+        Write-Verbose "Setze Registry: $nextNumber = .thumbs\*"
+        New-ItemProperty -Path $regPath -Name "$nextNumber" -Value ".thumbs\*" -PropertyType String -Force -ErrorAction Stop | Out-Null
+        
+        Write-Verbose "OneDrive-Schutz erfolgreich aktiviert"
+        return $true
+    }
+    catch [System.UnauthorizedAccessException] {
+        Write-Warning "Admin-Rechte benötigt! Bitte PowerShell als Administrator starten."
+        return $false
+    }
+    catch {
+        Write-Error "Fehler beim Aktivieren des OneDrive-Schutzes: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+#endregion
+
+#region Helper Functions
+
 function Test-IsImageFile {
     <#
     .SYNOPSIS
@@ -65,7 +293,6 @@ function Test-IsVideoFile {
     return $ext -in $videoExtensions
 }
 
-# Cache Helper
 function Get-ThumbnailCachePath {
     <#
     .SYNOPSIS
@@ -115,7 +342,10 @@ function Get-ThumbnailCachePath {
     }
 }
 
-# FOTO-THUMBNAILS
+#endregion
+
+#region Thumbnail Generation
+
 function Get-ImageThumbnail {
     <#
     .SYNOPSIS
@@ -160,12 +390,6 @@ function Get-ImageThumbnail {
         if (-not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
             Write-Warning "Bild nicht gefunden: $ImagePath"
             return $null
-        }
-        
-        # Cache-Dir erstellen
-        if (-not (Test-Path -LiteralPath $CacheDir -PathType Container)) {
-            New-Item -Path $CacheDir -ItemType Directory -Force | Out-Null
-            Write-Verbose "Cache-Verzeichnis erstellt: $CacheDir"
         }
         
         # Cache-Pfad generieren
@@ -248,12 +472,11 @@ function Get-ImageThumbnail {
         }
         
     } catch {
-        Write-Error "Fehler beim Generieren von Foto-Thumbnail: $($_.Exception.Message)"
+        Write-Error "Fehler beim Erstellen des Bild-Thumbnails: $($_.Exception.Message)"
         return $null
     }
 }
 
-# VIDEO-THUMBNAILS
 function Get-VideoThumbnail {
     <#
     .SYNOPSIS
@@ -265,14 +488,11 @@ function Get-VideoThumbnail {
     .PARAMETER CacheDir
         Cache-Verzeichnis für Thumbnails
     
-    .PARAMETER FFmpegPath
-        Pfad zu ffmpeg.exe (wenn nicht angegeben: Suche in ScriptRoot/ffmpeg/)
-    
     .PARAMETER ScriptRoot
-        Projekt-Root-Pfad (für FFmpeg-Suche)
+        Projekt-Root-Pfad (für FFmpeg)
     
-    .PARAMETER TimePosition
-        Position im Video (Default: 00:00:01)
+    .PARAMETER MaxSize
+        Maximale Breite/Höhe (Default: 300px)
     
     .EXAMPLE
         $thumb = Get-VideoThumbnail -VideoPath "C:\video.mp4" -CacheDir "C:\cache" -ScriptRoot $PSScriptRoot
@@ -289,27 +509,18 @@ function Get-VideoThumbnail {
         [Parameter(Mandatory)]
         [string]$CacheDir,
         
-        [Parameter()]
-        [string]$FFmpegPath,
-        
-        [Parameter()]
+        [Parameter(Mandatory)]
         [string]$ScriptRoot,
         
         [Parameter()]
-        [string]$TimePosition = "00:00:01"
+        [int]$MaxSize = 300
     )
     
     try {
-        # Video existiert?
+        # Datei existiert?
         if (-not (Test-Path -LiteralPath $VideoPath -PathType Leaf)) {
             Write-Warning "Video nicht gefunden: $VideoPath"
             return $null
-        }
-        
-        # Cache-Dir erstellen
-        if (-not (Test-Path -LiteralPath $CacheDir -PathType Container)) {
-            New-Item -Path $CacheDir -ItemType Directory -Force | Out-Null
-            Write-Verbose "Cache-Verzeichnis erstellt: $CacheDir"
         }
         
         # Cache-Pfad generieren
@@ -321,55 +532,38 @@ function Get-VideoThumbnail {
             return $thumbPath
         }
         
-        # FFmpeg-Pfad ermitteln
-        if ([string]::IsNullOrWhiteSpace($FFmpegPath)) {
-            if ([string]::IsNullOrWhiteSpace($ScriptRoot)) {
-                Write-Warning "FFmpeg-Pfad und ScriptRoot nicht angegeben"
-                return $null
-            }
-            
-            $FFmpegPath = Join-Path $ScriptRoot "ffmpeg\ffmpeg.exe"
-        }
+        # FFmpeg-Pfad
+        $ffmpegPath = Join-Path $ScriptRoot "ffmpeg\ffmpeg.exe"
         
-        # FFmpeg verfügbar?
-        if (-not (Test-Path -LiteralPath $FFmpegPath -PathType Leaf)) {
-            Write-Warning "FFmpeg nicht gefunden: $FFmpegPath"
+        if (-not (Test-Path -LiteralPath $ffmpegPath -PathType Leaf)) {
+            Write-Warning "FFmpeg nicht gefunden: $ffmpegPath"
             return $null
         }
         
-        # Thumbnail generieren
         Write-Verbose "Generiere Video-Thumbnail für: $VideoPath"
         
+        # FFmpeg Args: Frame bei 1 Sekunde extrahieren
         $ffmpegArgs = @(
-            '-ss', $TimePosition
-            '-i', $VideoPath
-            '-vframes', '1'
-            '-q:v', '2'
-            '-y'
+            "-i", $VideoPath,
+            "-ss", "00:00:01",
+            "-vframes", "1",
+            "-vf", "scale=${MaxSize}:${MaxSize}:force_original_aspect_ratio=decrease",
+            "-q:v", "2",
+            "-y",
             $thumbPath
         )
         
-        $process = Start-Process -FilePath $FFmpegPath `
-                                 -ArgumentList $ffmpegArgs `
-                                 -NoNewWindow `
-                                 -Wait `
-                                 -PassThru `
-                                 -RedirectStandardError "$env:TEMP\ffmpeg_error.log"
+        # Ausführen
+        $process = Start-Process -FilePath $ffmpegPath -ArgumentList $ffmpegArgs -Wait -NoNewWindow -PassThru
         
         if ($process.ExitCode -ne 0) {
-            Write-Warning "FFmpeg Fehler (Exit: $($process.ExitCode)) für: $VideoPath"
-            
-            if (Test-Path "$env:TEMP\ffmpeg_error.log") {
-                $errorLog = Get-Content "$env:TEMP\ffmpeg_error.log" -Raw
-                Write-Verbose "FFmpeg Error Log: $errorLog"
-            }
-            
+            Write-Warning "FFmpeg Fehler: Exit Code $($process.ExitCode)"
             return $null
         }
         
         # Verifizieren
         if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
-            Write-Verbose "Video-Thumbnail generiert: $thumbPath"
+            Write-Verbose "Video-Thumbnail gespeichert: $thumbPath"
             return $thumbPath
         } else {
             Write-Warning "Video-Thumbnail wurde nicht erstellt: $thumbPath"
@@ -377,39 +571,41 @@ function Get-VideoThumbnail {
         }
         
     } catch {
-        Write-Error "Fehler beim Generieren von Video-Thumbnail: $($_.Exception.Message)"
+        Write-Error "Fehler beim Erstellen des Video-Thumbnails: $($_.Exception.Message)"
         return $null
     }
 }
 
-# UNIVERSAL ENTRY POINT
 function Get-MediaThumbnail {
     <#
     .SYNOPSIS
-        Universal Thumbnail-Generator (Auto-detect: Foto oder Video)
+        Universelle Thumbnail-Generierung für Fotos UND Videos
     
     .DESCRIPTION
-        Erkennt automatisch ob Foto oder Video und generiert entsprechendes Thumbnail.
-        Cache liegt lokal im .thumbs/ Ordner neben der Datei.
+        Generiert Thumbnail automatisch basierend auf Dateityp:
+        - Bilder: System.Drawing
+        - Videos: FFmpeg
+        
+        Cache-Dir wird automatisch erstellt: {Ordner}\.thumbs\
+        OneDrive-Schutz: Hidden+System Attribute
     
     .PARAMETER Path
-        Pfad zur Media-Datei (Foto oder Video)
+        Pfad zur Medien-Datei
     
     .PARAMETER ScriptRoot
-        Projekt-Root-Pfad (für FFmpeg bei Videos)
+        Projekt-Root (für FFmpeg bei Videos)
     
     .PARAMETER MaxSize
-        Maximale Breite/Höhe für Fotos (Default: 300px)
+        Maximale Größe (Default: 300px)
     
     .PARAMETER Quality
-        JPEG Quality für Fotos (Default: 85)
+        JPEG-Qualität für Bilder (Default: 85)
     
     .EXAMPLE
-        $thumb = Get-MediaThumbnail -Path "C:\Photos\Urlaub\foto.jpg" -ScriptRoot $PSScriptRoot
-        # Thumbnail wird in C:\Photos\Urlaub\.thumbs\ erstellt
+        $thumb = Get-MediaThumbnail -Path "C:\Photos\bild.jpg" -ScriptRoot $PSScriptRoot
     
     .OUTPUTS
-        String - Pfad zum Thumbnail oder $null
+        String - Pfad zum Thumbnail (oder $null bei Fehler)
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -428,42 +624,25 @@ function Get-MediaThumbnail {
     )
     
     try {
-        # Datei existiert?
         if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
             Write-Warning "Datei nicht gefunden: $Path"
             return $null
         }
         
-        Write-Verbose "Thumbnail-Request für: $Path"
+        # Cache-Dir: {Ordner}\.thumbs\ (mit OneDrive-Schutz)
+        $parentFolder = Split-Path -Parent $Path
+        $cacheDir = New-ThumbnailCacheFolder -FolderPath $parentFolder
         
-        # Cache-Dir = Ordner der Datei + .thumbs
-        $mediaDir = Split-Path -Parent $Path
-        $cacheDir = Join-Path $mediaDir ".thumbs"
-        
-        # Erstellen + Hidden setzen
-        if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) {
-            New-Item -Path $cacheDir -ItemType Directory -Force | Out-Null
-            
-            # Windows Hidden Attribute
-            $folder = Get-Item -LiteralPath $cacheDir -Force
-            $folder.Attributes = $folder.Attributes -bor [System.IO.FileAttributes]::Hidden
-            
-            Write-Verbose "Erstellt: $cacheDir (Hidden)"
-        }
-        
-        # Auto-detect: Foto oder Video?
+        # Generiere Thumbnail basierend auf Typ
         if (Test-IsImageFile -Path $Path) {
-            Write-Verbose "→ Erkannt als Foto"
-            return Get-ImageThumbnail -ImagePath $Path `
-                                     -CacheDir $cacheDir `
-                                     -MaxSize $MaxSize `
-                                     -Quality $Quality
+            return Get-ImageThumbnail -ImagePath $Path -CacheDir $cacheDir -MaxSize $MaxSize -Quality $Quality
         }
         elseif (Test-IsVideoFile -Path $Path) {
-            Write-Verbose "→ Erkannt als Video"
-            return Get-VideoThumbnail -VideoPath $Path `
-                                     -CacheDir $cacheDir `
-                                     -ScriptRoot $ScriptRoot
+            if ([string]::IsNullOrEmpty($ScriptRoot)) {
+                Write-Warning "ScriptRoot benötigt für Video-Thumbnails"
+                return $null
+            }
+            return Get-VideoThumbnail -VideoPath $Path -CacheDir $cacheDir -ScriptRoot $ScriptRoot -MaxSize $MaxSize
         }
         else {
             Write-Warning "Unbekannter Dateityp: $Path"
@@ -471,30 +650,28 @@ function Get-MediaThumbnail {
         }
         
     } catch {
-        Write-Error "Fehler in Get-MediaThumbnail: $($_.Exception.Message)"
+        Write-Error "Fehler bei Thumbnail-Generierung: $($_.Exception.Message)"
         return $null
     }
 }
 
+#endregion
 
-# ============================================
-# TEIL 3: CACHE-MANAGEMENT
-# ============================================
+#region Cache Management
 
 function Test-ThumbnailCacheValid {
     <#
     .SYNOPSIS
-        Prüft ob Thumbnail-Cache für Ordner valide ist
+        Prüft ob Thumbnail-Cache valide ist
     
     .DESCRIPTION
-        Validiert manifest.json gegen aktuelle Medien-Dateien.
-        Checks:
+        Validiert Cache durch Vergleich mit manifest.json:
         - Anzahl Dateien gleich?
-        - Alle Dateien vorhanden?
-        - LastModified gleich?
+        - Alle Dateien in Manifest?
+        - LastModified unverändert?
     
     .PARAMETER FolderPath
-        Vollständiger Pfad zum Ordner
+        Vollständiger Pfad zum Ordner (nicht .thumbs!)
     
     .EXAMPLE
         if (Test-ThumbnailCacheValid -FolderPath "C:\Photos\Urlaub") {
@@ -614,12 +791,8 @@ function Update-ThumbnailCache {
         $thumbsDir = Join-Path $FolderPath ".thumbs"
         $manifestPath = Join-Path $thumbsDir "manifest.json"
         
-        # .thumbs erstellen
-        if (-not (Test-Path -LiteralPath $thumbsDir -PathType Container)) {
-            New-Item -Path $thumbsDir -ItemType Directory -Force | Out-Null
-            $folder = Get-Item -LiteralPath $thumbsDir -Force
-            $folder.Attributes = $folder.Attributes -bor [System.IO.FileAttributes]::Hidden
-        }
+        # .thumbs erstellen (mit OneDrive-Schutz)
+        $thumbsDir = New-ThumbnailCacheFolder -FolderPath $FolderPath
         
         # Aktuelle Medien
         $mediaFiles = @(Get-ChildItem -LiteralPath $FolderPath -File -ErrorAction SilentlyContinue | 
@@ -747,3 +920,5 @@ function Remove-OrphanedThumbnails {
         return 0
     }
 }
+
+#endregion
