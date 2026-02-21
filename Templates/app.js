@@ -27,9 +27,38 @@ function toggleSelect(event, checkbox) {
 }
 
 function updateSelectedCount() {
-    // Nur Checkboxen in expanded folders zählen
-    var count = document.querySelectorAll('.folder-card.expanded .media-checkbox:checked').length;
-    document.getElementById('selectedCount').textContent = count + ' ausgewählt';
+    // Ordner zählen
+    var folderCount = document.querySelectorAll('.folder-checkbox:checked').length;
+    
+    // Dateien zählen (alle, auch in geschlossenen Ordnern)
+    var fileCount = 0;
+    
+    document.querySelectorAll('.folder-checkbox:checked').forEach(function(fcb) {
+        var folderCard = fcb.closest('.folder-card');
+        var files = JSON.parse(folderCard.dataset.files);
+        fileCount += files.length;
+    });
+    
+    // Zusätzlich einzeln markierte Dateien in nicht-markierten Ordnern
+    document.querySelectorAll('.folder-card').forEach(function(card) {
+        var folderCheckbox = card.querySelector('.folder-checkbox');
+        if (!folderCheckbox.checked) {
+            var checkedMedia = card.querySelectorAll('.media-checkbox:checked').length;
+            fileCount += checkedMedia;
+        }
+    });
+    
+    var countDiv = document.getElementById('selectedCount');
+    
+    if (folderCount === 0 && fileCount === 0) {
+        countDiv.innerHTML = '0 ausgewählt';
+    } else if (folderCount > 0 && fileCount === 0) {
+        countDiv.innerHTML = folderCount + ' Ordner';
+    } else if (folderCount === 0 && fileCount > 0) {
+        countDiv.innerHTML = fileCount + ' Dateien';
+    } else {
+        countDiv.innerHTML = folderCount + ' Ordner<br>' + fileCount + ' Dateien';
+    }
 }
 
 function toggleFolderSelection(checkbox) {
