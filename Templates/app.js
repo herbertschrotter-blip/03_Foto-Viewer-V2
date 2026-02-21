@@ -59,11 +59,21 @@ function updateSelectedCount() {
     }
 }
 
+function updateActionBarVisibility() {
+    var hasExpandedFolders = document.querySelectorAll('.folder-card.expanded').length > 0;
+    var hasCheckedFolders = document.querySelectorAll('.folder-checkbox:checked').length > 0;
+    
+    if (hasExpandedFolders || hasCheckedFolders) {
+        document.getElementById('floatingActionBar').classList.add('show');
+    } else {
+        document.getElementById('floatingActionBar').classList.remove('show');
+    }
+}
+
 function toggleFolderSelection(checkbox) {
     var folderCard = checkbox.closest('.folder-card');
     var mediaGrid = folderCard.querySelector('.media-grid');
     
-    // Alle Media-Checkboxen im Ordner
     var mediaCheckboxes = mediaGrid.querySelectorAll('.media-checkbox');
     
     mediaCheckboxes.forEach(function(cb) {
@@ -77,6 +87,10 @@ function toggleFolderSelection(checkbox) {
     });
     
     updateSelectedCount();
+
+
+
+    updateActionBarVisibility();
 }
 
 function selectAll() {
@@ -92,6 +106,7 @@ function selectAll() {
     });
     
     updateSelectedCount();
+    updateActionBarVisibility();
 }
 
 function selectNone() {
@@ -107,6 +122,7 @@ function selectNone() {
     });
     
     updateSelectedCount();
+    updateActionBarVisibility();
 }
 
 function invertSelection() {
@@ -127,6 +143,7 @@ function invertSelection() {
     });
     
     updateSelectedCount();
+    updateActionBarVisibility();
 }
 
 async function deleteSelected() {
@@ -179,11 +196,7 @@ function toggleFolder(header) {
         grid.style.display = 'none';
         card.classList.remove('expanded');
         
-        // Action Bar verstecken wenn keine Ordner mehr offen
-        const hasExpandedFolders = document.querySelectorAll('.folder-card.expanded').length > 0;
-        if (!hasExpandedFolders) {
-            document.getElementById('floatingActionBar').classList.remove('show');
-        }
+        updateActionBarVisibility();
     } else {
         // ACCORDION: Schließe alle anderen Ordner
         document.querySelectorAll('.folder-card.expanded').forEach(function(otherCard) {
@@ -235,8 +248,7 @@ function toggleFolder(header) {
         }
         grid.style.display = 'grid';
         
-        // Action Bar automatisch anzeigen
-        document.getElementById('floatingActionBar').classList.add('show');
+        updateActionBarVisibility();
     }
 }
 
