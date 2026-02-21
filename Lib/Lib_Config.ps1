@@ -12,7 +12,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
 #>
 
 #Requires -Version 5.1
@@ -45,7 +45,7 @@ function Get-Config {
         }
         
         $json = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 -ErrorAction Stop
-        $config = $json | ConvertFrom-Json -ErrorAction Stop
+        $config = $json | ConvertFrom-Json -AsHashtable -ErrorAction Stop
         
         Write-Verbose "Config geladen: $configPath"
         return $config
@@ -68,7 +68,7 @@ function Get-DefaultConfig {
     [OutputType([PSCustomObject])]
     param()
     
-    return [PSCustomObject]@{
+        return @{
         Server = @{
             Port = 8888
             AutoOpenBrowser = $true
