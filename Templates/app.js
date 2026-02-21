@@ -128,9 +128,17 @@ function toggleFolder(header) {
     const isExpanded = card.classList.contains('expanded');
     
     if (isExpanded) {
+        // Ordner schließen
         grid.style.display = 'none';
         card.classList.remove('expanded');
+        
+        // Action Bar verstecken wenn keine Ordner mehr offen
+        const hasExpandedFolders = document.querySelectorAll('.folder-card.expanded').length > 0;
+        if (!hasExpandedFolders) {
+            document.getElementById('floatingActionBar').classList.remove('show');
+        }
     } else {
+        // Ordner öffnen
         card.classList.add('expanded');
         if (grid.children.length === 0) {
             const files = JSON.parse(card.dataset.files);
@@ -149,6 +157,9 @@ function toggleFolder(header) {
             });
         }
         grid.style.display = 'grid';
+        
+        // Action Bar automatisch anzeigen
+        document.getElementById('floatingActionBar').classList.add('show');
     }
 }
 
