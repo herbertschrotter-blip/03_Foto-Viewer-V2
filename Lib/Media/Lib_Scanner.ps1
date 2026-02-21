@@ -5,13 +5,20 @@
 .DESCRIPTION
     Scannt Ordner rekursiv nach Bildern und Videos.
     Gibt Liste mit Ordnern und Medien-Anzahl zurück.
+    Validiert/Rebuilded Thumbnail-Cache automatisch (OPTION B: EAGER).
 
 .EXAMPLE
-    $folders = Get-MediaFolders -RootPath "C:\Photos" -Extensions @(".jpg", ".mp4")
+    $folders = Get-MediaFolders -RootPath "C:\Photos" -Extensions @(".jpg", ".mp4") -ScriptRoot $PSScriptRoot
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
+    
+    ÄNDERUNGEN v0.2.0:
+    - Integration Thumbnail-Cache Validierung
+    - Auto-Rebuild bei invaliden Caches
+    - Orphan-Cleanup
+    - ScriptRoot Parameter für FFmpeg (Videos)
 #>
 
 #Requires -Version 5.1
@@ -64,8 +71,11 @@ function Get-MediaFolders {
     .PARAMETER Extensions
         Array mit Datei-Endungen (z.B. @(".jpg", ".mp4"))
     
+    .PARAMETER ScriptRoot
+        Projekt-Root-Pfad (für FFmpeg bei Video-Thumbnails)
+    
     .EXAMPLE
-        $folders = Get-MediaFolders -RootPath "C:\Photos" -Extensions @(".jpg", ".png", ".mp4")
+        $folders = Get-MediaFolders -RootPath "C:\Photos" -Extensions @(".jpg", ".png", ".mp4") -ScriptRoot $PSScriptRoot
     
     .OUTPUTS
         Array von PSCustomObjects mit:
@@ -81,7 +91,10 @@ function Get-MediaFolders {
         [string]$RootPath,
         
         [Parameter(Mandatory)]
-        [string[]]$Extensions
+        [string[]]$Extensions,
+        
+        [Parameter()]
+        [string]$ScriptRoot
     )
     
     try {
@@ -91,7 +104,7 @@ function Get-MediaFolders {
         
         $rootFull = [System.IO.Path]::GetFullPath($RootPath)
         
-                Write-Verbose "Scanne: $rootFull"
+        Write-Verbose "Scanne: $rootFull"
         Write-Verbose "Extensions: $($Extensions -join ', ')"
         
         # Ordner zählen für Progress
@@ -139,9 +152,56 @@ function Get-MediaFolders {
             }
         }
         
-                # Natural Sort nach RelativePath
+        # Natural Sort nach RelativePath
         $sorted = $result | Sort-Object -Property @{
             Expression = { ConvertTo-NaturalSortKey -InputString $_.RelativePath }
+        }
+        
+        # ============================================
+        # THUMBNAIL-CACHE VALIDIERUNG (OPTION B: EAGER)
+        # ============================================
+        
+        Write-Host "  → Validiere Thumbnail-Cache..." -ForegroundColor DarkGray
+        
+        # Lade Thumbnail-Lib (falls noch nicht geladen)
+        if (-not (Get-Command Update-ThumbnailCache -ErrorAction SilentlyContinue)) {
+            # Pfad zur Lib ermitteln (relativ zu diesem Script)
+            $libPath = Join-Path (Split-Path (Split-Path $PSScriptRoot)) "Lib\Media\Lib_Thumbnails.ps1"
+            
+            if (Test-Path -LiteralPath $libPath) {
+                . $libPath
+                Write-Verbose "Lib_Thumbnails.ps1 geladen"
+            } else {
+                Write-Warning "Lib_Thumbnails.ps1 nicht gefunden: $libPath"
+            }
+        }
+        
+        # Cache validieren/rebuilden für jeden Ordner
+        $cacheUpdated = 0
+        $cacheValid = 0
+        
+        if (Get-Command Test-ThumbnailCacheValid -ErrorAction SilentlyContinue) {
+            foreach ($folder in $sorted) {
+                if (-not (Test-ThumbnailCacheValid -FolderPath $folder.Path)) {
+                    Write-Verbose "Cache rebuild: $($folder.RelativePath)"
+                    
+                    $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize 300
+                    
+                    if ($generated -gt 0) {
+                        Remove-OrphanedThumbnails -FolderPath $folder.Path
+                        $cacheUpdated++
+                    }
+                } else {
+                    $cacheValid++
+                }
+            }
+            
+            if ($cacheUpdated -gt 0) {
+                Write-Host "  → Cache aktualisiert: $cacheUpdated Ordner" -ForegroundColor Green
+            }
+            if ($cacheValid -gt 0) {
+                Write-Verbose "Cache valide: $cacheValid Ordner"
+            }
         }
         
         Write-Verbose "Gefunden: $($sorted.Count) Ordner mit Medien"
