@@ -26,24 +26,6 @@ function toggleSelect(event, checkbox) {
     updateSelectedCount();
 }
 
-function toggleReviewMode() {
-    var btn = document.getElementById('reviewModeBtn');
-    var bar = document.getElementById('floatingActionBar');
-    
-    if (document.body.classList.contains('review-mode')) {
-        // Deaktivieren
-        document.body.classList.remove('review-mode');
-        bar.classList.remove('show');
-        btn.style.background = 'linear-gradient(135deg, #a0aec0 0%, #718096 100%)';
-        selectNone();
-    } else {
-        // Aktivieren
-        document.body.classList.add('review-mode');
-        bar.classList.add('show');
-        btn.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
-    }
-}
-
 function updateSelectedCount() {
     // Nur Checkboxen in expanded folders zählen
     var count = document.querySelectorAll('.folder-card.expanded .media-checkbox:checked').length;
