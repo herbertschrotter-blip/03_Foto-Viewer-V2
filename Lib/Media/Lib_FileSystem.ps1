@@ -26,7 +26,7 @@ Abhängigkeiten:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.2.2
 #>
 
 #Requires -Version 7.0
@@ -46,7 +46,7 @@ if (Test-Path -LiteralPath $libConfigPath) {
     . $libConfigPath
     $script:config = Get-Config
 } else {
-    $script:config = $null
+    throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_FileSystem benötigt Config."
 }
 
 function Resolve-SafePath {
@@ -155,7 +155,7 @@ function Test-IsVideoFile {
     
     .DESCRIPTION
         Prüft Extension gegen Config.Media.VideoExtensions.
-        Fallback zu Standard-Liste wenn Config nicht verfügbar.
+        Config wird von Lib_Config.ps1 bereitgestellt (automatisch geladen).
     
     .PARAMETER Path
         Datei-Pfad
@@ -175,13 +175,10 @@ function Test-IsVideoFile {
     
     $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
     
-    # Video-Extensions aus Config (falls verfügbar)
-    if ($script:config) {
-        $videoExtensions = $script:config.Media.VideoExtensions
-    } else {
-        # Fallback zu Standard-Liste
-        $videoExtensions = @(".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp")
+    # Video-Extensions aus Config (PFLICHT!)
+    if (-not $script:config -or -not $script:config.Media.VideoExtensions) {
+        throw "Config nicht verfügbar oder Media.VideoExtensions fehlt!"
     }
     
-    return $extension -in $videoExtensions
+    return $extension -in $script:config.Media.VideoExtensions
 }
