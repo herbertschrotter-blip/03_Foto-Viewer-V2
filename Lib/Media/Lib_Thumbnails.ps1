@@ -601,13 +601,13 @@ function Get-VideoThumbnail {
         
         # FFmpeg Args mit Config-Werten
         $ffmpegArgs = @(
-            "-i", $VideoPath,
+            "-i", "`"$VideoPath`"",
             "-ss", $seekTime,
             "-vframes", "1",
             "-vf", "scale=${MaxSize}:${MaxSize}:force_original_aspect_ratio=decrease",
             "-q:v", "$qValue",
             "-y",
-            $thumbPath
+            "`"$thumbPath`""
         )
         
         # Ausführen
