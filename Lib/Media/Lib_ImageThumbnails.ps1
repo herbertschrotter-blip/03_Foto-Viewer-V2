@@ -235,10 +235,17 @@ function Get-ImageThumbnail {
         # Cache-Pfad generieren
         $thumbPath = Get-ThumbnailCachePath -MediaPath $ImagePath -CacheDir $CacheDir
         
+        # DEBUG: CacheDir existiert?
+        if (-not (Test-Path -LiteralPath $CacheDir -PathType Container)) {
+            Write-Warning "DEBUG: CacheDir verschwunden! Wird neu erstellt: $CacheDir"
+        }
+        
         # Cache-Hit?
         if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
             Write-Verbose "Thumbnail aus Cache: $thumbPath"
             return $thumbPath
+        } else {
+            Write-Verbose "DEBUG: Cache-Miss - Thumbnail fehlt: $thumbPath"
         }
         
         # System.Drawing laden
@@ -308,8 +315,23 @@ function Get-ImageThumbnail {
             $memoryStream = [System.IO.MemoryStream]::new()
             $thumbnail.Save($memoryStream, $jpegCodec, $encoderParams)
             
-            # MemoryStream zu Datei schreiben
+            # MemoryStream zu Byte-Array (BEVOR Dispose!)
             $fileBytes = $memoryStream.ToArray()
+            
+            # MemoryStream SOFORT freigeben
+            $memoryStream.Dispose()
+            $memoryStream = $null
+            
+            # Thumbnail SOFORT freigeben (vor File-Write!)
+            $thumbnail.Dispose()
+            $thumbnail = $null
+            
+            # GC BEVOR File-Write (verhindert File-Lock!)
+            [GC]::Collect()
+            [GC]::WaitForPendingFinalizers()
+            [GC]::Collect()
+            
+            # JETZT erst Datei schreiben (NACH GC!)
             [System.IO.File]::WriteAllBytes($thumbPath, $fileBytes)
             
             Write-Verbose "Thumbnail gespeichert: $thumbPath"
