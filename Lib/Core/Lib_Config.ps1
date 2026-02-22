@@ -225,6 +225,27 @@ function Get-DefaultConfig {
         Media = @{
             ImageExtensions = @(".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff")
             VideoExtensions = @(".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp")
+            MimeTypes = @{
+                ".jpg"  = "image/jpeg"
+                ".jpeg" = "image/jpeg"
+                ".png"  = "image/png"
+                ".webp" = "image/webp"
+                ".gif"  = "image/gif"
+                ".bmp"  = "image/bmp"
+                ".tif"  = "image/tiff"
+                ".tiff" = "image/tiff"
+                ".mp4"  = "video/mp4"
+                ".mov"  = "video/quicktime"
+                ".avi"  = "video/x-msvideo"
+                ".mkv"  = "video/x-matroska"
+                ".webm" = "video/webm"
+                ".m4v"  = "video/mp4"
+                ".wmv"  = "video/x-ms-wmv"
+                ".flv"  = "video/x-flv"
+                ".mpg"  = "video/mpeg"
+                ".mpeg" = "video/mpeg"
+                ".3gp"  = "video/3gpp"
+            }
         }
     }
     
