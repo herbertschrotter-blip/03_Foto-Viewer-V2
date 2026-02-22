@@ -4,32 +4,41 @@ ManifestHint:
   Description     = "Thumbnail-Generierung für Bilder mit System.Drawing"
   Category        = "Media"
   Tags            = @("Thumbnails", "Images", "Cache")
-  Dependencies    = @("System.Drawing")
+  Dependencies    = @("System.Drawing", "Lib_Config.ps1")
 
 Zweck:
   - Thumbnail-Generierung für Bilder (System.Drawing)
   - Hash-basierter Cache-Pfad
   - High-Quality JPEG Encoding
+  - Config-gesteuerte Image-Extension Erkennung
 
 Funktionen:
   - Get-ImageThumbnail: Generiert Thumbnail für Foto
-  - Test-IsImageFile: Prüft ob Datei ein Bild ist
+  - Test-IsImageFile: Prüft ob Datei ein Bild ist (nutzt Config)
   - Get-ThumbnailCachePath: Hash-basierter Cache-Pfad
+
+Abhängigkeiten:
+  - System.Drawing (Thumbnail-Generierung)
+  - Lib_Config.ps1 (Settings: ImageExtensions, ThumbnailSize, Quality)
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
     
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Config laden
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Config laden (über Lib_Config.ps1)
+$ScriptDir = if ($PSScriptRoot) { 
+    $PSScriptRoot 
+} else { 
+    Split-Path -Parent $MyInvocation.MyCommand.Path 
+}
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
 
@@ -37,8 +46,7 @@ if (Test-Path -LiteralPath $libConfigPath) {
     . $libConfigPath
     $script:config = Get-Config
 } else {
-    Write-Warning "Lib_Config.ps1 nicht gefunden - verwende Fallback-Defaults"
-    $script:config = $null
+    throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_ImageThumbnails benötigt Config."
 }
 
 #region Helper Functions
@@ -47,6 +55,10 @@ function Test-IsImageFile {
     <#
     .SYNOPSIS
         Prüft ob Datei ein Bild ist
+    
+    .DESCRIPTION
+        Prüft Extension gegen Config.Media.ImageExtensions.
+        Config wird von Lib_Config.ps1 bereitgestellt (automatisch geladen).
     
     .PARAMETER Path
         Pfad zur Datei
@@ -64,10 +76,14 @@ function Test-IsImageFile {
         [string]$Path
     )
     
-    $imageExtensions = @('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tif', '.tiff')
     $ext = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
     
-    return $ext -in $imageExtensions
+    # Image-Extensions aus Config (PFLICHT!)
+    if (-not $script:config -or -not $script:config.Media.ImageExtensions) {
+        throw "Config nicht verfügbar oder Media.ImageExtensions fehlt!"
+    }
+    
+    return $ext -in $script:config.Media.ImageExtensions
 }
 
 function Get-ThumbnailCachePath {
@@ -194,12 +210,19 @@ function Get-ImageThumbnail {
         [int]$Quality
     )
     
-    # Defaults aus Config (falls vorhanden) oder Fallback
-    if ($MaxSize -eq 0) { 
-        $MaxSize = if ($script:config) { $script:config.UI.ThumbnailSize } else { 300 }
+    # Defaults aus Config (PFLICHT!)
+    if ($MaxSize -eq 0) {
+        if (-not $script:config -or -not $script:config.UI.ThumbnailSize) {
+            throw "Config nicht verfügbar oder UI.ThumbnailSize fehlt!"
+        }
+        $MaxSize = $script:config.UI.ThumbnailSize
     }
-    if ($Quality -eq 0) { 
-        $Quality = if ($script:config) { $script:config.Video.ThumbnailQuality } else { 85 }
+    
+    if ($Quality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $Quality = $script:config.Video.ThumbnailQuality
     }
     
     try {
