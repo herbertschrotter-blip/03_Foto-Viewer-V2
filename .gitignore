@@ -42,3 +42,6 @@ ffmpeg/
 ffmpeg.exe
 ffplay.exe
 ffprobe.exe
+
+# Debug-Log
+debug.log
