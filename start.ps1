@@ -15,7 +15,12 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.9.0
+    Version: 0.9.1
+    
+    ÄNDERUNGEN v0.9.1:
+    - Debug-Logging: Start-Transcript in debug.log
+    - Verbose + Debug aktiviert (alle Details erfasst)
+    - Erweiterte Error-Handling mit StackTrace
     
     ÄNDERUNGEN v0.9.0:
     - PowerShell 7.0 ONLY (Performance + Parallel)
@@ -46,6 +51,18 @@ $ErrorActionPreference = 'Stop'
 
 # Script-Root ermitteln
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Debug-Log (wird bei jedem Start überschrieben)
+$logPath = Join-Path $ScriptRoot "debug.log"
+Start-Transcript -Path $logPath -Force
+
+# Verbose + Debug aktivieren
+$VerbosePreference = 'Continue'
+$DebugPreference = 'Continue'
+
+Write-Host "=== PHOTO VIEWER START ===" -ForegroundColor Cyan
+Write-Host "Debug-Log: $logPath" -ForegroundColor DarkGray
+Write-Host ""
 
 $libSystemCheckPath = Join-Path $ScriptRoot "Lib\System\Lib_SystemCheck.ps1"
 
@@ -235,7 +252,9 @@ try {
     $listener = Start-HttpListener -Port $Port -Hostname $config.Server.Host
     Write-Host "✓ Server läuft auf: http://$($config.Server.Host):$Port" -ForegroundColor Green
 } catch {
-    Write-Error "Server-Start fehlgeschlagen: $($_.Exception.Message)"
+    Write-Host "FEHLER beim Server-Start: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "StackTrace: $($_.ScriptStackTrace)" -ForegroundColor Red
+    Stop-Transcript
     return
 }
 
@@ -407,6 +426,10 @@ try {
         }
     }
 }
+catch {
+    Write-Host "FEHLER im Server-Loop: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "StackTrace: $($_.ScriptStackTrace)" -ForegroundColor Red
+}
 finally {
     if ($listener.IsListening) {
         $listener.Stop()
@@ -415,4 +438,6 @@ finally {
     Write-Host ""
     Write-Host "✓ Server beendet" -ForegroundColor Green
     Write-Host ""
+    Write-Host "=== PHOTO VIEWER ENDE ===" -ForegroundColor Cyan
+    Stop-Transcript
 }
