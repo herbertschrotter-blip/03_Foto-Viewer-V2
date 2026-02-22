@@ -876,14 +876,14 @@ function closeLightbox() {
 }
 
 function navigateLightbox(direction) {
-    currentLightboxIndex += direction;
+    var newIndex = currentLightboxIndex + direction;
     
-    if (currentLightboxIndex < 0) {
-        currentLightboxIndex = lightboxImages.length - 1;
-    } else if (currentLightboxIndex >= lightboxImages.length) {
-        currentLightboxIndex = 0;
+    // Stoppe am ersten/letzten Bild (kein Wrap-Around)
+    if (newIndex < 0 || newIndex >= lightboxImages.length) {
+        return;  // Keine Navigation über Grenzen hinaus
     }
     
+    currentLightboxIndex = newIndex;
     showLightboxImage();
 }
 
@@ -894,6 +894,8 @@ function showLightboxImage() {
     var error = document.querySelector('.lightbox-error');
     var filename = document.getElementById('lightboxFilename');
     var counter = document.getElementById('lightboxCounter');
+    var prevBtn = document.querySelector('.lightbox-prev');
+    var nextBtn = document.querySelector('.lightbox-next');
     
     // Reset states
     img.classList.remove('loaded');
@@ -905,6 +907,19 @@ function showLightboxImage() {
     var name = imagePath.split('/').pop();
     filename.textContent = name;
     counter.textContent = (currentLightboxIndex + 1) + ' / ' + lightboxImages.length;
+    
+    // Navigation Buttons: Ausblenden am Rand
+    if (currentLightboxIndex === 0) {
+        prevBtn.style.display = 'none';
+    } else {
+        prevBtn.style.display = 'flex';
+    }
+    
+    if (currentLightboxIndex === lightboxImages.length - 1) {
+        nextBtn.style.display = 'none';
+    } else {
+        nextBtn.style.display = 'flex';
+    }
     
     // Load original image
     var originalUrl = '/original?path=' + encodeURIComponent(imagePath);
