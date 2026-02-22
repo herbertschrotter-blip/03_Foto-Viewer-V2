@@ -15,7 +15,13 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.3
+    Version: 0.1.4
+    
+    ÄNDERUNGEN v0.1.4:
+    - BREAKING: Manifest-System entfernt
+    - Keine komplette Cache-Löschung mehr
+    - Jobs verwenden direkt Get-MediaThumbnail für jede Datei
+    - Intelligentes Caching: Nur fehlende Thumbnails generieren
     
     ÄNDERUNGEN v0.1.3:
     - Fix: Verhindere doppelte Jobs für denselben Ordner
