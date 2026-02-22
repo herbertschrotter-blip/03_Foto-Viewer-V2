@@ -169,35 +169,6 @@ try {
     return
 }
 
-if ($script:State.Folders.Count -gt 0) {
-    Write-Host ""
-    Write-Host "Cache-Rebuild im Hintergrund?" -ForegroundColor Cyan
-    Write-Host "  Validiert/Generiert Thumbnails für alle Ordner" -ForegroundColor DarkGray
-    Write-Host "  Server startet sofort, Job läuft parallel" -ForegroundColor DarkGray
-    Write-Host ""
-    
-    $response = Read-Host "Cache-Rebuild starten? (j/n) [Standard: n]"
-    
-    if ($response -eq 'j' -or $response -eq 'J') {
-        try {
-            Write-Host "Starte Background-Job..." -ForegroundColor Cyan
-            
-            $job = Start-CacheRebuildJob -RootPath $script:State.RootPath -Folders $script:State.Folders -ScriptRoot $ScriptRoot
-            
-            Write-Host "✓ Cache-Rebuild Job gestartet (ID: $($job.JobId))" -ForegroundColor Green
-            Write-Host "  → Status: http://localhost:$Port/tools/cache/status" -ForegroundColor DarkGray
-            Write-Host "  → Oder über Tools-Menü im Browser" -ForegroundColor DarkGray
-        }
-        catch {
-            Write-Warning "Fehler beim Starten des Jobs: $($_.Exception.Message)"
-        }
-    }
-    else {
-        Write-Host "Cache-Rebuild übersprungen" -ForegroundColor Yellow
-        Write-Host "  → Kann später über Tools-Menü gestartet werden" -ForegroundColor DarkGray
-    }
-}
-
 Write-Host ""
 
 # HttpListener starten
