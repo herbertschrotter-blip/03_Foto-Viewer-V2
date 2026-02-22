@@ -50,7 +50,7 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptRoot "Lib\Media\Lib_Scanner.ps1")
 . (Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1")
 . (Join-Path $ScriptRoot "Lib\Media\Lib_FileSystem.ps1")
-. (Join-Path $ScriptRoot "Lib\Media\Lib_FFmpeg.ps1")
+. (Join-Path $ScriptRoot "Lib\Media\Lib_VideoThumbnails.ps1")
 
 # Libs laden - UI
 . (Join-Path $ScriptRoot "Lib\UI\Lib_Dialogs.ps1")
@@ -113,9 +113,9 @@ if ($psInfo.IsPS7) {
 Write-Host ""
 
 # FFmpeg Check
-$script:FFmpegPath = Test-FFmpegInstalled -ScriptRoot $ScriptRoot
-if ($script:FFmpegPath) {
-    Write-Host "✓ FFmpeg gefunden: $script:FFmpegPath" -ForegroundColor Green
+$ffmpegPath = Join-Path $ScriptRoot "ffmpeg\ffmpeg.exe"
+if (Test-Path -LiteralPath $ffmpegPath -PathType Leaf) {
+    Write-Host "✓ FFmpeg gefunden: $ffmpegPath" -ForegroundColor Green
 } else {
     Write-Warning "FFmpeg nicht gefunden - Video-Thumbnails deaktiviert"
 }
