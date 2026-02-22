@@ -134,32 +134,101 @@ function Get-Config {
 function Get-DefaultConfig {
     <#
     .SYNOPSIS
-        Gibt Standard-Konfiguration zurück
+        Gibt vollständige Standard-Konfiguration zurück
     
     .DESCRIPTION
         Fallback wenn config.json nicht geladen werden kann.
+        Enthält alle 9 Config-Bereiche mit allen Standard-Werten.
+        
+        WICHTIG: Hardcoded Werte sind NUR hier erlaubt!
+        Überall sonst: Get-Config verwenden!
+    
+    .OUTPUTS
+        [hashtable]
+        Vollständige Default-Konfiguration
     #>
     [CmdletBinding()]
-    [OutputType([PSCustomObject])]
+    [OutputType([hashtable])]
     param()
     
-        return @{
-        Server = @{
-            Port = 8888
-            AutoOpenBrowser = $true
-            Host = "localhost"
+    # WICHTIG: Hier dürfen hardcoded Werte stehen!
+    # Überall sonst: Get-Config verwenden!
+    
+    $defaults = @{
+        Video = @{
+            ConversionPreset = "medium"
+            GIFLoop = $true
+            PreferredCodec = "h264"
+            EnableAutoConversion = $true
+            ThumbnailQuality = 85
+            GIFDuration = 3
+            ThumbnailStartPercent = 10
+            PreviewAsGIF = $true
+            ThumbnailEndPercent = 90
+            UseHLS = $true
+            ThumbnailCount = 5
+            HLSSegmentDuration = 10
+            GIFFrameRate = 10
+            ThumbnailFPS = 1
+        }
+        Cache = @{
+            UseScanCache = $true
+            VideoMetadataCache = $true
+            CacheFolder = ".cache"
+        }
+        FileOperations = @{
+            EnableFlattenAndMove = $false
+            UseRecycleBin = $true
+            EnableMove = $false
+            ConfirmDelete = $true
+            RangeRequestSupport = $true
+        }
+        UI = @{
+            GridColumns = 3
+            ShowVideoDuration = $true
+            PreviewThumbnailCount = 10
+            Theme = "light"
+            ShowVideoMetadata = $true
+            ShowVideoCodec = $true
+            ThumbnailSize = 200
+            DefaultThumbSize = "medium"
+            ShowBrowserCompatibility = $true
+        }
+        Features = @{
+            CollapsibleFolders = $true
+            KeyboardNavigation = $true
+            OpenInVLC = $false
+            LightboxViewer = $true
+            ArchiveExtensions = @(".zip", ".rar", ".7z", ".tar", ".gz")
+            VideoThumbnailPreGeneration = $false
+            ArchiveExtraction = $false
+            LazyVideoConversion = $true
         }
         Paths = @{
-            RootFolder = ""
             ThumbsFolder = ".thumbs"
             TempFolder = ".temp"
             ConvertedFolder = ".converted"
+            RootFolder = ""
+        }
+        Server = @{
+            Host = "localhost"
+            Port = 8888
+            AutoOpenBrowser = $true
         }
         Performance = @{
+            DeleteJobTimeout = 10
             UseParallelProcessing = $true
+            LazyLoading = $true
             MaxParallelJobs = 8
+            CacheThumbnails = $true
+        }
+        Media = @{
+            ImageExtensions = @(".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff")
+            VideoExtensions = @(".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp")
         }
     }
+    
+    return $defaults
 }
 
 function Save-Config {
