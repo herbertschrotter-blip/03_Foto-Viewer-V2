@@ -384,11 +384,15 @@ function Get-ImageThumbnail {
         [string]$CacheDir,
         
         [Parameter()]
-        [int]$MaxSize = 300,
+        [int]$MaxSize,
         
         [Parameter()]
-        [int]$Quality = 85
+        [int]$Quality
     )
+    
+    # Defaults (falls nicht übergeben)
+    if ($MaxSize -eq 0) { $MaxSize = 300 }
+    if ($Quality -eq 0) { $Quality = 85 }
     
     try {
         # Datei existiert?
@@ -521,8 +525,19 @@ function Get-VideoThumbnail {
         [string]$ScriptRoot,
         
         [Parameter()]
-        [int]$MaxSize = 300
+        [int]$MaxSize,
+        
+        [Parameter()]
+        [int]$ThumbnailQuality,
+        
+        [Parameter()]
+        [int]$ThumbnailStartPercent
     )
+    
+    # Defaults (falls nicht übergeben)
+    if ($MaxSize -eq 0) { $MaxSize = 300 }
+    if ($ThumbnailQuality -eq 0) { $ThumbnailQuality = 85 }
+    if ($ThumbnailStartPercent -eq 0) { $ThumbnailStartPercent = 10 }
     
     try {
         # Datei existiert?
@@ -554,15 +569,43 @@ function Get-VideoThumbnail {
             return $null
         }
         
-        Write-Verbose "Generiere Video-Thumbnail für: $VideoPath"
+        write-Verbose "Generiere Video-Thumbnail für: $VideoPath"
         
-        # FFmpeg Args: Frame bei 1 Sekunde extrahieren
+        # Video-Dauer ermitteln für Prozent-Berechnung
+        $durationArgs = @("-i", $VideoPath, "-hide_banner")
+        $durationOutput = & $ffmpegPath $durationArgs 2>&1 | Out-String
+        
+        # Parse Duration: "Duration: 00:01:23.45"
+        if ($durationOutput -match 'Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})') {
+            $hours = [int]$matches[1]
+            $minutes = [int]$matches[2]
+            $seconds = [int]$matches[3]
+            $totalSeconds = ($hours * 3600) + ($minutes * 60) + $seconds
+            
+            # Berechne Position basierend auf StartPercent
+            $position = [int]($totalSeconds * ($ThumbnailStartPercent / 100.0))
+            $seekTime = [TimeSpan]::FromSeconds($position).ToString('hh\:mm\:ss')
+            
+            Write-Verbose "Video-Dauer: ${totalSeconds}s, Position: ${seekTime} (${ThumbnailStartPercent}%)"
+        } else {
+            # Fallback: 1 Sekunde
+            $seekTime = "00:00:01"
+            Write-Verbose "Konnte Duration nicht parsen, verwende Fallback: $seekTime"
+        }
+        
+        # FFmpeg Quality-Mapping (0-100 → 2-31, invertiert)
+        # Quality 100 = q:v 2 (beste), Quality 0 = q:v 31 (schlechteste)
+        $qValue = [Math]::Max(2, [Math]::Min(31, 31 - [int](($ThumbnailQuality / 100.0) * 29)))
+        
+        Write-Verbose "Thumbnail Quality: ${ThumbnailQuality}% → FFmpeg q:v ${qValue}"
+        
+        # FFmpeg Args mit Config-Werten
         $ffmpegArgs = @(
             "-i", $VideoPath,
-            "-ss", "00:00:01",
+            "-ss", $seekTime,
             "-vframes", "1",
             "-vf", "scale=${MaxSize}:${MaxSize}:force_original_aspect_ratio=decrease",
-            "-q:v", "2",
+            "-q:v", "$qValue",
             "-y",
             $thumbPath
         )
@@ -631,11 +674,23 @@ function Get-MediaThumbnail {
         [string]$ScriptRoot,
         
         [Parameter()]
-        [int]$MaxSize = 300,
+        [int]$MaxSize,
         
         [Parameter()]
-        [int]$Quality = 85
+        [int]$Quality,
+        
+        [Parameter()]
+        [int]$ThumbnailQuality,
+        
+        [Parameter()]
+        [int]$ThumbnailStartPercent
     )
+    
+    # Defaults (falls nicht übergeben)
+    if ($MaxSize -eq 0) { $MaxSize = 300 }
+    if ($Quality -eq 0) { $Quality = 85 }
+    if ($ThumbnailQuality -eq 0) { $ThumbnailQuality = 85 }
+    if ($ThumbnailStartPercent -eq 0) { $ThumbnailStartPercent = 10 }
     
     try {
         if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
@@ -656,7 +711,7 @@ function Get-MediaThumbnail {
                 Write-Warning "ScriptRoot benötigt für Video-Thumbnails"
                 return $null
             }
-            return Get-VideoThumbnail -VideoPath $Path -CacheDir $cacheDir -ScriptRoot $ScriptRoot -MaxSize $MaxSize
+            return Get-VideoThumbnail -VideoPath $Path -CacheDir $cacheDir -ScriptRoot $ScriptRoot -MaxSize $MaxSize -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
         }
         else {
             Write-Warning "Unbekannter Dateityp: $Path"
@@ -797,11 +852,23 @@ function Update-ThumbnailCache {
         [string]$ScriptRoot,
         
         [Parameter()]
-        [int]$MaxSize = 300,
+        [int]$MaxSize,
         
         [Parameter()]
-        [int]$Quality = 85
+        [int]$Quality,
+        
+        [Parameter()]
+        [int]$ThumbnailQuality,
+        
+        [Parameter()]
+        [int]$ThumbnailStartPercent
     )
+    
+    # Defaults (falls nicht übergeben)
+    if ($MaxSize -eq 0) { $MaxSize = 300 }
+    if ($Quality -eq 0) { $Quality = 85 }
+    if ($ThumbnailQuality -eq 0) { $ThumbnailQuality = 85 }
+    if ($ThumbnailStartPercent -eq 0) { $ThumbnailStartPercent = 10 }
     
     try {
         Write-Verbose "Rebuilding cache for: $FolderPath"
@@ -842,7 +909,7 @@ function Update-ThumbnailCache {
         # Thumbnails generieren + Manifest füllen
         foreach ($file in $mediaFiles) {
             try {
-                $thumbPath = Get-MediaThumbnail -Path $file.FullName -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality
+                $thumbPath = Get-MediaThumbnail -Path $file.FullName -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
                 
                 if ($thumbPath) {
                     $hash = [System.IO.Path]::GetFileNameWithoutExtension($thumbPath)
