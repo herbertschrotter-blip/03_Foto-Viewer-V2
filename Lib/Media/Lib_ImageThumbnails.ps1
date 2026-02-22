@@ -1,0 +1,300 @@
+<#
+ManifestHint:
+  ExportFunctions = @("Get-ImageThumbnail", "Test-IsImageFile", "Get-ThumbnailCachePath")
+  Description     = "Thumbnail-Generierung für Bilder mit System.Drawing"
+  Category        = "Media"
+  Tags            = @("Thumbnails", "Images", "Cache")
+  Dependencies    = @("System.Drawing")
+
+Zweck:
+  - Thumbnail-Generierung für Bilder (System.Drawing)
+  - Hash-basierter Cache-Pfad
+  - High-Quality JPEG Encoding
+
+Funktionen:
+  - Get-ImageThumbnail: Generiert Thumbnail für Foto
+  - Test-IsImageFile: Prüft ob Datei ein Bild ist
+  - Get-ThumbnailCachePath: Hash-basierter Cache-Pfad
+
+.NOTES
+    Autor: Herbert Schrotter
+    Version: 0.1.0
+    
+.LINK
+    https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
+#>
+
+#Requires -Version 5.1
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Config laden
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+$libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
+
+if (Test-Path -LiteralPath $libConfigPath) {
+    . $libConfigPath
+    $script:config = Get-Config
+} else {
+    Write-Warning "Lib_Config.ps1 nicht gefunden - verwende Fallback-Defaults"
+    $script:config = $null
+}
+
+#region Helper Functions
+
+function Test-IsImageFile {
+    <#
+    .SYNOPSIS
+        Prüft ob Datei ein Bild ist
+    
+    .PARAMETER Path
+        Pfad zur Datei
+    
+    .EXAMPLE
+        Test-IsImageFile -Path "C:\foto.jpg"
+    
+    .OUTPUTS
+        Boolean
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+    
+    $imageExtensions = @('.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tif', '.tiff')
+    $ext = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
+    
+    return $ext -in $imageExtensions
+}
+
+function Get-ThumbnailCachePath {
+    <#
+    .SYNOPSIS
+        Generiert Cache-Pfad für Thumbnail (Hash-basiert)
+    
+    .DESCRIPTION
+        Erstellt MD5-Hash aus: FullPath + LastWriteTimeUtc
+        Format: {CacheDir}/{Hash}.jpg
+    
+    .PARAMETER MediaPath
+        Pfad zur Medien-Datei
+    
+    .PARAMETER CacheDir
+        Cache-Verzeichnis
+    
+    .PARAMETER Index
+        Optional: Index für Multi-Thumbnails (z.B. Video)
+    
+    .EXAMPLE
+        $cachePath = Get-ThumbnailCachePath -MediaPath "C:\foto.jpg" -CacheDir "C:\cache"
+    
+    .EXAMPLE
+        $cachePath = Get-ThumbnailCachePath -MediaPath "C:\video.mp4" -CacheDir "C:\cache" -Index 3
+    
+    .OUTPUTS
+        String - Pfad zum Thumbnail
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$MediaPath,
+        
+        [Parameter(Mandatory)]
+        [string]$CacheDir,
+        
+        [Parameter()]
+        [int]$Index = 0
+    )
+    
+    try {
+        $fileInfo = [System.IO.FileInfo]::new($MediaPath)
+        
+        if (-not $fileInfo.Exists) {
+            throw "Datei existiert nicht: $MediaPath"
+        }
+        
+        # Hash aus Pfad + LastWriteTime
+        $hashInput = "$($fileInfo.FullName)-$($fileInfo.LastWriteTimeUtc.Ticks)"
+        
+        $hash = [System.BitConverter]::ToString(
+            [System.Security.Cryptography.MD5]::Create().ComputeHash(
+                [System.Text.Encoding]::UTF8.GetBytes($hashInput)
+            )
+        ).Replace('-', '').ToLowerInvariant()
+        
+        # Dateiname mit optionalem Index
+        $fileName = if ($Index -gt 0) {
+            "${hash}_${Index}.jpg"
+        } else {
+            "${hash}.jpg"
+        }
+        
+        $cachePath = Join-Path $CacheDir $fileName
+        
+        Write-Verbose "Cache-Path: $cachePath"
+        return $cachePath
+        
+    } catch {
+        Write-Error "Fehler beim Generieren des Cache-Pfads: $($_.Exception.Message)"
+        throw
+    }
+}
+
+#endregion
+
+#region Image Thumbnail Generation
+
+function Get-ImageThumbnail {
+    <#
+    .SYNOPSIS
+        Generiert Thumbnail für Foto (System.Drawing)
+    
+    .DESCRIPTION
+        Erstellt optimiertes JPEG-Thumbnail mit High-Quality Settings.
+        Verwendet Hash-basierten Cache für Performance.
+    
+    .PARAMETER ImagePath
+        Vollständiger Pfad zum Bild
+    
+    .PARAMETER CacheDir
+        Cache-Verzeichnis für Thumbnails
+    
+    .PARAMETER MaxSize
+        Maximale Breite/Höhe in Pixel (Default: 300)
+    
+    .PARAMETER Quality
+        JPEG Quality 0-100 (Default: 85)
+    
+    .EXAMPLE
+        $thumb = Get-ImageThumbnail -ImagePath "C:\foto.jpg" -CacheDir "C:\cache"
+    
+    .EXAMPLE
+        $thumb = Get-ImageThumbnail -ImagePath "C:\foto.jpg" -CacheDir "C:\cache" -MaxSize 400 -Quality 90
+    
+    .OUTPUTS
+        String - Pfad zum Thumbnail oder $null bei Fehler
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$ImagePath,
+        
+        [Parameter(Mandatory)]
+        [string]$CacheDir,
+        
+        [Parameter()]
+        [int]$MaxSize,
+        
+        [Parameter()]
+        [int]$Quality
+    )
+    
+    # Defaults aus Config (falls vorhanden) oder Fallback
+    if ($MaxSize -eq 0) { 
+        $MaxSize = if ($script:config) { $script:config.UI.ThumbnailSize } else { 300 }
+    }
+    if ($Quality -eq 0) { 
+        $Quality = if ($script:config) { $script:config.Video.ThumbnailQuality } else { 85 }
+    }
+    
+    try {
+        # Datei existiert?
+        if (-not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
+            Write-Warning "Bild nicht gefunden: $ImagePath"
+            return $null
+        }
+        
+        # Cache-Pfad generieren
+        $thumbPath = Get-ThumbnailCachePath -MediaPath $ImagePath -CacheDir $CacheDir
+        
+        # Cache-Hit?
+        if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
+            Write-Verbose "Thumbnail aus Cache: $thumbPath"
+            return $thumbPath
+        }
+        
+        # System.Drawing laden
+        Add-Type -AssemblyName System.Drawing
+        
+        Write-Verbose "Generiere Thumbnail für: $ImagePath"
+        
+        # Original-Bild laden
+        $originalImage = $null
+        $thumbnail = $null
+        
+        try {
+            $originalImage = [System.Drawing.Image]::FromFile($ImagePath)
+            
+            # Neue Dimensionen berechnen (Aspect Ratio beibehalten)
+            $ratio = [Math]::Min(
+                ($MaxSize / $originalImage.Width),
+                ($MaxSize / $originalImage.Height)
+            )
+            
+            $newWidth = [int]($originalImage.Width * $ratio)
+            $newHeight = [int]($originalImage.Height * $ratio)
+            
+            Write-Verbose "Original: $($originalImage.Width)x$($originalImage.Height) → Thumbnail: ${newWidth}x${newHeight}"
+            
+            # Thumbnail erstellen (High Quality)
+            $thumbnail = [System.Drawing.Bitmap]::new($newWidth, $newHeight)
+            $graphics = [System.Drawing.Graphics]::FromImage($thumbnail)
+            
+            try {
+                # High-Quality Settings
+                $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+                $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+                
+                # Resize
+                $graphics.DrawImage($originalImage, 0, 0, $newWidth, $newHeight)
+                
+                # JPEG Encoder mit Quality-Setting
+                $jpegCodec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | 
+                    Where-Object { $_.MimeType -eq 'image/jpeg' } | 
+                    Select-Object -First 1
+                
+                $encoderParams = [System.Drawing.Imaging.EncoderParameters]::new(1)
+                $encoderParams.Param[0] = [System.Drawing.Imaging.EncoderParameter]::new(
+                    [System.Drawing.Imaging.Encoder]::Quality,
+                    [long]$Quality
+                )
+                
+                # Speichern
+                $thumbnail.Save($thumbPath, $jpegCodec, $encoderParams)
+                
+                Write-Verbose "Thumbnail gespeichert: $thumbPath"
+                
+            } finally {
+                if ($graphics) { $graphics.Dispose() }
+            }
+            
+        } finally {
+            if ($thumbnail) { $thumbnail.Dispose() }
+            if ($originalImage) { $originalImage.Dispose() }
+        }
+        
+        # WICHTIG: Kurz warten damit File-Handle freigegeben wird
+        Start-Sleep -Milliseconds 50
+        
+        # Verifizieren
+        if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
+            return $thumbPath
+        } else {
+            Write-Warning "Thumbnail wurde nicht erstellt: $thumbPath"
+            return $null
+        }
+        
+    } catch {
+        Write-Error "Fehler beim Erstellen des Bild-Thumbnails: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+#endregion
