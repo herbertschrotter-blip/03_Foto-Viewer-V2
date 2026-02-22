@@ -4,7 +4,7 @@ ManifestHint:
   Description     = "Master Thumbnail-Lib - Orchestriert Image und Video Thumbnails"
   Category        = "Media"
   Tags            = @("Thumbnails", "Images", "Videos", "FFmpeg", "Cache", "OneDrive", "Master")
-  Dependencies    = @("Lib_ImageThumbnails.ps1", "Lib_VideoThumbnails.ps1")
+  Dependencies    = @("Lib_ImageThumbnails.ps1", "Lib_VideoThumbnails.ps1", "Lib_Config.ps1")
 
 Zweck:
   - Master-Library für Thumbnail-Generierung
@@ -20,6 +20,13 @@ Funktionen:
   - Remove-OrphanedThumbnails: Cleanup
   - Test-OneDriveProtection: OneDrive-Schutz prüfen
   - Enable-OneDriveProtection: OneDrive-Schutz aktivieren
+
+ÄNDERUNGEN v0.5.0:
+  - PowerShell 7.0 ONLY (Performance)
+  - Config-Integration: KEINE Fallback-Werte
+  - Alle Defaults aus Config (UI.ThumbnailSize, Video.*)
+  - Wirft Fehler wenn Config fehlt (strict dependency)
+  - Dependencies: + Lib_Config.ps1
 
 ÄNDERUNGEN v0.4.0:
   - Refactoring: Aufgeteilt in 3 Libs (Master + Image + Video)
@@ -38,18 +45,27 @@ Funktionen:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.4.0
+    Version: 0.5.0
     
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Libs laden
+# Config laden (über Lib_Config.ps1)
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+$libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
+
+if (Test-Path -LiteralPath $libConfigPath) {
+    . $libConfigPath
+    $script:config = Get-Config
+} else {
+    throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_Thumbnails benötigt Config."
+}
 
 # Image Thumbnails
 $libImagePath = Join-Path $ScriptDir "Lib_ImageThumbnails.ps1"
@@ -289,11 +305,34 @@ function Get-MediaThumbnail {
         [int]$ThumbnailStartPercent
     )
     
-    # Defaults
-    if ($MaxSize -eq 0) { $MaxSize = 300 }
-    if ($Quality -eq 0) { $Quality = 85 }
-    if ($ThumbnailQuality -eq 0) { $ThumbnailQuality = 85 }
-    if ($ThumbnailStartPercent -eq 0) { $ThumbnailStartPercent = 10 }
+    # Defaults aus Config (PFLICHT!)
+    if ($MaxSize -eq 0) {
+        if (-not $script:config -or -not $script:config.UI.ThumbnailSize) {
+            throw "Config nicht verfügbar oder UI.ThumbnailSize fehlt!"
+        }
+        $MaxSize = $script:config.UI.ThumbnailSize
+    }
+    
+    if ($Quality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $Quality = $script:config.Video.ThumbnailQuality
+    }
+    
+    if ($ThumbnailQuality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $ThumbnailQuality = $script:config.Video.ThumbnailQuality
+    }
+    
+    if ($ThumbnailStartPercent -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailStartPercent) {
+            throw "Config nicht verfügbar oder Video.ThumbnailStartPercent fehlt!"
+        }
+        $ThumbnailStartPercent = $script:config.Video.ThumbnailStartPercent
+    }
     
     try {
         if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
@@ -388,12 +427,41 @@ function Get-MediaThumbnails {
         [int]$ThumbnailEndPercent
     )
     
-    # Defaults
-    if ($MaxSize -eq 0) { $MaxSize = 300 }
-    if ($ThumbnailQuality -eq 0) { $ThumbnailQuality = 85 }
-    if ($ThumbnailCount -eq 0) { $ThumbnailCount = 9 }
-    if ($ThumbnailStartPercent -eq 0) { $ThumbnailStartPercent = 10 }
-    if ($ThumbnailEndPercent -eq 0) { $ThumbnailEndPercent = 90 }
+    # Defaults aus Config (PFLICHT!)
+    if ($MaxSize -eq 0) {
+        if (-not $script:config -or -not $script:config.UI.ThumbnailSize) {
+            throw "Config nicht verfügbar oder UI.ThumbnailSize fehlt!"
+        }
+        $MaxSize = $script:config.UI.ThumbnailSize
+    }
+    
+    if ($ThumbnailQuality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $ThumbnailQuality = $script:config.Video.ThumbnailQuality
+    }
+    
+    if ($ThumbnailCount -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailCount) {
+            throw "Config nicht verfügbar oder Video.ThumbnailCount fehlt!"
+        }
+        $ThumbnailCount = $script:config.Video.ThumbnailCount
+    }
+    
+    if ($ThumbnailStartPercent -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailStartPercent) {
+            throw "Config nicht verfügbar oder Video.ThumbnailStartPercent fehlt!"
+        }
+        $ThumbnailStartPercent = $script:config.Video.ThumbnailStartPercent
+    }
+    
+    if ($ThumbnailEndPercent -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailEndPercent) {
+            throw "Config nicht verfügbar oder Video.ThumbnailEndPercent fehlt!"
+        }
+        $ThumbnailEndPercent = $script:config.Video.ThumbnailEndPercent
+    }
     
     try {
         # Nur für Videos
@@ -541,11 +609,34 @@ function Update-ThumbnailCache {
         [int]$ThumbnailStartPercent
     )
     
-    # Defaults
-    if ($MaxSize -eq 0) { $MaxSize = 300 }
-    if ($Quality -eq 0) { $Quality = 85 }
-    if ($ThumbnailQuality -eq 0) { $ThumbnailQuality = 85 }
-    if ($ThumbnailStartPercent -eq 0) { $ThumbnailStartPercent = 10 }
+    # Defaults aus Config (PFLICHT!)
+    if ($MaxSize -eq 0) {
+        if (-not $script:config -or -not $script:config.UI.ThumbnailSize) {
+            throw "Config nicht verfügbar oder UI.ThumbnailSize fehlt!"
+        }
+        $MaxSize = $script:config.UI.ThumbnailSize
+    }
+    
+    if ($Quality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $Quality = $script:config.Video.ThumbnailQuality
+    }
+    
+    if ($ThumbnailQuality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $ThumbnailQuality = $script:config.Video.ThumbnailQuality
+    }
+    
+    if ($ThumbnailStartPercent -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailStartPercent) {
+            throw "Config nicht verfügbar oder Video.ThumbnailStartPercent fehlt!"
+        }
+        $ThumbnailStartPercent = $script:config.Video.ThumbnailStartPercent
+    }
     
     try {
         Write-Verbose "Rebuilding cache: $FolderPath"
