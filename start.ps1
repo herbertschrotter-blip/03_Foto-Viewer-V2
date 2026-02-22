@@ -15,12 +15,11 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.7.0
+    Version: 0.8.2
     
-    ÄNDERUNGEN v0.7.0:
-    - Background-Job für Cache-Rebuild (optional)
-    - Auto-Start nach Ordner-Scan
-    - ScriptRoot an Handle-ToolsRoute übergeben
+    ÄNDERUNGEN v0.8.2:
+    - Lib_BackgroundJobs.ps1 geladen
+    - Vorbereitung für Auto-Thumbnail-Generierung beim Ordner-Öffnen
     
     ÄNDERUNGEN v0.5.0:
     - Lokale .thumbs/ pro Ordner (statt zentral)
@@ -64,6 +63,7 @@ $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # Libs laden - Utils
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_Tools.ps1")
+. (Join-Path $ScriptRoot "Lib\Utils\Lib_BackgroundJobs.ps1")
 
 #region OneDrive-Schutz Check
 
