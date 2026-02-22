@@ -500,6 +500,22 @@
         </div>
     </div>
     
+    <div class="lightbox" id="lightbox">
+        <div class="lightbox-overlay" onclick="closeLightbox()"></div>
+        <button class="lightbox-close" onclick="closeLightbox()" aria-label="Schließen">×</button>
+        <button class="lightbox-prev" onclick="navigateLightbox(-1)" aria-label="Vorheriges Bild">‹</button>
+        <button class="lightbox-next" onclick="navigateLightbox(1)" aria-label="Nächstes Bild">›</button>
+        <div class="lightbox-content">
+            <img id="lightboxImage" src="" alt="">
+            <div class="lightbox-loading">⏳ Lädt...</div>
+            <div class="lightbox-error">❌ Fehler beim Laden</div>
+        </div>
+        <div class="lightbox-info">
+            <span id="lightboxFilename"></span>
+            <span id="lightboxCounter"></span>
+        </div>
+    </div>
+    
     {{SCRIPTS}}
 </body>
 </html>
