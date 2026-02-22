@@ -17,6 +17,12 @@
     Autor: Herbert Schrotter
     Version: 0.9.0
     
+    ÄNDERUNGEN v0.9.0:
+    - PowerShell 7.0 ONLY (Performance + Parallel)
+    - System-Check beim Start (Lib_SystemCheck.ps1)
+    - Long Path Support Warnung mit Admin-Anleitung
+    - FFmpeg-Check in System-Check integriert
+    
     ÄNDERUNGEN v0.8.2:
     - Lib_BackgroundJobs.ps1 geladen
     - Vorbereitung für Auto-Thumbnail-Generierung beim Ordner-Öffnen
