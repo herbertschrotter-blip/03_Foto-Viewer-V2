@@ -85,7 +85,7 @@ function Get-ThumbsCacheStats {
         $totalSize = 0
         
         foreach ($dir in $allThumbsDirs) {
-            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)
             $totalFiles += $files.Count
             if ($files.Count -gt 0) {
                 $size = ($files | Measure-Object -Property Length -Sum).Sum
@@ -173,7 +173,7 @@ function Get-ThumbsDirectoriesList {
             }
             
             # Dateien zählen
-            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)
             $fileCount = $files.Count
             $size = 0
             if ($files.Count -gt 0) {
@@ -258,7 +258,7 @@ function Remove-SelectedThumbsDirectories {
             }
             
             # Größe berechnen
-            $files = @(Get-ChildItem -LiteralPath $path -File -Recurse -ErrorAction SilentlyContinue)
+            $files = @(Get-ChildItem -LiteralPath $path -File -ErrorAction SilentlyContinue)
             $size = 0
             if ($files.Count -gt 0) {
                 $measured = ($files | Measure-Object -Property Length -Sum).Sum
@@ -337,7 +337,7 @@ function Remove-AllThumbsDirectories {
         
         foreach ($dir in $allThumbsDirs) {
             # Größe berechnen
-            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)
             $size = 0
             if ($files.Count -gt 0) {
                 $measured = ($files | Measure-Object -Property Length -Sum).Sum
