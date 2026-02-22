@@ -15,7 +15,11 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.1
+    Version: 0.1.2
+    
+    ÄNDERUNGEN v0.1.2:
+    - DEBUG: Umfangreiches Logging für Troubleshooting
+    - Log-Datei: folder-thumbnail-job.log
     
     ÄNDERUNGEN v0.1.1:
     - Fix: Update-ThumbnailCache nur bei ungültigem Cache
@@ -359,7 +363,7 @@ function Stop-CacheRebuildJob {
 }
 
 # ============================================================================
-# EINZELORDNER THUMBNAIL-JOB (NEU)
+# EINZELORDNER THUMBNAIL-JOB (NEU) - MIT DEBUG LOGGING
 # ============================================================================
 
 function Start-FolderThumbnailJob {
@@ -404,6 +408,13 @@ function Start-FolderThumbnailJob {
             throw "Ordner existiert nicht: $FolderPath"
         }
         
+        # DEBUG LOG-DATEI
+        $logFile = Join-Path $ScriptRoot "folder-thumbnail-job.log"
+        $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        "[$timestamp] START-FUNKTION AUFGERUFEN" | Out-File -FilePath $logFile -Encoding UTF8
+        "[$timestamp] FolderPath: $FolderPath" | Out-File -FilePath $logFile -Append -Encoding UTF8
+        "[$timestamp] ScriptRoot: $ScriptRoot" | Out-File -FilePath $logFile -Append -Encoding UTF8
+        
         Write-Verbose "Starte Thumbnail-Job für: $FolderPath"
         
         $progress = [hashtable]::Synchronized(@{
@@ -414,55 +425,91 @@ function Start-FolderThumbnailJob {
         })
         
         $jobScript = {
-            param($FolderPath, $ScriptRoot, $Progress)
+            param($FolderPath, $ScriptRoot, $Progress, $LogFile)
+            
+            function Write-JobLog {
+                param([string]$Message, [string]$Level = "INFO")
+                $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+                "[$timestamp] [$Level] $Message" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+            }
+            
+            Write-JobLog "=== JOB SCRIPTBLOCK GESTARTET ==="
+            Write-JobLog "FolderPath: $FolderPath"
+            Write-JobLog "ScriptRoot: $ScriptRoot"
             
             $libThumbsPath = Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1"
+            Write-JobLog "Lib-Pfad: $libThumbsPath"
             
             if (-not (Test-Path -LiteralPath $libThumbsPath)) {
                 $Progress.Status = "Error"
                 $Progress.Error = "Lib_Thumbnails.ps1 nicht gefunden"
+                Write-JobLog "ERROR: Lib nicht gefunden!" "ERROR"
                 return
             }
             
+            Write-JobLog "Lib gefunden, lade..."
+            
             try {
                 . $libThumbsPath
+                Write-JobLog "Lib geladen: OK"
             } catch {
                 $Progress.Status = "Error"
                 $Progress.Error = "Fehler beim Laden von Lib_Thumbnails.ps1: $($_.Exception.Message)"
+                Write-JobLog "ERROR beim Laden: $($_.Exception.Message)" "ERROR"
                 return
             }
             
             try {
                 $thumbsDir = Join-Path $FolderPath ".thumbs"
+                Write-JobLog "ThumbsDir: $thumbsDir"
                 
+                Write-JobLog "Prüfe Cache-Validität..."
                 $cacheValid = Test-ThumbnailCacheValid -FolderPath $FolderPath
+                Write-JobLog "Cache valide: $cacheValid"
                 
                 if (-not $cacheValid) {
                     $Progress.ManifestChanged = $true
+                    Write-JobLog "Cache ungültig - muss neu generiert werden"
                     
                     if (Test-Path -LiteralPath $thumbsDir) {
+                        Write-JobLog "Lösche alten .thumbs Ordner..."
                         Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction Stop
+                        Write-JobLog ".thumbs gelöscht: OK"
+                    } else {
+                        Write-JobLog "Kein .thumbs Ordner vorhanden"
                     }
                     
+                    Write-JobLog "Starte Update-ThumbnailCache..."
                     $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize 300
+                    Write-JobLog "Thumbnails generiert: $generated"
                     $Progress.ThumbnailsGenerated = $generated
                     
                     if ($generated -gt 0) {
+                        Write-JobLog "Entferne Orphans..."
                         $removed = Remove-OrphanedThumbnails -FolderPath $FolderPath
+                        Write-JobLog "Orphans entfernt: $removed"
                     }
                 } else {
+                    Write-JobLog "Cache valide - nichts zu tun"
                     $Progress.ThumbnailsGenerated = 0
                 }
                 
                 $Progress.Status = "Completed"
+                Write-JobLog "=== JOB ERFOLGREICH ABGESCHLOSSEN ==="
                 
             } catch {
                 $Progress.Status = "Error"
                 $Progress.Error = $_.Exception.Message
+                Write-JobLog "FATAL ERROR: $($_.Exception.Message)" "ERROR"
+                Write-JobLog "StackTrace: $($_.ScriptStackTrace)" "ERROR"
             }
         }
         
-        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $FolderPath, $ScriptRoot, $progress
+        "[$timestamp] Starte Background-Job..." | Out-File -FilePath $logFile -Append -Encoding UTF8
+        
+        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $FolderPath, $ScriptRoot, $progress, $logFile
+        
+        "[$timestamp] Job gestartet mit ID: $($job.Id)" | Out-File -FilePath $logFile -Append -Encoding UTF8
         
         if (-not (Get-Variable -Name 'FolderThumbnailJobs' -Scope Script -ErrorAction SilentlyContinue)) {
             $script:FolderThumbnailJobs = @{}
@@ -483,7 +530,12 @@ function Start-FolderThumbnailJob {
         return $jobInfo
         
     } catch {
-        Write-Error "Fehler beim Starten des Folder-Jobs: $($_.Exception.Message)"
+        $errorMsg = "Fehler beim Starten des Folder-Jobs: $($_.Exception.Message)"
+        Write-Error $errorMsg
+        if ($logFile) {
+            $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+            "[$timestamp] FEHLER: $errorMsg" | Out-File -FilePath $logFile -Append -Encoding UTF8
+        }
         throw
     }
 }
