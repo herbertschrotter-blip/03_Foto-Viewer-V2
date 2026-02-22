@@ -246,12 +246,17 @@ function Get-ImageThumbnail {
         
         Write-Verbose "Generiere Thumbnail für: $ImagePath"
         
-        # Original-Bild laden
+        # Original-Bild laden (mit FileStream für sauberes Dispose)
+        $fileStream = $null
         $originalImage = $null
         $thumbnail = $null
+        $graphics = $null
+        $memoryStream = $null
         
         try {
-            $originalImage = [System.Drawing.Image]::FromFile($ImagePath)
+            # FileStream öffnen (bessere Handle-Kontrolle)
+            $fileStream = [System.IO.File]::OpenRead($ImagePath)
+            $originalImage = [System.Drawing.Image]::FromStream($fileStream)
             
             # Neue Dimensionen berechnen (Aspect Ratio beibehalten)
             $ratio = [Math]::Min(
@@ -268,43 +273,76 @@ function Get-ImageThumbnail {
             $thumbnail = [System.Drawing.Bitmap]::new($newWidth, $newHeight)
             $graphics = [System.Drawing.Graphics]::FromImage($thumbnail)
             
-            try {
-                # High-Quality Settings
-                $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-                $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-                $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-                $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
-                
-                # Resize
-                $graphics.DrawImage($originalImage, 0, 0, $newWidth, $newHeight)
-                
-                # JPEG Encoder mit Quality-Setting
-                $jpegCodec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | 
-                    Where-Object { $_.MimeType -eq 'image/jpeg' } | 
-                    Select-Object -First 1
-                
-                $encoderParams = [System.Drawing.Imaging.EncoderParameters]::new(1)
-                $encoderParams.Param[0] = [System.Drawing.Imaging.EncoderParameter]::new(
-                    [System.Drawing.Imaging.Encoder]::Quality,
-                    [long]$Quality
-                )
-                
-                # Speichern
-                $thumbnail.Save($thumbPath, $jpegCodec, $encoderParams)
-                
-                Write-Verbose "Thumbnail gespeichert: $thumbPath"
-                
-            } finally {
-                if ($graphics) { $graphics.Dispose() }
-            }
+            # High-Quality Settings
+            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+            $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+            $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+            
+            # Resize
+            $graphics.DrawImage($originalImage, 0, 0, $newWidth, $newHeight)
+            
+            # Graphics sofort freigeben (vor Save!)
+            $graphics.Dispose()
+            $graphics = $null
+            
+            # Original sofort freigeben (vor Save!)
+            $originalImage.Dispose()
+            $originalImage = $null
+            $fileStream.Close()
+            $fileStream.Dispose()
+            $fileStream = $null
+            
+            # JPEG Encoder mit Quality-Setting
+            $jpegCodec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | 
+                Where-Object { $_.MimeType -eq 'image/jpeg' } | 
+                Select-Object -First 1
+            
+            $encoderParams = [System.Drawing.Imaging.EncoderParameters]::new(1)
+            $encoderParams.Param[0] = [System.Drawing.Imaging.EncoderParameter]::new(
+                [System.Drawing.Imaging.Encoder]::Quality,
+                [long]$Quality
+            )
+            
+            # Via MemoryStream speichern (vermeidet File-Lock)
+            $memoryStream = [System.IO.MemoryStream]::new()
+            $thumbnail.Save($memoryStream, $jpegCodec, $encoderParams)
+            
+            # MemoryStream zu Datei schreiben
+            $fileBytes = $memoryStream.ToArray()
+            [System.IO.File]::WriteAllBytes($thumbPath, $fileBytes)
+            
+            Write-Verbose "Thumbnail gespeichert: $thumbPath"
             
         } finally {
-            if ($thumbnail) { $thumbnail.Dispose() }
-            if ($originalImage) { $originalImage.Dispose() }
+            # WICHTIG: Alles freigeben in richtiger Reihenfolge
+            if ($memoryStream) { 
+                $memoryStream.Dispose() 
+                $memoryStream = $null
+            }
+            if ($graphics) { 
+                $graphics.Dispose() 
+                $graphics = $null
+            }
+            if ($thumbnail) { 
+                $thumbnail.Dispose() 
+                $thumbnail = $null
+            }
+            if ($originalImage) { 
+                $originalImage.Dispose() 
+                $originalImage = $null
+            }
+            if ($fileStream) { 
+                $fileStream.Close()
+                $fileStream.Dispose() 
+                $fileStream = $null
+            }
+            
+            # GC forcieren (wichtig bei GDI+!)
+            [GC]::Collect()
+            [GC]::WaitForPendingFinalizers()
+            [GC]::Collect()
         }
-        
-        # WICHTIG: Kurz warten damit File-Handle freigegeben wird
-        Start-Sleep -Milliseconds 50
         
         # Verifizieren
         if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
