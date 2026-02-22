@@ -11,7 +11,10 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.0
+    Version: 0.3.1
+    
+    ÄNDERUNGEN v0.3.1:
+    - Fix: Relativen Pfad in absoluten umwandeln für Thumbnail-Job
     
     ÄNDERUNGEN v0.3.0:
     - /tools/folder/open - Triggert Auto-Thumbnail-Job beim Ordner-Öffnen

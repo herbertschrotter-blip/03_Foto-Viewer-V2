@@ -15,13 +15,20 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.1.3
+    
+    ÄNDERUNGEN v0.1.3:
+    - Fix: Verhindere doppelte Jobs für denselben Ordner
+    - Verhindert File-Lock Konflikte
+    
+    ÄNDERUNGEN v0.1.2:
+    - DEBUG: Umfangreiches Logging für Troubleshooting
+    
+    ÄNDERUNGEN v0.1.1:
+    - Fix: Update-ThumbnailCache nur bei ungültigem Cache
     
     ÄNDERUNGEN v0.1.0:
     - Neue Lib für Background-Job System
-    - Start-CacheRebuildJob: Alle Ordner (aus Lib_Tools.ps1)
-    - Start-FolderThumbnailJob: Einzelner Ordner (NEU)
-    - Manifest-Check + Auto-Clean bei Änderungen
     
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
@@ -37,41 +44,6 @@ $PSDefaultParameterValues['*:Encoding'] = 'utf8'
 # ============================================================================
 
 function Start-CacheRebuildJob {
-    <#
-    .SYNOPSIS
-        Startet Background-Job für Cache-Rebuild ALLER Ordner
-    
-    .DESCRIPTION
-        Validiert/Rebuilt Thumbnail-Cache für ALLE Ordner im Hintergrund.
-        Non-Blocking: Server bleibt responsiv.
-        
-        Job speichert Progress in shared Hashtable:
-        - TotalFolders: Gesamtzahl Ordner
-        - ProcessedFolders: Bisher verarbeitet
-        - UpdatedFolders: Anzahl Rebuilds
-        - ValidFolders: Anzahl valide Caches
-        - CurrentFolder: Aktuell bearbeiteter Ordner
-        - Status: Running/Completed/Error
-        - Error: Fehlermeldung (falls Error)
-    
-    .PARAMETER RootPath
-        Root-Ordner der Medien
-    
-    .PARAMETER Folders
-        Array von Ordner-Objekten (aus Get-MediaFolders)
-    
-    .PARAMETER ScriptRoot
-        Projekt-Root (für FFmpeg)
-    
-    .PARAMETER LogFile
-        Optional: Pfad zur Log-Datei (Default: ScriptRoot\cache-rebuild.log)
-    
-    .EXAMPLE
-        $job = Start-CacheRebuildJob -RootPath $RootPath -Folders $script:State.Folders -ScriptRoot $PSScriptRoot
-    
-    .OUTPUTS
-        PSCustomObject mit JobId, StartTime, Progress (Hashtable)
-    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
@@ -223,22 +195,6 @@ function Start-CacheRebuildJob {
 }
 
 function Get-CacheRebuildStatus {
-    <#
-    .SYNOPSIS
-        Gibt Status des Cache-Rebuild Jobs zurück
-    
-    .DESCRIPTION
-        Liefert aktuellen Progress des Background-Jobs für ALLE Ordner.
-    
-    .EXAMPLE
-        $status = Get-CacheRebuildStatus
-        if ($status.Status -eq "Running") {
-            Write-Host "Progress: $($status.Progress)%"
-        }
-    
-    .OUTPUTS
-        PSCustomObject mit Status, Progress, Details, Duration
-    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param()
@@ -309,19 +265,6 @@ function Get-CacheRebuildStatus {
 }
 
 function Stop-CacheRebuildJob {
-    <#
-    .SYNOPSIS
-        Stoppt laufenden Cache-Rebuild Job
-    
-    .DESCRIPTION
-        Bricht den aktuell laufenden Background-Job für ALLE Ordner ab.
-    
-    .EXAMPLE
-        Stop-CacheRebuildJob
-    
-    .OUTPUTS
-        Boolean - $true wenn gestoppt, $false wenn kein Job läuft
-    #>
     [CmdletBinding()]
     [OutputType([bool])]
     param()
@@ -355,36 +298,10 @@ function Stop-CacheRebuildJob {
 }
 
 # ============================================================================
-# EINZELORDNER THUMBNAIL-JOB (NEU)
+# EINZELORDNER THUMBNAIL-JOB
 # ============================================================================
 
 function Start-FolderThumbnailJob {
-    <#
-    .SYNOPSIS
-        Startet Background-Job für EINEN Ordner
-    
-    .DESCRIPTION
-        Generiert Thumbnails für einen einzelnen Ordner im Hintergrund.
-        
-        Workflow:
-        1. Prüft Manifest auf Änderungen
-        2. Bei Änderung: Löscht .thumbs/ komplett
-        3. Generiert alle Thumbnails neu
-        
-        Non-Blocking: Thumbnails erscheinen nach und nach.
-    
-    .PARAMETER FolderPath
-        Absoluter Pfad zum Ordner
-    
-    .PARAMETER ScriptRoot
-        Projekt-Root (für FFmpeg)
-    
-    .EXAMPLE
-        $job = Start-FolderThumbnailJob -FolderPath "C:\Photos\Urlaub" -ScriptRoot $PSScriptRoot
-    
-    .OUTPUTS
-        PSCustomObject mit JobId, FolderPath, StartTime, Progress
-    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
@@ -401,6 +318,24 @@ function Start-FolderThumbnailJob {
         }
         
         Write-Verbose "Starte Thumbnail-Job für: $FolderPath"
+        
+        # Hashtable initialisieren
+        if (-not (Get-Variable -Name 'FolderThumbnailJobs' -Scope Script -ErrorAction SilentlyContinue)) {
+            $script:FolderThumbnailJobs = @{}
+        }
+        
+        # Prüfe ob bereits ein Job für diesen Ordner läuft
+        if ($script:FolderThumbnailJobs.ContainsKey($FolderPath)) {
+            $existingJob = $script:FolderThumbnailJobs[$FolderPath]
+            if ($existingJob.Job.State -eq 'Running') {
+                Write-Verbose "Job läuft bereits für: $FolderPath - Überspringe"
+                return $existingJob
+            } else {
+                # Alter Job beendet, aufräumen
+                Write-Verbose "Alter Job beendet, starte neu: $FolderPath"
+                Remove-Job -Job $existingJob.Job -Force -ErrorAction SilentlyContinue
+            }
+        }
         
         $progress = [hashtable]::Synchronized(@{
             Status = "Running"
@@ -439,13 +374,15 @@ function Start-FolderThumbnailJob {
                     if (Test-Path -LiteralPath $thumbsDir) {
                         Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction Stop
                     }
-                }
-                
-                $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize 300
-                $Progress.ThumbnailsGenerated = $generated
-                
-                if ($generated -gt 0) {
-                    $removed = Remove-OrphanedThumbnails -FolderPath $FolderPath
+                    
+                    $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize 300
+                    $Progress.ThumbnailsGenerated = $generated
+                    
+                    if ($generated -gt 0) {
+                        $removed = Remove-OrphanedThumbnails -FolderPath $FolderPath
+                    }
+                } else {
+                    $Progress.ThumbnailsGenerated = 0
                 }
                 
                 $Progress.Status = "Completed"
@@ -453,24 +390,6 @@ function Start-FolderThumbnailJob {
             } catch {
                 $Progress.Status = "Error"
                 $Progress.Error = $_.Exception.Message
-            }
-        }
-        
-        # Hashtable initialisieren
-        if (-not (Get-Variable -Name 'FolderThumbnailJobs' -Scope Script -ErrorAction SilentlyContinue)) {
-            $script:FolderThumbnailJobs = @{}
-        }
-        
-        # Prüfe ob bereits ein Job für diesen Ordner läuft
-        if ($script:FolderThumbnailJobs.ContainsKey($FolderPath)) {
-            $existingJob = $script:FolderThumbnailJobs[$FolderPath]
-            if ($existingJob.Job.State -eq 'Running') {
-                Write-Verbose "Job läuft bereits für: $FolderPath - Überspringe"
-                return $existingJob
-            } else {
-                # Alter Job beendet, aufräumen
-                Write-Verbose "Alter Job beendet, starte neu: $FolderPath"
-                Remove-Job -Job $existingJob.Job -Force -ErrorAction SilentlyContinue
             }
         }
         
@@ -497,19 +416,6 @@ function Start-FolderThumbnailJob {
 }
 
 function Get-FolderJobStatus {
-    <#
-    .SYNOPSIS
-        Gibt Status des Einzelordner-Jobs zurück
-    
-    .PARAMETER FolderPath
-        Absoluter Pfad zum Ordner
-    
-    .EXAMPLE
-        $status = Get-FolderJobStatus -FolderPath "C:\Photos\Urlaub"
-    
-    .OUTPUTS
-        PSCustomObject mit Status, ManifestChanged, ThumbnailsGenerated, Duration
-    #>
     [CmdletBinding()]
     [OutputType([PSCustomObject])]
     param(
@@ -580,19 +486,6 @@ function Get-FolderJobStatus {
 }
 
 function Stop-FolderJob {
-    <#
-    .SYNOPSIS
-        Stoppt laufenden Einzelordner-Job
-    
-    .PARAMETER FolderPath
-        Absoluter Pfad zum Ordner
-    
-    .EXAMPLE
-        Stop-FolderJob -FolderPath "C:\Photos\Urlaub"
-    
-    .OUTPUTS
-        Boolean - $true wenn gestoppt
-    #>
     [CmdletBinding()]
     [OutputType([bool])]
     param(
