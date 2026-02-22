@@ -145,7 +145,8 @@ if (Test-Path -LiteralPath $libSystemCheckPath) {
 # Libs laden - Routes
 . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Tools.ps1")
 . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Settings.ps1")
-. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Files.ps1")
+# . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Files.ps1")  # LEER - Deaktiviert
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Media.ps1")  # NEU - Lightbox Original-Bilder
 
 # Libs laden - Utils
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_Tools.ps1")
@@ -362,6 +363,11 @@ try {
                 if (Handle-SettingsRoute -Context $ctx -ScriptRoot $ScriptRoot) {
                     continue
                 }
+            }
+            
+            # Routes: /original (Media - Lightbox Original-Bilder)
+            if (Register-MediaRoutes -Context $ctx -RootFull $script:State.RootPath) {
+                continue
             }
             
             # Route: /delete-files
