@@ -146,19 +146,34 @@ function Start-CacheRebuildJob {
                         $Progress.CurrentFolder = $folder.RelativePath
                         Write-JobLog "Verarbeite: $($folder.RelativePath)"
                         
-                        if (-not (Test-ThumbnailCacheValid -FolderPath $folder.Path)) {
-                            Write-JobLog "  Cache ungültig, rebuild nötig"
-                            
-                            $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
-                            Write-JobLog "  Generiert: $generated Thumbnails"
-                            
-                            if ($generated -gt 0) {
-                                $removed = Remove-OrphanedThumbnails -FolderPath $folder.Path
-                                Write-JobLog "  Orphans entfernt: $removed"
-                                $Progress.UpdatedFolders++
+                        # Hole alle Medien
+                        $mediaFiles = @(Get-ChildItem -LiteralPath $folder.Path -File -ErrorAction SilentlyContinue | 
+                            Where-Object { 
+                                $_.Name -ne 'Thumbs.db' -and 
+                                $_.Name -ne 'thumbs.db' -and
+                                ((Test-IsImageFile -Path $_.FullName) -or (Test-IsVideoFile -Path $_.FullName))
+                            })
+                        
+                        $generated = 0
+                        
+                        foreach ($file in $mediaFiles) {
+                            try {
+                                $thumbPath = Get-MediaThumbnail -Path $file.FullName -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
+                                
+                                if ($thumbPath -and (Test-Path -LiteralPath $thumbPath)) {
+                                    $generated++
+                                }
                             }
+                            catch {
+                                Write-JobLog "  Fehler bei $($file.Name): $($_.Exception.Message)" "WARN"
+                            }
+                        }
+                        
+                        Write-JobLog "  Thumbnails: $generated von $($mediaFiles.Count)"
+                        
+                        if ($generated -gt 0) {
+                            $Progress.UpdatedFolders++
                         } else {
-                            Write-JobLog "  Cache valide"
                             $Progress.ValidFolders++
                         }
                         
@@ -388,27 +403,46 @@ function Start-FolderThumbnailJob {
             }
             
             try {
-                $thumbsDir = Join-Path $FolderPath ".thumbs"
+                # EINFACH: Prüfe jede Datei, generiere fehlende Thumbnails
+                # KEIN Manifest, KEINE komplette Cache-Löschung!
                 
-                $cacheValid = Test-ThumbnailCacheValid -FolderPath $FolderPath
-                
-                if (-not $cacheValid) {
-                    $Progress.ManifestChanged = $true
-                    
-                    if (Test-Path -LiteralPath $thumbsDir) {
-                        Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction Stop
-                    }
-                    
-                    $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
-                    $Progress.ThumbnailsGenerated = $generated
-                    
-                    if ($generated -gt 0) {
-                        $removed = Remove-OrphanedThumbnails -FolderPath $FolderPath
-                    }
-                } else {
-                    $Progress.ThumbnailsGenerated = 0
+                $libThumbsPath = Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1"
+                if (-not (Test-Path -LiteralPath $libThumbsPath)) {
+                    $Progress.Status = "Error"
+                    $Progress.Error = "Lib_Thumbnails.ps1 nicht gefunden"
+                    return
                 }
                 
+                . $libThumbsPath
+                
+                # Hole alle Medien-Dateien
+                $mediaFiles = @(Get-ChildItem -LiteralPath $FolderPath -File -ErrorAction SilentlyContinue | 
+                    Where-Object { 
+                        $_.Name -ne 'Thumbs.db' -and 
+                        $_.Name -ne 'thumbs.db' -and
+                        ((Test-IsImageFile -Path $_.FullName) -or (Test-IsVideoFile -Path $_.FullName))
+                    })
+                
+                $generated = 0
+                
+                foreach ($file in $mediaFiles) {
+                    try {
+                        # Get-MediaThumbnail prüft automatisch ob Thumbnail existiert
+                        # Wenn ja → Wiederverwendung (Cache-Hit)
+                        # Wenn nein → Generierung
+                        $thumbPath = Get-MediaThumbnail -Path $file.FullName -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
+                        
+                        if ($thumbPath -and (Test-Path -LiteralPath $thumbPath)) {
+                            $generated++
+                        }
+                    }
+                    catch {
+                        Write-Warning "Fehler bei $($file.Name): $($_.Exception.Message)"
+                    }
+                }
+                
+                $Progress.ThumbnailsGenerated = $generated
+                $Progress.ManifestChanged = $false  # Nicht mehr relevant
                 $Progress.Status = "Completed"
                 
             } catch {
