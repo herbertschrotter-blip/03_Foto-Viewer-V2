@@ -1,58 +1,133 @@
 <#
-.SYNOPSIS
-    Konfigurationsverwaltung für Foto_Viewer_V2
+ManifestHint:
+  ExportFunctions = @("Get-Config", "Save-Config", "Get-DefaultConfig", "Clear-ConfigCache", "Merge-ConfigWithDefaults")
+  Description     = "Konfigurationsverwaltung mit Caching"
+  Category        = "Core"
+  Tags            = @("Config", "Settings", "Cache")
+  Dependencies    = @()
 
-.DESCRIPTION
-    Lädt und speichert config.json mit Validierung.
-    Unterstützt Standard-Werte bei fehlenden Einträgen.
+Zweck:
+  - Lädt und speichert config.json
+  - Caching für Performance (60s TTL)
+  - Fallback zu Defaults bei Fehler
+  - Merge mit vollständigen Defaults
 
-.EXAMPLE
-    $config = Get-Config
-    $port = $config.Server.Port
+Funktionen:
+  - Get-Config: Lädt Config mit Cache
+  - Save-Config: Speichert Config zu Disk
+  - Get-DefaultConfig: Gibt vollständige Defaults zurück
+  - Clear-ConfigCache: Invalidiert Cache
+  - Merge-ConfigWithDefaults: Ergänzt fehlende Keys
+
+Abhängigkeiten:
+  - Keine
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Cache-Variablen (Module-Scope)
+$script:ConfigCache = $null
+$script:ConfigCacheTime = $null
+$script:ConfigCacheTTL = 60  # Sekunden
 
 function Get-Config {
     <#
     .SYNOPSIS
-        Lädt config.json aus Projekt-Root
+        Lädt config.json aus Projekt-Root mit Caching
     
     .DESCRIPTION
-        Lädt Konfiguration, validiert JSON, gibt PSCustomObject zurück.
-        Bei Fehler: Gibt Standard-Config zurück.
+        Lädt Konfiguration mit 60s Cache für Performance.
+        Merged mit Defaults für fehlende Keys.
+        Bei Fehler: Gibt vollständige Default-Config zurück.
+    
+    .PARAMETER Force
+        Ignoriert Cache, lädt neu von Disk
     
     .EXAMPLE
         $config = Get-Config
         $port = $config.Server.Port
+    
+    .EXAMPLE
+        $config = Get-Config -Force
+        # Erzwingt Neu-Laden, ignoriert Cache
+    
+    .OUTPUTS
+        [hashtable]
+        Vollständige Konfiguration
     #>
     [CmdletBinding()]
-    [OutputType([PSCustomObject])]
-    param()
+    [OutputType([hashtable])]
+    param(
+        [Parameter()]
+        [switch]$Force
+    )
     
+    # Cache-Check
+    $now = Get-Date
+    $cacheAge = if ($script:ConfigCacheTime) { 
+        ($now - $script:ConfigCacheTime).TotalSeconds 
+    } else { 
+        999 
+    }
+    
+    $cacheValid = $script:ConfigCache -and 
+                  ($cacheAge -lt $script:ConfigCacheTTL)
+    
+    if ($cacheValid -and -not $Force) {
+        Write-Verbose "Config aus Cache ($([math]::Round($cacheAge, 1))s alt)"
+        return $script:ConfigCache
+    }
+    
+    # Config-Pfad bestimmen
+    $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    $configPath = Join-Path $scriptRoot "config.json"
+    
+    Write-Verbose "Lade Config von: $configPath"
+    
+    # Datei existiert?
+    if (-not (Test-Path -LiteralPath $configPath)) {
+        Write-Warning "config.json nicht gefunden, verwende Defaults"
+        $config = Get-DefaultConfig
+        
+        # Cache speichern
+        $script:ConfigCache = $config
+        $script:ConfigCacheTime = $now
+        
+        return $config
+    }
+    
+    # Laden
     try {
-        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-        $configPath = Join-Path $scriptRoot "config.json"
-        
-        if (-not (Test-Path -LiteralPath $configPath)) {
-            Write-Warning "config.json nicht gefunden: $configPath"
-            return Get-DefaultConfig
-        }
-        
         $json = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 -ErrorAction Stop
         $config = $json | ConvertFrom-Json -AsHashtable -ErrorAction Stop
         
-        Write-Verbose "Config geladen: $configPath"
-        return $config
+        # Merge mit Defaults (falls Keys fehlen)
+        $defaults = Get-DefaultConfig
+        $config = Merge-ConfigWithDefaults -Config $config -Defaults $defaults
         
-    } catch {
-        Write-Error "Fehler beim Laden der Config: $($_.Exception.Message)"
-        return Get-DefaultConfig
+        # Cache speichern
+        $script:ConfigCache = $config
+        $script:ConfigCacheTime = $now
+        
+        Write-Verbose "Config erfolgreich geladen und gecacht"
+        return $config
+    }
+    catch {
+        Write-Error "Fehler beim Laden von config.json: $($_.Exception.Message)"
+        Write-Warning "Verwende Defaults als Fallback"
+        
+        # Fallback zu Defaults
+        $config = Get-DefaultConfig
+        $script:ConfigCache = $config
+        $script:ConfigCacheTime = $now
+        
+        return $config
     }
 }
 
@@ -121,4 +196,85 @@ function Save-Config {
         Write-Error "Fehler beim Speichern der Config: $($_.Exception.Message)"
         throw
     }
+}
+
+function Clear-ConfigCache {
+    <#
+    .SYNOPSIS
+        Leert Config-Cache (erzwingt Neu-Laden)
+    
+    .DESCRIPTION
+        Invalidiert Cache, nächster Get-Config lädt neu von Disk.
+        Nützlich nach manuellen config.json Änderungen.
+    
+    .EXAMPLE
+        Clear-ConfigCache
+        $config = Get-Config  # Lädt neu von Disk
+    #>
+    [CmdletBinding()]
+    param()
+    
+    $script:ConfigCache = $null
+    $script:ConfigCacheTime = $null
+    
+    Write-Verbose "Config-Cache geleert"
+}
+
+function Merge-ConfigWithDefaults {
+    <#
+    .SYNOPSIS
+        Merged geladene Config mit Defaults (für fehlende Keys)
+    
+    .DESCRIPTION
+        Stellt sicher dass alle Keys vorhanden sind,
+        auch wenn config.json unvollständig ist.
+        Verwendet rekursiven Merge für verschachtelte Hashtables.
+    
+    .PARAMETER Config
+        Geladene Config (kann unvollständig sein)
+    
+    .PARAMETER Defaults
+        Default-Config (vollständig)
+    
+    .EXAMPLE
+        $merged = Merge-ConfigWithDefaults -Config $loaded -Defaults $defaults
+        # $merged hat garantiert alle Keys aus Defaults
+    
+    .OUTPUTS
+        [hashtable]
+        Vollständige Config mit allen Keys
+    #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory)]
+        [hashtable]$Defaults
+    )
+    
+    $merged = @{}
+    
+    # Alle Keys aus Defaults übernehmen
+    foreach ($key in $Defaults.Keys) {
+        if ($Config.ContainsKey($key)) {
+            # Key existiert in Config
+            if ($Config[$key] -is [hashtable] -and $Defaults[$key] -is [hashtable]) {
+                # Nested Hashtable → rekursiv mergen
+                $merged[$key] = Merge-ConfigWithDefaults -Config $Config[$key] -Defaults $Defaults[$key]
+            }
+            else {
+                # Primitiver Wert → aus Config übernehmen
+                $merged[$key] = $Config[$key]
+            }
+        }
+        else {
+            # Key fehlt → Default verwenden
+            $merged[$key] = $Defaults[$key]
+            Write-Verbose "Fehlender Key '$key' mit Default ergänzt"
+        }
+    }
+    
+    return $merged
 }
