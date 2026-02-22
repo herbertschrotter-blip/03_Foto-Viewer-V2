@@ -32,7 +32,7 @@ Funktionen:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
     
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
