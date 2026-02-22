@@ -55,7 +55,10 @@ function Handle-ToolsRoute {
         [string]$RootPath,
         
         [Parameter(Mandatory)]
-        [string]$ScriptRoot
+        [string]$ScriptRoot,
+        
+        [Parameter(Mandatory)]
+        [hashtable]$Config
     )
     
     $req = $Context.Request
@@ -163,8 +166,8 @@ function Handle-ToolsRoute {
         # Route: /tools/cache/start
         if ($path -eq "/tools/cache/start" -and $req.HttpMethod -eq "POST") {
             try {
-                # Starte Background-Job
-                $job = Start-CacheRebuildJob -RootPath $RootPath -Folders $script:State.Folders -ScriptRoot $ScriptRoot
+                # Starte Background-Job mit Config
+                $job = Start-CacheRebuildJob -RootPath $RootPath -Folders $script:State.Folders -ScriptRoot $ScriptRoot -MaxSize $Config.UI.ThumbnailSize -Quality $Config.Video.ThumbnailQuality -ThumbnailQuality $Config.Video.ThumbnailQuality -ThumbnailStartPercent $Config.Video.ThumbnailStartPercent
                 
                 $json = @{
                     success = $true
@@ -259,7 +262,7 @@ function Handle-ToolsRoute {
                     return $true
                 }
                 
-                $job = Start-FolderThumbnailJob -FolderPath $absolutePath -ScriptRoot $ScriptRoot
+                $job = Start-FolderThumbnailJob -FolderPath $absolutePath -ScriptRoot $ScriptRoot -MaxSize $Config.UI.ThumbnailSize -Quality $Config.Video.ThumbnailQuality -ThumbnailQuality $Config.Video.ThumbnailQuality -ThumbnailStartPercent $Config.Video.ThumbnailStartPercent
                 
                 $json = @{
                     success = $true
