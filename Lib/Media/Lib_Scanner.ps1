@@ -12,7 +12,12 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
+    
+    ÄNDERUNGEN v0.3.0:
+    - PowerShell 7.0 ONLY
+    - Config-Integration (Lib_Config.ps1)
+    - KEINE hardcoded Werte mehr
     
     ÄNDERUNGEN v0.2.0:
     - Integration Thumbnail-Cache Validierung
@@ -21,8 +26,25 @@
     - ScriptRoot Parameter für FFmpeg (Videos)
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Config laden (über Lib_Config.ps1)
+$ScriptDir = if ($PSScriptRoot) { 
+    $PSScriptRoot 
+} else { 
+    Split-Path -Parent $MyInvocation.MyCommand.Path 
+}
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+$libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
+
+if (Test-Path -LiteralPath $libConfigPath) {
+    . $libConfigPath
+    $script:config = Get-Config
+} else {
+    throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_Scanner benötigt Config."
+}
 
 function ConvertTo-NaturalSortKey {
     <#
@@ -194,7 +216,7 @@ function Get-MediaFolders {
                 if (-not (Test-ThumbnailCacheValid -FolderPath $folder.Path)) {
                     Write-Verbose "Cache rebuild: $($folder.RelativePath)"
                     
-                    $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize 300
+                    $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot
                     
                     if ($generated -gt 0) {
                         Remove-OrphanedThumbnails -FolderPath $folder.Path
