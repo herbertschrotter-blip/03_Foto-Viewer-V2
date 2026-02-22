@@ -11,7 +11,10 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.0
+    Version: 0.3.1
+    
+    ÄNDERUNGEN v0.3.1:
+    - Fix: Relativen Pfad in absoluten umwandeln für Thumbnail-Job
     
     ÄNDERUNGEN v0.3.0:
     - /tools/folder/open - Triggert Auto-Thumbnail-Job beim Ordner-Öffnen
@@ -236,20 +239,27 @@ function Handle-ToolsRoute {
                 $reader.Close()
                 $data = $body | ConvertFrom-Json
                 
-                $folderPath = $data.folderPath
-                if ([string]::IsNullOrWhiteSpace($folderPath)) {
+                $relativePath = $data.folderPath
+                if ([string]::IsNullOrWhiteSpace($relativePath)) {
                     $json = @{ success = $false; error = "Kein folderPath angegeben" } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
                     return $true
                 }
                 
-                if (-not (Test-Path -LiteralPath $folderPath -PathType Container)) {
-                    $json = @{ success = $false; error = "Ordner existiert nicht" } | ConvertTo-Json -Compress
+                # Relativen Pfad in absoluten umwandeln
+                $absolutePath = if ($relativePath -eq ".") {
+                    $RootPath
+                } else {
+                    Join-Path $RootPath $relativePath
+                }
+                
+                if (-not (Test-Path -LiteralPath $absolutePath -PathType Container)) {
+                    $json = @{ success = $false; error = "Ordner existiert nicht: $absolutePath" } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 404 -ContentType "application/json; charset=utf-8"
                     return $true
                 }
                 
-                $job = Start-FolderThumbnailJob -FolderPath $folderPath -ScriptRoot $ScriptRoot
+                $job = Start-FolderThumbnailJob -FolderPath $absolutePath -ScriptRoot $ScriptRoot
                 
                 $json = @{
                     success = $true
