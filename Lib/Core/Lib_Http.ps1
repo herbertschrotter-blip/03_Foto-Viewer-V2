@@ -65,7 +65,12 @@ function Start-HttpListener {
     
     # Config laden falls Werte nicht übergeben wurden
     if (-not $Port -or -not $Hostname) {
-        $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        # Pfad zur Config ermitteln (robuster)
+        $ScriptDir = if ($PSScriptRoot) { 
+            $PSScriptRoot 
+        } else { 
+            Split-Path -Parent $MyInvocation.MyCommand.Path 
+        }
         $ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
         $libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
         
