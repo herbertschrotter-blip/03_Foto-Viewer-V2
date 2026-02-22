@@ -15,7 +15,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.8.2
+    Version: 0.9.0
     
     ÄNDERUNGEN v0.8.2:
     - Lib_BackgroundJobs.ps1 geladen
@@ -28,7 +28,7 @@
     - Entfernt: Zentrale $script:ThumbsDir Logik
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [Parameter()]
@@ -40,6 +40,69 @@ $ErrorActionPreference = 'Stop'
 
 # Script-Root ermitteln
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+$libSystemCheckPath = Join-Path $ScriptRoot "Lib\System\Lib_SystemCheck.ps1"
+
+if (Test-Path -LiteralPath $libSystemCheckPath) {
+    . $libSystemCheckPath
+    
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host "  SYSTEM-CHECK" -ForegroundColor White
+    Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
+    Write-Host ""
+    
+    $systemCheck = Test-SystemRequirements -ScriptRoot $ScriptRoot -ShowWarnings $false
+    
+    if (-not $systemCheck.AllPassed) {
+        Write-Host "❌ KRITISCHE FEHLER:" -ForegroundColor Red
+        foreach ($err in $systemCheck.Errors) {
+            Write-Host "   • $err" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Host "Drücke Enter zum Beenden..." -ForegroundColor Yellow
+        Read-Host
+        exit 1
+    }
+    
+    if ($systemCheck.Warnings.Count -gt 0) {
+        Write-Host "⚠️  WARNUNGEN:" -ForegroundColor Yellow
+        Write-Host ""
+        
+        if (-not $systemCheck.LongPathSupport) {
+            Write-Host "📋 Long Path Support: DEAKTIVIERT" -ForegroundColor Yellow
+            Write-Host "   Maximale Pfad-Länge: 260 Zeichen" -ForegroundColor Gray
+            Write-Host "   Bei langen Pfaden können Fehler auftreten!" -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "   Aktivierung (OPTIONAL - benötigt Admin-Rechte):" -ForegroundColor Cyan
+            Write-Host "   1. PowerShell als Administrator starten" -ForegroundColor Gray
+            Write-Host "   2. Folgenden Befehl ausführen:" -ForegroundColor Gray
+            Write-Host "      Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' \" -ForegroundColor White
+            Write-Host "                       -Name 'LongPathsEnabled' -Value 1" -ForegroundColor White
+            Write-Host "   3. PowerShell neu starten" -ForegroundColor Gray
+            Write-Host ""
+        }
+        
+        if ($systemCheck.FFmpegAvailable -eq $false) {
+            Write-Host "⚠️  FFmpeg: NICHT GEFUNDEN" -ForegroundColor Yellow
+            Write-Host "   Video-Thumbnails werden nicht funktionieren!" -ForegroundColor Gray
+            Write-Host ""
+        }
+        
+        Write-Host "Trotzdem fortfahren? (J/N): " -NoNewline -ForegroundColor Yellow
+        $answer = Read-Host
+        
+        if ($answer -ne "J" -and $answer -ne "j") {
+            Write-Host ""
+            Write-Host "Abgebrochen." -ForegroundColor Red
+            Write-Host ""
+            exit 0
+        }
+    }
+    
+    Write-Host "✅ System-Check erfolgreich!" -ForegroundColor Green
+    Write-Host ""
+}
 
 # Libs laden - Core
 . (Join-Path $ScriptRoot "Lib\Core\Lib_Config.ps1")
@@ -108,16 +171,6 @@ if ($psInfo.IsPS7) {
     Write-Host "  → Parallel-Processing verfügbar" -ForegroundColor DarkGray
 } else {
     Write-Host "  → Sequenziell (für Parallel: PS7+ installieren)" -ForegroundColor DarkGray
-}
-
-Write-Host ""
-
-# FFmpeg Check
-$ffmpegPath = Join-Path $ScriptRoot "ffmpeg\ffmpeg.exe"
-if (Test-Path -LiteralPath $ffmpegPath -PathType Leaf) {
-    Write-Host "✓ FFmpeg gefunden: $ffmpegPath" -ForegroundColor Green
-} else {
-    Write-Warning "FFmpeg nicht gefunden - Video-Thumbnails deaktiviert"
 }
 
 Write-Host ""
