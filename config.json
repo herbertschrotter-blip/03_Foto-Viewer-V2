@@ -1,16 +1,16 @@
 {
   "Video": {
     "ConversionPreset": "medium",
-    "GIFLoop": true,
+    "GIFLoop": false,
     "PreferredCodec": "h264",
     "EnableAutoConversion": true,
     "ThumbnailQuality": 85,
     "GIFDuration": 3,
     "ThumbnailStartPercent": 10,
-    "PreviewAsGIF": true,
+    "PreviewAsGIF": false,
     "ThumbnailEndPercent": 90,
     "UseHLS": true,
-    "ThumbnailCount": 5,
+    "ThumbnailCount": 1,
     "HLSSegmentDuration": 10,
     "GIFFrameRate": 10,
     "ThumbnailFPS": 1
@@ -43,7 +43,13 @@
     "KeyboardNavigation": true,
     "OpenInVLC": false,
     "LightboxViewer": true,
-    "ArchiveExtensions": [".zip", ".rar", ".7z", ".tar", ".gz"],
+    "ArchiveExtensions": [
+      ".zip",
+      ".rar",
+      ".7z",
+      ".tar",
+      ".gz"
+    ],
     "VideoThumbnailPreGeneration": false,
     "ArchiveExtraction": false,
     "LazyVideoConversion": true
@@ -67,8 +73,29 @@
     "CacheThumbnails": true
   },
   "Media": {
-    "ImageExtensions": [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff"],
-    "VideoExtensions": [".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp"],
+    "ImageExtensions": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".webp",
+      ".gif",
+      ".bmp",
+      ".tif",
+      ".tiff"
+    ],
+    "VideoExtensions": [
+      ".mp4",
+      ".mov",
+      ".avi",
+      ".mkv",
+      ".webm",
+      ".m4v",
+      ".wmv",
+      ".flv",
+      ".mpg",
+      ".mpeg",
+      ".3gp"
+    ],
     "MimeTypes": {
       ".jpg": "image/jpeg",
       ".jpeg": "image/jpeg",
