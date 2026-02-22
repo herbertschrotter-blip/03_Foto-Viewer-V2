@@ -456,11 +456,25 @@ function Start-FolderThumbnailJob {
             }
         }
         
-        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $FolderPath, $ScriptRoot, $progress
-        
+        # Hashtable initialisieren
         if (-not (Get-Variable -Name 'FolderThumbnailJobs' -Scope Script -ErrorAction SilentlyContinue)) {
             $script:FolderThumbnailJobs = @{}
         }
+        
+        # Prüfe ob bereits ein Job für diesen Ordner läuft
+        if ($script:FolderThumbnailJobs.ContainsKey($FolderPath)) {
+            $existingJob = $script:FolderThumbnailJobs[$FolderPath]
+            if ($existingJob.Job.State -eq 'Running') {
+                Write-Verbose "Job läuft bereits für: $FolderPath - Überspringe"
+                return $existingJob
+            } else {
+                # Alter Job beendet, aufräumen
+                Write-Verbose "Alter Job beendet, starte neu: $FolderPath"
+                Remove-Job -Job $existingJob.Job -Force -ErrorAction SilentlyContinue
+            }
+        }
+        
+        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $FolderPath, $ScriptRoot, $progress
         
         $jobInfo = [PSCustomObject]@{
             JobId = $job.Id
