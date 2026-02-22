@@ -42,8 +42,12 @@ Funktionen:
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Config laden
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Config laden (über Lib_Config.ps1)
+$ScriptDir = if ($PSScriptRoot) { 
+    $PSScriptRoot 
+} else { 
+    Split-Path -Parent $MyInvocation.MyCommand.Path 
+}
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
 
@@ -51,8 +55,7 @@ if (Test-Path -LiteralPath $libConfigPath) {
     . $libConfigPath
     $script:config = Get-Config
 } else {
-    Write-Warning "Lib_Config.ps1 nicht gefunden - verwende Fallback-Defaults"
-    $script:config = $null
+    throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_VideoThumbnails benötigt Config."
 }
 
 #region Helper Functions
@@ -61,6 +64,10 @@ function Test-IsVideoFile {
     <#
     .SYNOPSIS
         Prüft ob Datei ein Video ist
+    
+    .DESCRIPTION
+        Prüft Extension gegen Config.Media.VideoExtensions.
+        Config wird von Lib_Config.ps1 bereitgestellt (automatisch geladen).
     
     .PARAMETER Path
         Pfad zur Datei
@@ -78,10 +85,14 @@ function Test-IsVideoFile {
         [string]$Path
     )
     
-    $videoExtensions = @('.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpg', '.mpeg', '.3gp')
     $ext = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
     
-    return $ext -in $videoExtensions
+    # Video-Extensions aus Config (PFLICHT!)
+    if (-not $script:config -or -not $script:config.Media.VideoExtensions) {
+        throw "Config nicht verfügbar oder Media.VideoExtensions fehlt!"
+    }
+    
+    return $ext -in $script:config.Media.VideoExtensions
 }
 
 #endregion
@@ -143,10 +154,27 @@ function Get-VideoThumbnail {
         [int]$ThumbnailStartPercent
     )
     
-    # Defaults
-    if ($MaxSize -eq 0) { $MaxSize = 300 }
-    if ($ThumbnailQuality -eq 0) { $ThumbnailQuality = 85 }
-    if ($ThumbnailStartPercent -eq 0) { $ThumbnailStartPercent = 10 }
+    # Defaults aus Config (PFLICHT!)
+    if ($MaxSize -eq 0) {
+        if (-not $script:config -or -not $script:config.UI.ThumbnailSize) {
+            throw "Config nicht verfügbar oder UI.ThumbnailSize fehlt!"
+        }
+        $MaxSize = $script:config.UI.ThumbnailSize
+    }
+    
+    if ($ThumbnailQuality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $ThumbnailQuality = $script:config.Video.ThumbnailQuality
+    }
+    
+    if ($ThumbnailStartPercent -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailStartPercent) {
+            throw "Config nicht verfügbar oder Video.ThumbnailStartPercent fehlt!"
+        }
+        $ThumbnailStartPercent = $script:config.Video.ThumbnailStartPercent
+    }
     
     # Multi-Thumbnail Funktion aufrufen mit Count=1
     $thumbs = Get-VideoThumbnails `
@@ -249,34 +277,52 @@ function Get-VideoThumbnails {
         [int]$ThumbnailEndPercent
     )
     
-    # Defaults aus Config (falls vorhanden) oder Fallback
-    if ($MaxSize -eq 0) { 
-        $MaxSize = if ($script:config) { $script:config.UI.ThumbnailSize } else { 300 }
-    }
-    if ($ThumbnailQuality -eq 0) { 
-        $ThumbnailQuality = if ($script:config) { $script:config.Video.ThumbnailQuality } else { 85 }
-    }
-    if ($ThumbnailCount -eq 0) { 
-        $ThumbnailCount = if ($script:config) { $script:config.Video.ThumbnailCount } else { 9 }
-    }
-    if ($ThumbnailStartPercent -eq 0) { 
-        $ThumbnailStartPercent = if ($script:config) { $script:config.Video.ThumbnailStartPercent } else { 10 }
-    }
-    if ($ThumbnailEndPercent -eq 0) { 
-        $ThumbnailEndPercent = if ($script:config) { $script:config.Video.ThumbnailEndPercent } else { 90 }
+    # Defaults aus Config (PFLICHT!)
+    if ($MaxSize -eq 0) {
+        if (-not $script:config -or -not $script:config.UI.ThumbnailSize) {
+            throw "Config nicht verfügbar oder UI.ThumbnailSize fehlt!"
+        }
+        $MaxSize = $script:config.UI.ThumbnailSize
     }
     
-    # Performance Settings aus Config
-    $useParallel = if ($script:config -and $ThumbnailCount -gt 1) { 
-        $script:config.Performance.UseParallelProcessing 
-    } else { 
-        $false 
+    if ($ThumbnailQuality -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
+            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+        }
+        $ThumbnailQuality = $script:config.Video.ThumbnailQuality
     }
-    $maxParallelJobs = if ($script:config) { 
-        $script:config.Performance.MaxParallelJobs 
-    } else { 
-        4 
+    
+    if ($ThumbnailCount -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailCount) {
+            throw "Config nicht verfügbar oder Video.ThumbnailCount fehlt!"
+        }
+        $ThumbnailCount = $script:config.Video.ThumbnailCount
     }
+    
+    if ($ThumbnailStartPercent -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailStartPercent) {
+            throw "Config nicht verfügbar oder Video.ThumbnailStartPercent fehlt!"
+        }
+        $ThumbnailStartPercent = $script:config.Video.ThumbnailStartPercent
+    }
+    
+    if ($ThumbnailEndPercent -eq 0) {
+        if (-not $script:config -or -not $script:config.Video.ThumbnailEndPercent) {
+            throw "Config nicht verfügbar oder Video.ThumbnailEndPercent fehlt!"
+        }
+        $ThumbnailEndPercent = $script:config.Video.ThumbnailEndPercent
+    }
+    
+    # Performance Settings aus Config (PFLICHT!)
+    if (-not $script:config -or -not $script:config.Performance.UseParallelProcessing) {
+        throw "Config nicht verfügbar oder Performance.UseParallelProcessing fehlt!"
+    }
+    if (-not $script:config -or -not $script:config.Performance.MaxParallelJobs) {
+        throw "Config nicht verfügbar oder Performance.MaxParallelJobs fehlt!"
+    }
+    
+    $useParallel = $ThumbnailCount -gt 1 -and $script:config.Performance.UseParallelProcessing
+    $maxParallelJobs = $script:config.Performance.MaxParallelJobs
     
     try {
         # Datei existiert?
