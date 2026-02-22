@@ -468,6 +468,9 @@ function Get-ImageThumbnail {
             if ($originalImage) { $originalImage.Dispose() }
         }
         
+        # WICHTIG: Kurz warten damit File-Handle freigegeben wird
+        Start-Sleep -Milliseconds 50
+        
         # Verifizieren
         if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
             return $thumbPath
@@ -526,6 +529,12 @@ function Get-VideoThumbnail {
         if (-not (Test-Path -LiteralPath $VideoPath -PathType Leaf)) {
             Write-Warning "Video nicht gefunden: $VideoPath"
             return $null
+        }
+        
+        # Stelle sicher dass CacheDir existiert (Defensive Programming)
+        if (-not (Test-Path -LiteralPath $CacheDir -PathType Container)) {
+            Write-Verbose "CacheDir fehlt, erstelle: $CacheDir"
+            New-Item -Path $CacheDir -ItemType Directory -Force -ErrorAction Stop | Out-Null
         }
         
         # Cache-Pfad generieren
@@ -832,19 +841,25 @@ function Update-ThumbnailCache {
         
         # Thumbnails generieren + Manifest füllen
         foreach ($file in $mediaFiles) {
-            $thumbPath = Get-MediaThumbnail -Path $file.FullName -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality
-            
-            if ($thumbPath) {
-                $hash = [System.IO.Path]::GetFileNameWithoutExtension($thumbPath)
+            try {
+                $thumbPath = Get-MediaThumbnail -Path $file.FullName -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality
                 
-                $manifest.files[$file.Name] = @{
-                    hash = $hash
-                    lastModified = $file.LastWriteTimeUtc.ToString('o')
-                    size = $file.Length
-                    type = if (Test-IsImageFile -Path $file.FullName) { 'image' } else { 'video' }
+                if ($thumbPath) {
+                    $hash = [System.IO.Path]::GetFileNameWithoutExtension($thumbPath)
+                    
+                    $manifest.files[$file.Name] = @{
+                        hash = $hash
+                        lastModified = $file.LastWriteTimeUtc.ToString('o')
+                        size = $file.Length
+                        type = if (Test-IsImageFile -Path $file.FullName) { 'image' } else { 'video' }
+                    }
+                    
+                    $generated++
                 }
-                
-                $generated++
+            }
+            catch {
+                Write-Warning "Fehler bei $($file.Name): $($_.Exception.Message)"
+                # Weiter mit nächster Datei
             }
         }
         
