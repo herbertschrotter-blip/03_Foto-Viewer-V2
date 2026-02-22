@@ -4,7 +4,7 @@ ManifestHint:
   Description     = "FileSystem Security & MIME Detection"
   Category        = "Core"
   Tags            = @("Security", "Path-Traversal", "MIME", "Content-Type")
-  Dependencies    = @()
+  Dependencies    = @("Lib_Config.ps1")
 
 Zweck:
   - Sichere Path-Resolution (verhindert Directory Traversal)
