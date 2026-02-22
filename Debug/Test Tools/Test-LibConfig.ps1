@@ -123,7 +123,8 @@ Write-Host "══════════════════════�
 # Lib laden
 try {
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $ProjectRoot = Split-Path -Parent $ScriptDir
+    $DebugDir = Split-Path -Parent $ScriptDir
+    $ProjectRoot = Split-Path -Parent $DebugDir
     $libPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
     
     . $libPath

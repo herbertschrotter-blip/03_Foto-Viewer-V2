@@ -1,21 +1,53 @@
 <#
-.SYNOPSIS
-    FileSystem Helper für Foto_Viewer_V2
+ManifestHint:
+  ExportFunctions = @("Resolve-SafePath", "Get-MediaContentType", "Test-IsVideoFile")
+  Description     = "FileSystem Security & MIME Detection"
+  Category        = "Core"
+  Tags            = @("Security", "Path-Traversal", "MIME", "Content-Type")
+  Dependencies    = @()
 
-.DESCRIPTION
-    Sichere Path-Resolution, verhindert Directory Traversal.
-    Content-Type Detection für Medien.
+Zweck:
+  - Sichere Path-Resolution (verhindert Directory Traversal)
+  - Content-Type Detection für HTTP Responses
+  - Video-Datei Erkennung
 
-.EXAMPLE
-    $fullPath = Resolve-SafePath -RootPath "C:\Photos" -RelativePath "subfolder\image.jpg"
+Funktionen:
+  - Resolve-SafePath: Sicherer Pfad-Resolver (Path-Traversal Schutz)
+  - Get-MediaContentType: Extension → MIME-Type Mapping
+  - Test-IsVideoFile: Prüft ob Datei ein Video ist
+
+Sicherheit:
+  - KRITISCH: Resolve-SafePath verhindert Zugriff außerhalb Root
+  - Validiert dass resolved Path innerhalb RootPath liegt
+  - Blockiert ..\..\.. Angriffe
+
+Abhängigkeiten:
+  - Keine
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Config laden (optional, für Test-IsVideoFile)
+$ScriptDir = if ($PSScriptRoot) { 
+    $PSScriptRoot 
+} else { 
+    Split-Path -Parent $MyInvocation.MyCommand.Path 
+}
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+$libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
+
+if (Test-Path -LiteralPath $libConfigPath) {
+    . $libConfigPath
+    $script:config = Get-Config
+} else {
+    $script:config = $null
+}
 
 function Resolve-SafePath {
     <#
@@ -52,7 +84,13 @@ function Resolve-SafePath {
         $combined = Join-Path $rootFull $RelativePath
         
         # Zu vollem Pfad auflösen
-        $resolved = [System.IO.Path]::GetFullPath($combined)
+        try {
+            $resolved = [System.IO.Path]::GetFullPath($combined)
+        }
+        catch [System.IO.PathTooLongException] {
+            Write-Warning "Pfad zu lang (>260 Zeichen): $RelativePath"
+            return $null
+        }
         
         # Sicherheits-Check: Muss innerhalb Root sein
         if (-not $resolved.StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase)) {
@@ -73,12 +111,20 @@ function Get-MediaContentType {
     .SYNOPSIS
         Gibt Content-Type basierend auf Datei-Extension zurück
     
+    .DESCRIPTION
+        Nutzt Config.Media.MimeTypes für Mapping.
+        Config wird von Lib_Config.ps1 bereitgestellt (automatisch geladen).
+        Fallback zu "application/octet-stream" wenn Extension unbekannt.
+    
     .PARAMETER Path
         Datei-Pfad
     
     .EXAMPLE
         $ct = Get-MediaContentType -Path "image.jpg"
         # Returns: "image/jpeg"
+    
+    .OUTPUTS
+        String - MIME-Type
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -89,28 +135,17 @@ function Get-MediaContentType {
     
     $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
     
-    switch ($extension) {
-        ".jpg"  { return "image/jpeg" }
-        ".jpeg" { return "image/jpeg" }
-        ".png"  { return "image/png" }
-        ".gif"  { return "image/gif" }
-        ".webp" { return "image/webp" }
-        ".bmp"  { return "image/bmp" }
-        ".tif"  { return "image/tiff" }
-        ".tiff" { return "image/tiff" }
-        ".mp4"  { return "video/mp4" }
-        ".mov"  { return "video/quicktime" }
-        ".avi"  { return "video/x-msvideo" }
-        ".mkv"  { return "video/x-matroska" }
-        ".webm" { return "video/webm" }
-        ".m4v"  { return "video/mp4" }
-        ".wmv"  { return "video/x-ms-wmv" }
-        ".flv"  { return "video/x-flv" }
-        ".mpg"  { return "video/mpeg" }
-        ".mpeg" { return "video/mpeg" }
-        ".3gp"  { return "video/3gpp" }
-        default { return "application/octet-stream" }
+    # MIME-Type aus Config
+    if ($script:config -and 
+        $script:config.Media.MimeTypes -and 
+        $script:config.Media.MimeTypes.ContainsKey($extension)) {
+        
+        return $script:config.Media.MimeTypes[$extension]
     }
+    
+    # Unbekannte Extension → Fallback
+    Write-Verbose "Unbekannte Extension '$extension' → application/octet-stream"
+    return "application/octet-stream"
 }
 
 function Test-IsVideoFile {
@@ -118,11 +153,18 @@ function Test-IsVideoFile {
     .SYNOPSIS
         Prüft ob Datei ein Video ist
     
+    .DESCRIPTION
+        Prüft Extension gegen Config.Media.VideoExtensions.
+        Fallback zu Standard-Liste wenn Config nicht verfügbar.
+    
     .PARAMETER Path
         Datei-Pfad
     
     .EXAMPLE
         if (Test-IsVideoFile -Path "video.mp4") { ... }
+    
+    .OUTPUTS
+        Boolean
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -133,5 +175,13 @@ function Test-IsVideoFile {
     
     $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
     
-    return $extension -in @(".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp")
+    # Video-Extensions aus Config (falls verfügbar)
+    if ($script:config) {
+        $videoExtensions = $script:config.Media.VideoExtensions
+    } else {
+        # Fallback zu Standard-Liste
+        $videoExtensions = @(".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v", ".wmv", ".flv", ".mpg", ".mpeg", ".3gp")
+    }
+    
+    return $extension -in $videoExtensions
 }
