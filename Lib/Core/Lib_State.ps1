@@ -1,23 +1,37 @@
 <#
-.SYNOPSIS
-    State Management für Foto_Viewer_V2
+ManifestHint:
+  ExportFunctions = @("Get-State", "Get-EmptyState", "Save-State")
+  Description     = "Runtime State Management (state.json)"
+  Category        = "Core"
+  Tags            = @("State", "Persistence", "Session")
+  Dependencies    = @()
 
-.DESCRIPTION
-    Lädt und speichert Runtime-State in state.json.
-    State enthält aktuellen Root-Pfad und gescannte Ordner.
+Zweck:
+  - Lädt und speichert Runtime-State in state.json
+  - Merkt sich zuletzt geöffneten Ordner (RootPath)
+  - Persistiert gescannte Ordner-Liste
+  - Fallback zu leerem State bei Fehler
 
-.EXAMPLE
-    $state = Get-State
-    $state.RootPath = "C:\Photos"
-    Save-State -State $state
+Funktionen:
+  - Get-State: Lädt state.json oder gibt leeren State
+  - Get-EmptyState: Erstellt leeres State-Objekt
+  - Save-State: Speichert State in state.json
+
+State-Struktur:
+  - RootPath: Zuletzt gewählter Root-Ordner
+  - Folders: Array mit gescannten Ordnern
+
+Abhängigkeiten:
+  - Keine
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 function Get-State {
     <#
@@ -37,7 +51,13 @@ function Get-State {
     param()
     
     try {
-        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        # Pfad robuster ermitteln
+        $ScriptDir = if ($PSScriptRoot) { 
+            $PSScriptRoot 
+        } else { 
+            Split-Path -Parent $MyInvocation.MyCommand.Path 
+        }
+        $scriptRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
         $statePath = Join-Path $scriptRoot "state.json"
         
         if (Test-Path -LiteralPath $statePath) {
@@ -91,7 +111,13 @@ function Save-State {
     )
     
     try {
-        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        # Pfad robuster ermitteln
+        $ScriptDir = if ($PSScriptRoot) { 
+            $PSScriptRoot 
+        } else { 
+            Split-Path -Parent $MyInvocation.MyCommand.Path 
+        }
+        $scriptRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
         $statePath = Join-Path $scriptRoot "state.json"
         
         $json = $State | ConvertTo-Json -Depth 10
