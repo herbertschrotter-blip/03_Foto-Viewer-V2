@@ -57,7 +57,19 @@ function Start-CacheRebuildJob {
         [string]$ScriptRoot,
         
         [Parameter()]
-        [string]$LogFile
+        [string]$LogFile,
+        
+        [Parameter()]
+        [int]$MaxSize,
+        
+        [Parameter()]
+        [int]$Quality,
+        
+        [Parameter()]
+        [int]$ThumbnailQuality,
+        
+        [Parameter()]
+        [int]$ThumbnailStartPercent
     )
     
     try {
@@ -95,7 +107,7 @@ function Start-CacheRebuildJob {
         })
         
         $jobScript = {
-            param($RootPath, $Folders, $ScriptRoot, $Progress, $LogFile)
+            param($RootPath, $Folders, $ScriptRoot, $Progress, $LogFile, $MaxSize, $Quality, $ThumbnailQuality, $ThumbnailStartPercent)
             
             function Write-JobLog {
                 param([string]$Message, [string]$Level = "INFO")
@@ -137,7 +149,7 @@ function Start-CacheRebuildJob {
                         if (-not (Test-ThumbnailCacheValid -FolderPath $folder.Path)) {
                             Write-JobLog "  Cache ungültig, rebuild nötig"
                             
-                            $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize 300
+                            $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
                             Write-JobLog "  Generiert: $generated Thumbnails"
                             
                             if ($generated -gt 0) {
@@ -177,7 +189,7 @@ function Start-CacheRebuildJob {
         Write-Verbose "Starte Cache-Rebuild Job für $($Folders.Count) Ordner"
         Write-Verbose "Log-Datei: $LogFile"
         
-        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $RootPath, $Folders, $ScriptRoot, $progress, $LogFile
+        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $RootPath, $Folders, $ScriptRoot, $progress, $LogFile, $MaxSize, $Quality, $ThumbnailQuality, $ThumbnailStartPercent
         
         $script:CacheRebuildJob = [PSCustomObject]@{
             JobId = $job.Id
@@ -309,7 +321,19 @@ function Start-FolderThumbnailJob {
         [string]$FolderPath,
         
         [Parameter(Mandatory)]
-        [string]$ScriptRoot
+        [string]$ScriptRoot,
+        
+        [Parameter()]
+        [int]$MaxSize,
+        
+        [Parameter()]
+        [int]$Quality,
+        
+        [Parameter()]
+        [int]$ThumbnailQuality,
+        
+        [Parameter()]
+        [int]$ThumbnailStartPercent
     )
     
     try {
@@ -345,7 +369,7 @@ function Start-FolderThumbnailJob {
         })
         
         $jobScript = {
-            param($FolderPath, $ScriptRoot, $Progress)
+            param($FolderPath, $ScriptRoot, $Progress, $MaxSize, $Quality, $ThumbnailQuality, $ThumbnailStartPercent)
             
             $libThumbsPath = Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1"
             
@@ -375,7 +399,7 @@ function Start-FolderThumbnailJob {
                         Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction Stop
                     }
                     
-                    $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize 300
+                    $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize $MaxSize -Quality $Quality -ThumbnailQuality $ThumbnailQuality -ThumbnailStartPercent $ThumbnailStartPercent
                     $Progress.ThumbnailsGenerated = $generated
                     
                     if ($generated -gt 0) {
@@ -393,7 +417,7 @@ function Start-FolderThumbnailJob {
             }
         }
         
-        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $FolderPath, $ScriptRoot, $progress
+        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $FolderPath, $ScriptRoot, $progress, $MaxSize, $Quality, $ThumbnailQuality, $ThumbnailStartPercent
         
         $jobInfo = [PSCustomObject]@{
             JobId = $job.Id
