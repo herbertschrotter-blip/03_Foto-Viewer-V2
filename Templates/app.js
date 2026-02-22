@@ -251,6 +251,9 @@ function toggleFolder(header) {
             header.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 100);
         
+        // Trigger Background-Job für Thumbnail-Generierung
+        triggerFolderThumbnailJob(card);
+        
         if (grid.children.length === 0) {
             const files = JSON.parse(card.dataset.files);
             const folderPath = card.dataset.path;
@@ -802,6 +805,26 @@ async function initThumbSize() {
     } catch (err) {
         console.error('Fehler beim Laden der Thumbnail-Größe:', err);
         setThumbSize('medium');
+    }
+}
+
+async function triggerFolderThumbnailJob(card) {
+    const folderPath = card.dataset.path;
+    
+    try {
+        const response = await fetch('/tools/folder/open', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folderPath: folderPath })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('Thumbnail-Job gestartet für:', folderPath);
+        }
+    } catch (err) {
+        console.error('Fehler beim Starten des Thumbnail-Jobs:', err);
     }
 }
 
