@@ -11,7 +11,10 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
+    
+    ÄNDERUNGEN v0.3.0:
+    - /tools/folder/open - Triggert Auto-Thumbnail-Job beim Ordner-Öffnen
     
     ÄNDERUNGEN v0.2.0:
     - /tools/cache/start - Startet Background-Job für Cache-Rebuild
@@ -214,6 +217,46 @@ function Handle-ToolsRoute {
                     success = $true
                     data = @{
                         Stopped = $stopped
+                    }
+                } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                return $true
+            } catch {
+                $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                return $true
+            }
+        }
+        
+        # Route: /tools/folder/open
+        if ($path -eq "/tools/folder/open" -and $req.HttpMethod -eq "POST") {
+            try {
+                $reader = [System.IO.StreamReader]::new($req.InputStream)
+                $body = $reader.ReadToEnd()
+                $reader.Close()
+                $data = $body | ConvertFrom-Json
+                
+                $folderPath = $data.folderPath
+                if ([string]::IsNullOrWhiteSpace($folderPath)) {
+                    $json = @{ success = $false; error = "Kein folderPath angegeben" } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
+                    return $true
+                }
+                
+                if (-not (Test-Path -LiteralPath $folderPath -PathType Container)) {
+                    $json = @{ success = $false; error = "Ordner existiert nicht" } | ConvertTo-Json -Compress
+                    Send-ResponseText -Response $res -Text $json -StatusCode 404 -ContentType "application/json; charset=utf-8"
+                    return $true
+                }
+                
+                $job = Start-FolderThumbnailJob -FolderPath $folderPath -ScriptRoot $ScriptRoot
+                
+                $json = @{
+                    success = $true
+                    data = @{
+                        JobId = $job.JobId
+                        FolderPath = $job.FolderPath
+                        Status = "Running"
                     }
                 } | ConvertTo-Json -Compress
                 Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
