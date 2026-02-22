@@ -449,13 +449,14 @@ function Get-VideoThumbnails {
                     
                     # FFmpeg Args
                     $ffmpegArgs = @(
-                        "-i", "`"$VideoPath`"",
                         "-ss", $seekTime,
-                        "-vframes", "1",
+                        "-i", $VideoPath,
+                        "-frames:v", "1",
+                        "-update", "1",
                         "-vf", "scale=${MaxSize}:${MaxSize}:force_original_aspect_ratio=decrease",
                         "-q:v", "$qValue",
                         "-y",
-                        "`"$thumbPath`""
+                        $thumbPath
                     )
                     
                     # Ausführen
@@ -518,20 +519,28 @@ function Get-VideoThumbnails {
                     
                     # FFmpeg Args
                     $ffmpegArgs = @(
-                        "-i", "`"$VideoPath`"",
                         "-ss", $seekTime,
-                        "-vframes", "1",
+                        "-i", $VideoPath,
+                        "-frames:v", "1",
+                        "-update", "1",
                         "-vf", "scale=${MaxSize}:${MaxSize}:force_original_aspect_ratio=decrease",
                         "-q:v", "$qValue",
                         "-y",
-                        "`"$thumbPath`""
+                        $thumbPath
                     )
                     
-                    # Ausführen
-                    $process = Start-Process -FilePath $ffmpegPath -ArgumentList $ffmpegArgs -Wait -NoNewWindow -PassThru
+                    # Ausführen (mit Output-Capture)
+                    $ffmpegOutput = & $ffmpegPath $ffmpegArgs 2>&1
+                    $exitCode = $LASTEXITCODE
                     
-                    if ($process.ExitCode -ne 0) {
-                        Write-Warning "FFmpeg Fehler bei Thumbnail $index (Exit Code: $($process.ExitCode))"
+                    # FFmpeg Output anzeigen (für Debug)
+                    if ($ffmpegOutput) {
+                        Write-Verbose "FFmpeg Output: $($ffmpegOutput | Out-String)"
+                    }
+                    
+                    if ($exitCode -ne 0) {
+                        Write-Warning "FFmpeg Fehler bei Thumbnail $index (Exit Code: $exitCode)"
+                        Write-Warning "FFmpeg Output: $($ffmpegOutput | Out-String)"
                         $index++
                         continue
                     }

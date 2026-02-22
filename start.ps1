@@ -283,6 +283,11 @@ try {
         $path = $req.Url.AbsolutePath.ToLowerInvariant()
         
         try {
+            # === JOB CLEANUP ===
+            # Alte abgeschlossene/fehlerhafte Jobs entfernen (verhindert File-Locks)
+            Get-Job -State Completed -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+            Get-Job -State Failed -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
+            
             # Route: / (Index)
             if ($path -eq "/" -and $req.HttpMethod -eq "GET") {
                 
