@@ -11,12 +11,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.0
-    
-    ÄNDERUNGEN v0.3.0:
-    - Cache-Rebuild Routes entfernt (/tools/cache/*)
-    - Cache wird automatisch bei Änderungen rebuilt
-    - Cleanup-Routes bleiben erhalten
+    Version: 0.2.0
     
     ÄNDERUNGEN v0.2.0:
     - /tools/cache/start - Startet Background-Job für Cache-Rebuild
@@ -38,8 +33,11 @@ function Handle-ToolsRoute {
     .PARAMETER RootPath
         Root-Pfad für Medien
     
+    .PARAMETER ScriptRoot
+        Projekt-Root (für FFmpeg in Background-Job)
+    
     .EXAMPLE
-        Handle-ToolsRoute -Context $ctx -RootPath $root
+        Handle-ToolsRoute -Context $ctx -RootPath $root -ScriptRoot $PSScriptRoot
     #>
     
     [CmdletBinding()]
@@ -48,7 +46,10 @@ function Handle-ToolsRoute {
         [System.Net.HttpListenerContext]$Context,
         
         [Parameter(Mandatory)]
-        [string]$RootPath
+        [string]$RootPath,
+        
+        [Parameter(Mandatory)]
+        [string]$ScriptRoot
     )
     
     $req = $Context.Request
@@ -142,6 +143,77 @@ function Handle-ToolsRoute {
                     data = @{
                         DeletedCount = $result.DeletedCount
                         DeletedSize = $result.DeletedSize
+                    }
+                } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                return $true
+            } catch {
+                $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                return $true
+            }
+        }
+        
+        # Route: /tools/cache/start
+        if ($path -eq "/tools/cache/start" -and $req.HttpMethod -eq "POST") {
+            try {
+                # Starte Background-Job
+                $job = Start-CacheRebuildJob -RootPath $RootPath -Folders $script:State.Folders -ScriptRoot $ScriptRoot
+                
+                $json = @{
+                    success = $true
+                    data = @{
+                        JobId = $job.JobId
+                        StartTime = $job.StartTime.ToString('o')
+                        Status = "Running"
+                    }
+                } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                return $true
+            } catch {
+                $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                return $true
+            }
+        }
+        
+        # Route: /tools/cache/status
+        if ($path -eq "/tools/cache/status" -and $req.HttpMethod -eq "GET") {
+            try {
+                $status = Get-CacheRebuildStatus
+                
+                $json = @{
+                    success = $true
+                    data = @{
+                        Status = $status.Status
+                        Progress = $status.Progress
+                        TotalFolders = $status.TotalFolders
+                        ProcessedFolders = $status.ProcessedFolders
+                        UpdatedFolders = $status.UpdatedFolders
+                        ValidFolders = $status.ValidFolders
+                        CurrentFolder = $status.CurrentFolder
+                        Duration = $status.Duration
+                        Error = $status.Error
+                    }
+                } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                return $true
+            } catch {
+                $json = @{ success = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                return $true
+            }
+        }
+        
+        # Route: /tools/cache/stop
+        if ($path -eq "/tools/cache/stop" -and $req.HttpMethod -eq "POST") {
+            try {
+                $stopped = Stop-CacheRebuildJob
+                
+                $json = @{
+                    success = $true
+                    data = @{
+                        Stopped = $stopped
                     }
                 } | ConvertTo-Json -Compress
                 Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"

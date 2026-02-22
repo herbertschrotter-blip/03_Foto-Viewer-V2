@@ -14,12 +14,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.5.0
-    
-    ÄNDERUNGEN v0.5.0:
-    - Background-Job System entfernt (Start/Status/Stop)
-    - Cache-Rebuild erfolgt automatisch bei Änderungen
-    - Nur noch Cleanup-Funktionen vorhanden
+    Version: 0.3.0
     
     ÄNDERUNGEN v0.3.0:
     - Background-Job System für Cache-Rebuild
@@ -90,7 +85,7 @@ function Get-ThumbsCacheStats {
         $totalSize = 0
         
         foreach ($dir in $allThumbsDirs) {
-            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
             $totalFiles += $files.Count
             if ($files.Count -gt 0) {
                 $size = ($files | Measure-Object -Property Length -Sum).Sum
@@ -178,7 +173,7 @@ function Get-ThumbsDirectoriesList {
             }
             
             # Dateien zählen
-            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -ErrorAction SilentlyContinue)
+            $files = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue)
             $fileCount = $files.Count
             $size = 0
             if ($files.Count -gt 0) {
@@ -367,5 +362,355 @@ function Remove-AllThumbsDirectories {
     } catch {
         Write-Error "Fehler beim Löschen aller .thumbs: $($_.Exception.Message)"
         throw
+    }
+}
+
+# ============================================================================
+# BACKGROUND-JOB CACHE REBUILD
+# ============================================================================
+
+function Start-CacheRebuildJob {
+    <#
+    .SYNOPSIS
+        Startet Background-Job für Cache-Rebuild
+    
+    .DESCRIPTION
+        Validiert/Rebuilt Thumbnail-Cache für ALLE Ordner im Hintergrund.
+        Non-Blocking: Server bleibt responsiv.
+        
+        Job speichert Progress in shared Hashtable:
+        - TotalFolders: Gesamtzahl Ordner
+        - ProcessedFolders: Bisher verarbeitet
+        - UpdatedFolders: Anzahl Rebuilds
+        - ValidFolders: Anzahl valide Caches
+        - CurrentFolder: Aktuell bearbeiteter Ordner
+        - Status: Running/Completed/Error
+        - Error: Fehlermeldung (falls Error)
+    
+    .PARAMETER RootPath
+        Root-Ordner der Medien
+    
+    .PARAMETER Folders
+        Array von Ordner-Objekten (aus Get-MediaFolders)
+    
+    .PARAMETER ScriptRoot
+        Projekt-Root (für FFmpeg)
+    
+    .PARAMETER LogFile
+        Optional: Pfad zur Log-Datei (Default: ScriptRoot\cache-rebuild.log)
+    
+    .EXAMPLE
+        $job = Start-CacheRebuildJob -RootPath $RootPath -Folders $script:State.Folders -ScriptRoot $PSScriptRoot
+        # Job läuft im Hintergrund
+    
+    .OUTPUTS
+        PSCustomObject mit JobId, StartTime, Progress (Hashtable)
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$RootPath,
+        
+        [Parameter(Mandatory)]
+        [array]$Folders,
+        
+        [Parameter(Mandatory)]
+        [string]$ScriptRoot,
+        
+        [Parameter()]
+        [string]$LogFile
+    )
+    
+    try {
+        # Log-Datei initialisieren
+        if (-not $LogFile) {
+            $LogFile = Join-Path $ScriptRoot "cache-rebuild.log"
+        }
+        
+        # Alte Log-Datei löschen
+        if (Test-Path -LiteralPath $LogFile) {
+            Remove-Item -LiteralPath $LogFile -Force -ErrorAction SilentlyContinue
+        }
+        
+        # Log-Header schreiben
+        $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        "[$timestamp] Cache-Rebuild Job gestartet" | Out-File -FilePath $LogFile -Encoding UTF8
+        "[$timestamp] Total Folders: $($Folders.Count)" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+        "" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+        
+        # Stoppe alten Job falls noch läuft
+        if (Get-Variable -Name 'CacheRebuildJob' -Scope Script -ErrorAction SilentlyContinue) {
+            if ($script:CacheRebuildJob -and $script:CacheRebuildJob.Job) {
+                if ($script:CacheRebuildJob.Job.State -eq 'Running') {
+                    Write-Verbose "Stoppe alten Cache-Rebuild Job"
+                    Stop-Job -Job $script:CacheRebuildJob.Job
+                    Remove-Job -Job $script:CacheRebuildJob.Job -Force
+                }
+            }
+        }
+        
+        # Progress-Hashtable (Synchronized für Thread-Safety)
+        $progress = [hashtable]::Synchronized(@{
+            TotalFolders = $Folders.Count
+            ProcessedFolders = 0
+            UpdatedFolders = 0
+            ValidFolders = 0
+            CurrentFolder = ""
+            Status = "Running"
+            Error = $null
+        })
+        
+        # ScriptBlock für Background-Job
+        $jobScript = {
+            param($RootPath, $Folders, $ScriptRoot, $Progress, $LogFile)
+            
+            function Write-JobLog {
+                param([string]$Message, [string]$Level = "INFO")
+                $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+                "[$timestamp] [$Level] $Message" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+            }
+            
+            Write-JobLog "Job gestartet im Background"
+            Write-JobLog "ScriptRoot: $ScriptRoot"
+            Write-JobLog "Total Folders: $($Folders.Count)"
+            
+            # Libs laden (im Job-Context)
+            $libThumbsPath = Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1"
+            Write-JobLog "Lade Lib: $libThumbsPath"
+            
+            if (Test-Path -LiteralPath $libThumbsPath) {
+                try {
+                    . $libThumbsPath
+                    Write-JobLog "Lib geladen: OK"
+                } catch {
+                    $Progress.Status = "Error"
+                    $Progress.Error = "Fehler beim Laden: $($_.Exception.Message)"
+                    Write-JobLog "Fehler beim Laden: $($_.Exception.Message)" "ERROR"
+                    Write-JobLog "StackTrace: $($_.ScriptStackTrace)" "ERROR"
+                    return
+                }
+            } else {
+                $Progress.Status = "Error"
+                $Progress.Error = "Lib_Thumbnails.ps1 nicht gefunden: $libThumbsPath"
+                Write-JobLog "Lib nicht gefunden: $libThumbsPath" "ERROR"
+                return
+            }
+            
+            try {
+                foreach ($folder in $Folders) {
+                    try {
+                        $Progress.CurrentFolder = $folder.RelativePath
+                        Write-JobLog "Verarbeite: $($folder.RelativePath)"
+                        
+                        # Cache validieren
+                        if (-not (Test-ThumbnailCacheValid -FolderPath $folder.Path)) {
+                            Write-JobLog "  Cache ungültig, rebuild nötig"
+                            
+                            # Rebuild nötig
+                            $generated = Update-ThumbnailCache -FolderPath $folder.Path -ScriptRoot $ScriptRoot -MaxSize 300
+                            Write-JobLog "  Generiert: $generated Thumbnails"
+                            
+                            if ($generated -gt 0) {
+                                # Orphans aufräumen
+                                $removed = Remove-OrphanedThumbnails -FolderPath $folder.Path
+                                Write-JobLog "  Orphans entfernt: $removed"
+                                $Progress.UpdatedFolders++
+                            }
+                        } else {
+                            # Cache valide
+                            Write-JobLog "  Cache valide"
+                            $Progress.ValidFolders++
+                        }
+                        
+                        $Progress.ProcessedFolders++
+                    }
+                    catch {
+                        $errorMsg = "Fehler bei $($folder.RelativePath): $($_.Exception.Message)"
+                        Write-JobLog $errorMsg "ERROR"
+                        Write-JobLog "  StackTrace: $($_.ScriptStackTrace)" "ERROR"
+                        $Progress.CurrentFolder = "ERROR: $($folder.RelativePath)"
+                        $Progress.ProcessedFolders++
+                    }
+                }
+                
+                $Progress.Status = "Completed"
+                $Progress.CurrentFolder = ""
+                Write-JobLog "Job erfolgreich abgeschlossen"
+                Write-JobLog "Verarbeitet: $($Progress.ProcessedFolders), Aktualisiert: $($Progress.UpdatedFolders), Valide: $($Progress.ValidFolders)"
+                
+            } catch {
+                $Progress.Status = "Error"
+                $Progress.Error = "FATAL: $($_.Exception.Message)"
+                Write-JobLog "FATAL ERROR: $($_.Exception.Message)" "ERROR"
+                Write-JobLog "StackTrace: $($_.ScriptStackTrace)" "ERROR"
+            }
+        }
+        
+        # Job starten
+        Write-Verbose "Starte Cache-Rebuild Job für $($Folders.Count) Ordner"
+        Write-Verbose "Log-Datei: $LogFile"
+        
+        $job = Start-Job -ScriptBlock $jobScript -ArgumentList $RootPath, $Folders, $ScriptRoot, $progress, $LogFile
+        
+        # In Script-Scope speichern
+        $script:CacheRebuildJob = [PSCustomObject]@{
+            JobId = $job.Id
+            Job = $job
+            StartTime = Get-Date
+            Progress = $progress
+        }
+        
+        return $script:CacheRebuildJob
+        
+    } catch {
+        Write-Error "Fehler beim Starten des Cache-Rebuild Jobs: $($_.Exception.Message)"
+        throw
+    }
+}
+
+function Get-CacheRebuildStatus {
+    <#
+    .SYNOPSIS
+        Gibt Status des Cache-Rebuild Jobs zurück
+    
+    .DESCRIPTION
+        Liefert aktuellen Progress des Background-Jobs:
+        - Status: Running/Completed/Error/NotStarted
+        - Progress: Prozentsatz (0-100)
+        - Details: Anzahl verarbeitet/updated/valide
+        - CurrentFolder: Aktuell bearbeiteter Ordner
+        - Duration: Laufzeit in Sekunden
+    
+    .EXAMPLE
+        $status = Get-CacheRebuildStatus
+        if ($status.Status -eq "Running") {
+            Write-Host "Progress: $($status.Progress)%"
+        }
+    
+    .OUTPUTS
+        PSCustomObject mit Status, Progress, Details, Duration
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param()
+    
+    try {
+        # Kein Job vorhanden?
+        if (-not (Get-Variable -Name 'CacheRebuildJob' -Scope Script -ErrorAction SilentlyContinue)) {
+            return [PSCustomObject]@{
+                Status = "NotStarted"
+                Progress = 0
+                TotalFolders = 0
+                ProcessedFolders = 0
+                UpdatedFolders = 0
+                ValidFolders = 0
+                CurrentFolder = ""
+                Duration = 0
+                Error = $null
+            }
+        }
+        
+        $job = $script:CacheRebuildJob
+        $prog = $job.Progress
+        
+        # Progress berechnen
+        $percent = 0
+        if ($prog.TotalFolders -gt 0) {
+            $percent = [Math]::Round(($prog.ProcessedFolders / $prog.TotalFolders) * 100, 1)
+        }
+        
+        # Laufzeit berechnen
+        $duration = [Math]::Round(((Get-Date) - $job.StartTime).TotalSeconds, 1)
+        
+        # Job-State prüfen
+        $jobState = $job.Job.State
+        
+        # Status ermitteln
+        $status = switch ($prog.Status) {
+            "Running" {
+                if ($jobState -eq "Completed") { "Completed" } 
+                elseif ($jobState -eq "Failed") { "Error" }
+                else { "Running" }
+            }
+            "Completed" { "Completed" }
+            "Error" { "Error" }
+            default { "Running" }
+        }
+        
+        # Cleanup bei Completed/Error
+        if ($status -in @("Completed", "Error") -and $job.Job.State -ne "Running") {
+            Write-Verbose "Cleanup: Entferne abgeschlossenen Job"
+            Remove-Job -Job $job.Job -Force -ErrorAction SilentlyContinue
+        }
+        
+        return [PSCustomObject]@{
+            Status = $status
+            Progress = $percent
+            TotalFolders = $prog.TotalFolders
+            ProcessedFolders = $prog.ProcessedFolders
+            UpdatedFolders = $prog.UpdatedFolders
+            ValidFolders = $prog.ValidFolders
+            CurrentFolder = $prog.CurrentFolder
+            Duration = $duration
+            Error = $prog.Error
+        }
+        
+    } catch {
+        Write-Error "Fehler beim Abrufen des Job-Status: $($_.Exception.Message)"
+        return [PSCustomObject]@{
+            Status = "Error"
+            Progress = 0
+            Error = $_.Exception.Message
+        }
+    }
+}
+
+function Stop-CacheRebuildJob {
+    <#
+    .SYNOPSIS
+        Stoppt laufenden Cache-Rebuild Job
+    
+    .DESCRIPTION
+        Bricht den aktuell laufenden Background-Job ab und
+        räumt Ressourcen auf.
+    
+    .EXAMPLE
+        Stop-CacheRebuildJob
+        # Job wird abgebrochen
+    
+    .OUTPUTS
+        Boolean - $true wenn gestoppt, $false wenn kein Job läuft
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param()
+    
+    try {
+        if (-not (Get-Variable -Name 'CacheRebuildJob' -Scope Script -ErrorAction SilentlyContinue)) {
+            Write-Verbose "Kein Cache-Rebuild Job aktiv"
+            return $false
+        }
+        
+        $job = $script:CacheRebuildJob.Job
+        
+        if ($job.State -eq 'Running') {
+            Write-Verbose "Stoppe Cache-Rebuild Job (ID: $($job.Id))"
+            Stop-Job -Job $job
+            Remove-Job -Job $job -Force
+            
+            # Status aktualisieren
+            $script:CacheRebuildJob.Progress.Status = "Stopped"
+            
+            return $true
+        } else {
+            Write-Verbose "Job läuft nicht mehr (State: $($job.State))"
+            Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+        
+    } catch {
+        Write-Error "Fehler beim Stoppen des Jobs: $($_.Exception.Message)"
+        return $false
     }
 }
