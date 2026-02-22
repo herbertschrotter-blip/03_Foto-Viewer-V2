@@ -269,7 +269,7 @@ try {
             
             # Routes: /tools/*
             if ($path -match "^/tools/") {
-                if (Handle-ToolsRoute -Context $ctx -RootPath $script:State.RootPath -ScriptRoot $ScriptRoot) {
+                if (Handle-ToolsRoute -Context $ctx -RootPath $script:State.RootPath -ScriptRoot $ScriptRoot -Config $config) {
                     continue
                 }
             }
@@ -301,8 +301,8 @@ try {
                     continue
                 }
                 try {
-                    # Thumbnail holen (automatisch für Fotos UND Videos)
-                    $thumbPath = Get-MediaThumbnail -Path $fullPath -ScriptRoot $ScriptRoot
+                    # Thumbnail holen (automatisch für Fotos UND Videos) mit Config
+                    $thumbPath = Get-MediaThumbnail -Path $fullPath -ScriptRoot $ScriptRoot -MaxSize $config.UI.ThumbnailSize -Quality $config.Video.ThumbnailQuality -ThumbnailQuality $config.Video.ThumbnailQuality -ThumbnailStartPercent $config.Video.ThumbnailStartPercent
                     if ($thumbPath -and (Test-Path -LiteralPath $thumbPath -PathType Leaf)) {
                         $fullPath = $thumbPath
                     }
