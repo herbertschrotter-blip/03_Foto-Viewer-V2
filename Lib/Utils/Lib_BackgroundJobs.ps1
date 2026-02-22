@@ -15,7 +15,11 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.1.1
+    
+    ÄNDERUNGEN v0.1.1:
+    - Fix: Update-ThumbnailCache nur bei ungültigem Cache
+    - Verhindert unnötige Arbeit bei validem Cache
     
     ÄNDERUNGEN v0.1.0:
     - Neue Lib für Background-Job System
@@ -439,13 +443,15 @@ function Start-FolderThumbnailJob {
                     if (Test-Path -LiteralPath $thumbsDir) {
                         Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction Stop
                     }
-                }
-                
-                $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize 300
-                $Progress.ThumbnailsGenerated = $generated
-                
-                if ($generated -gt 0) {
-                    $removed = Remove-OrphanedThumbnails -FolderPath $FolderPath
+                    
+                    $generated = Update-ThumbnailCache -FolderPath $FolderPath -ScriptRoot $ScriptRoot -MaxSize 300
+                    $Progress.ThumbnailsGenerated = $generated
+                    
+                    if ($generated -gt 0) {
+                        $removed = Remove-OrphanedThumbnails -FolderPath $FolderPath
+                    }
+                } else {
+                    $Progress.ThumbnailsGenerated = 0
                 }
                 
                 $Progress.Status = "Completed"
