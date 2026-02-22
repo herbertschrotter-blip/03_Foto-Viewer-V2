@@ -412,15 +412,6 @@ function Start-FolderThumbnailJob {
                 # EINFACH: Prüfe jede Datei, generiere fehlende Thumbnails
                 # KEIN Manifest, KEINE komplette Cache-Löschung!
                 
-                $libThumbsPath = Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1"
-                if (-not (Test-Path -LiteralPath $libThumbsPath)) {
-                    $Progress.Status = "Error"
-                    $Progress.Error = "Lib_Thumbnails.ps1 nicht gefunden"
-                    return
-                }
-                
-                . $libThumbsPath
-                
                 # Hole alle Medien-Dateien
                 $mediaFiles = @(Get-ChildItem -LiteralPath $FolderPath -File -ErrorAction SilentlyContinue | 
                     Where-Object { 
