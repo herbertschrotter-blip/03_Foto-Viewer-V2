@@ -1,46 +1,94 @@
 <#
-.SYNOPSIS
-    HTTP Server und Response Helpers für Foto_Viewer_V2
+ManifestHint:
+  ExportFunctions = @("Start-HttpListener", "Send-ResponseHtml", "Send-ResponseText", "Get-PowerShellVersionInfo")
+  Description     = "HTTP Server und Response Helpers"
+  Category        = "Core"
+  Tags            = @("HTTP", "Server", "HttpListener", "Response")
+  Dependencies    = @("System.Net.HttpListener")
 
-.DESCRIPTION
-    HttpListener-Wrapper mit Response-Helper-Funktionen.
-    Unterstützt HTML, Text, JSON und Streaming.
+Zweck:
+  - HttpListener-Wrapper für einfachen Server-Start
+  - Response-Helper für HTML, Text, JSON
+  - UTF8 Encoding Management
+  - PowerShell Version Detection
 
-.EXAMPLE
-    $listener = Start-HttpListener -Port 8888
-    Send-ResponseHtml -Response $res -Html "<html>...</html>"
+Funktionen:
+  - Start-HttpListener: Startet HTTP Server auf Port
+  - Send-ResponseHtml: Sendet HTML-Response
+  - Send-ResponseText: Sendet Text/JSON-Response
+  - Get-PowerShellVersionInfo: PS Version Detection
+
+Abhängigkeiten:
+  - System.Net.HttpListener
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.1
+    Version: 0.2.0
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 function Start-HttpListener {
     <#
     .SYNOPSIS
         Startet HttpListener auf angegebenem Port
     
+    .DESCRIPTION
+        Startet HTTP Server mit Port/Hostname aus Config.
+        Falls Parameter nicht übergeben, werden Config-Werte verwendet.
+    
     .PARAMETER Port
-        Port-Nummer (Default: 8888)
+        Port-Nummer (Default: aus Config.Server.Port)
     
     .PARAMETER Hostname
-        Hostname (Default: localhost)
+        Hostname (Default: aus Config.Server.Host)
     
     .EXAMPLE
-        $listener = Start-HttpListener -Port 8888
+        # Mit Config-Werten:
+        $listener = Start-HttpListener
+    
+    .EXAMPLE
+        # Mit expliziten Werten:
+        $listener = Start-HttpListener -Port 9000 -Hostname "0.0.0.0"
     #>
     [CmdletBinding()]
     [OutputType([System.Net.HttpListener])]
     param(
         [Parameter()]
-        [int]$Port = 8888,
+        [int]$Port,
         
         [Parameter()]
-        [string]$Hostname = "localhost"
+        [string]$Hostname
     )
+    
+    # Config laden falls Werte nicht übergeben wurden
+    if (-not $Port -or -not $Hostname) {
+        $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+        $ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+        $libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
+        
+        if (Test-Path -LiteralPath $libConfigPath) {
+            . $libConfigPath
+            $config = Get-Config
+            
+            if (-not $Port) {
+                $Port = $config.Server.Port
+                Write-Verbose "Port aus Config: $Port"
+            }
+            
+            if (-not $Hostname) {
+                $Hostname = $config.Server.Host
+                Write-Verbose "Hostname aus Config: $Hostname"
+            }
+        } else {
+            # Fallback zu Defaults
+            if (-not $Port) { $Port = 8888 }
+            if (-not $Hostname) { $Hostname = "localhost" }
+            Write-Warning "Config nicht gefunden, verwende Defaults: ${Hostname}:${Port}"
+        }
+    }
     
     try {
         $prefix = "http://${Hostname}:${Port}/"
