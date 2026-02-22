@@ -23,6 +23,10 @@ Funktionen:
   - Test-OneDriveProtection: Prüft OneDrive-Schutz (kein Admin)
   - Enable-OneDriveProtection: Aktiviert Registry-Schutz (benötigt Admin)
 
+ÄNDERUNGEN v0.3.4:
+  - Fix: FFmpeg Pfade mit Leerzeichen escapen (Quotes um -i und Output)
+  - TODO: ThumbnailCount/EndPercent/FPS noch nicht implementiert (geplant)
+
 ÄNDERUNGEN v0.3.1:
   - thumbs.db Filter: Verhindert Crash bei Windows Thumbnail-Cache
   - Test-ThumbnailCacheValid filtert thumbs.db/Thumbs.db
