@@ -33,13 +33,19 @@ param(
     [string]$VideoPath,
     
     [Parameter()]
-    [int]$ThumbnailSize = 200,
+    [int]$ThumbnailSize = 0,
     
     [Parameter()]
-    [int]$ThumbnailQuality = 85,
+    [int]$ThumbnailQuality = 0,
     
     [Parameter()]
-    [int]$ThumbnailStartPercent = 10
+    [int]$ThumbnailCount = 0,
+    
+    [Parameter()]
+    [int]$ThumbnailStartPercent = 0,
+    
+    [Parameter()]
+    [int]$ThumbnailEndPercent = 0
 )
 
 Set-StrictMode -Version Latest
@@ -49,6 +55,23 @@ $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Projekt-Root (eine Ebene höher)
 $ScriptRoot = Split-Path -Parent $ScriptDir
+
+# Config laden
+$configPath = Join-Path $ScriptRoot "config.json"
+if (Test-Path -LiteralPath $configPath) {
+    $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    Write-Verbose "Config geladen: $configPath"
+} else {
+    Write-Warning "Config nicht gefunden: $configPath - verwende Defaults"
+    $config = $null
+}
+
+# Defaults aus Config (falls vorhanden) oder Fallback
+if ($ThumbnailSize -eq 200 -and $config) { $ThumbnailSize = $config.UI.ThumbnailSize }
+if ($ThumbnailQuality -eq 85 -and $config) { $ThumbnailQuality = $config.Video.ThumbnailQuality }
+if ($ThumbnailCount -eq 9 -and $config) { $ThumbnailCount = $config.Video.ThumbnailCount }
+if ($ThumbnailStartPercent -eq 10 -and $config) { $ThumbnailStartPercent = $config.Video.ThumbnailStartPercent }
+if ($ThumbnailEndPercent -eq 90 -and $config) { $ThumbnailEndPercent = $config.Video.ThumbnailEndPercent }
 
 Write-Host ""
 Write-Host "═══════════════════════════════════════════" -ForegroundColor Cyan
@@ -77,13 +100,20 @@ if ([string]::IsNullOrWhiteSpace($VideoPath)) {
     $dialog.Filter = "Video-Dateien (*.mp4;*.avi;*.mkv;*.mov;*.wmv)|*.mp4;*.avi;*.mkv;*.mov;*.wmv;*.flv;*.webm;*.m4v;*.mpg;*.mpeg;*.3gp|Alle Dateien (*.*)|*.*"
     $dialog.Multiselect = $false
     
-    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+    $result = $dialog.ShowDialog()
+    
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         $VideoPath = $dialog.FileName
         Write-Host "✓ Gewählt: $VideoPath" -ForegroundColor Green
     } else {
         Write-Host "✗ Keine Datei gewählt - Abbruch" -ForegroundColor Red
         exit 0
     }
+    
+    # Dialog-Objekt explizit aufräumen
+    $dialog.Dispose()
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
 }
 
 # Video-Datei prüfen
@@ -145,38 +175,49 @@ if (Test-Path -LiteralPath $thumbsDir) {
 
 # Thumbnail generieren (mit VERBOSE)
 Write-Host ""
-Write-Host "SCHRITT 5: Thumbnail generieren..." -ForegroundColor Yellow
+Write-Host "SCHRITT 5: Multi-Thumbnails generieren..." -ForegroundColor Yellow
+
+# DEBUG: Zeige $thumbsDir Wert
+Write-Host "DEBUG: thumbsDir = '$thumbsDir'" -ForegroundColor Magenta
+Write-Host "DEBUG: VideoPath = '$VideoPath'" -ForegroundColor Magenta
 Write-Host "Parameter:" -ForegroundColor Gray
 Write-Host "  MaxSize: $ThumbnailSize" -ForegroundColor Gray
 Write-Host "  Quality: $ThumbnailQuality" -ForegroundColor Gray
+Write-Host "  Count: $ThumbnailCount" -ForegroundColor Gray
 Write-Host "  StartPercent: $ThumbnailStartPercent%" -ForegroundColor Gray
+Write-Host "  EndPercent: $ThumbnailEndPercent%" -ForegroundColor Gray
 Write-Host ""
+
+# CacheDir sicherstellen
+if (-not (Test-Path -LiteralPath $thumbsDir)) {
+    New-Item -Path $thumbsDir -ItemType Directory -Force | Out-Null
+    Write-Verbose "Cache-Dir erstellt: $thumbsDir"
+}
 
 try {
     $VerbosePreference = 'Continue'
     
-    $thumbPath = Get-VideoThumbnail `
+    $thumbs = Get-VideoThumbnails `
         -VideoPath $VideoPath `
         -CacheDir $thumbsDir `
         -ScriptRoot $ScriptRoot `
         -MaxSize $ThumbnailSize `
         -ThumbnailQuality $ThumbnailQuality `
-        -ThumbnailStartPercent $ThumbnailStartPercent
+        -ThumbnailCount $ThumbnailCount `
+        -ThumbnailStartPercent $ThumbnailStartPercent `
+        -ThumbnailEndPercent $ThumbnailEndPercent
     
     $VerbosePreference = 'SilentlyContinue'
     
     Write-Host ""
-    if ($thumbPath) {
-        Write-Host "✓ ERFOLG: Thumbnail erstellt!" -ForegroundColor Green
-        Write-Host "  Pfad: $thumbPath" -ForegroundColor Gray
-        
-        if (Test-Path -LiteralPath $thumbPath) {
-            $thumbInfo = Get-Item -LiteralPath $thumbPath
-            Write-Host "  Größe: $($thumbInfo.Length) Bytes" -ForegroundColor Gray
-            Write-Host "  Erstellt: $($thumbInfo.CreationTime)" -ForegroundColor Gray
+    if ($thumbs -and $thumbs.Count -gt 0) {
+        Write-Host "✓ ERFOLG: $($thumbs.Count) Thumbnails erstellt!" -ForegroundColor Green
+        foreach ($thumb in $thumbs) {
+            Write-Host "  [$($thumb.Index)] Position: $($thumb.Position)s" -ForegroundColor Gray
+            Write-Host "      Pfad: $($thumb.Path)" -ForegroundColor DarkGray
         }
     } else {
-        Write-Host "✗ FEHLER: Thumbnail NICHT erstellt (null zurückgegeben)" -ForegroundColor Red
+        Write-Host "✗ FEHLER: Keine Thumbnails erstellt" -ForegroundColor Red
     }
     
 } catch {
