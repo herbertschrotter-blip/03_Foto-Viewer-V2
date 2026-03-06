@@ -946,7 +946,10 @@ function openLightbox(mediaPath, allMedia) {
 
 function closeLightbox() {
     document.getElementById('lightbox').classList.remove('show');
-    document.body.style.overflow = '';
+    var previewOpen = document.getElementById('folderPreviewOverlay').classList.contains('show');
+    if (!previewOpen) {
+        document.body.style.overflow = '';
+    }
     
     var img = document.getElementById('lightboxImage');
     img.src = '';
@@ -1398,12 +1401,11 @@ function renderFolderPreview(videoExts) {
             var ext = file.substring(file.lastIndexOf('.')).toLowerCase();
             var isVideo = videoExts.indexOf(ext) !== -1;
 
-            html += '<div class="preview-item" data-filepath="' + filePath + '" data-filename="' + file.toLowerCase() + '">';
+            html += '<div class="preview-item" data-filepath="' + filePath + '" data-filename="' + file.toLowerCase() + '" data-folderpath="' + folderPath + '">';
             html += '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">';
             if (isVideo) html += '<span class="video-badge">▶</span>';
             html += '<div class="preview-item-actions">';
             html += '<button class="preview-action-btn" onclick="event.stopPropagation(); goToFolder(\'' + folderPath.replace(/'/g, "\\'") + '\')">📂 Ordner</button>';
-            html += '<button class="preview-action-btn" onclick="event.stopPropagation(); openPreviewLightbox(\'' + filePath.replace(/'/g, "\\'") + '\', \'' + folderPath.replace(/'/g, "\\'") + '\')">🔍 Lightbox</button>';
             html += '</div>';
             html += '</div>';
         });
@@ -1416,6 +1418,7 @@ function renderFolderPreview(videoExts) {
     } else {
         body.innerHTML = html;
         trackPreviewLoading();
+        attachPreviewLightboxHandlers();
     }
 }
 
@@ -1463,7 +1466,6 @@ function goToFolder(folderPath) {
 }
 
 function openPreviewLightbox(filePath, folderPath) {
-    closeFolderPreview();
     var card = null;
     document.querySelectorAll('.folder-card').forEach(function(c) {
         if (c.dataset.path === folderPath) card = c;
@@ -1543,7 +1545,6 @@ function renderGridPreview(videoExts) {
             if (isVideo) html += '<span class="video-badge">▶</span>';
             html += '<div class="preview-item-actions">';
             html += '<button class="preview-action-btn" onclick="event.stopPropagation(); goToFolder(\'' + folderPath.replace(/'/g, "\\'") + '\')">📂</button>';
-            html += '<button class="preview-action-btn" onclick="event.stopPropagation(); openPreviewLightbox(\'' + filePath.replace(/'/g, "\\'") + '\', \'' + folderPath.replace(/'/g, "\\'") + '\')">🔍</button>';
             html += '</div>';
             html += '</div>';
         });
@@ -1552,6 +1553,7 @@ function renderGridPreview(videoExts) {
     html += '</div>';
     body.innerHTML = html;
     trackPreviewLoading();
+    attachPreviewLightboxHandlers();
 }
 
 function trackPreviewLoading() {
@@ -1585,6 +1587,23 @@ function trackPreviewLoading() {
                 if (loaded >= total) statusEl.textContent = '✓ ' + total;
             }, { once: true });
         }
+    });
+}
+
+function attachPreviewLightboxHandlers() {
+    document.querySelectorAll('#folderPreviewBody .preview-item img').forEach(function(img) {
+        if (img.dataset.previewLightbox) return;
+        img.dataset.previewLightbox = 'true';
+        img.style.cursor = 'pointer';
+        img.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var item = img.closest('.preview-item');
+            var filePath = item.dataset.filepath;
+            var folderPath = item.dataset.folderpath;
+            if (filePath && folderPath) {
+                openPreviewLightbox(filePath, folderPath);
+            }
+        });
     });
 }
 
