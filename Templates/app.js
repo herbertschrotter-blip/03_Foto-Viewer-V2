@@ -604,12 +604,10 @@ async function loadSettings() {
         document.getElementById('setting-media-images').value = config.Media.ImageExtensions.join(';');
         document.getElementById('setting-media-videos').value = config.Media.VideoExtensions.join(';');
         
-        document.getElementById('setting-video-quality').value = config.Video.ThumbnailQuality;
-        document.getElementById('setting-video-autoconvert').checked = config.Video.EnableAutoConversion;
+        document.getElementById('setting-video-quality').value = config.Video.ThumbnailQuality;        
         document.getElementById('setting-video-hls').checked = config.Video.UseHLS;
         document.getElementById('setting-video-hlssegment').value = config.Video.HLSSegmentDuration;
-        document.getElementById('setting-video-hlspreload').value = config.Video.HLSPreloadSeconds;
-        document.getElementById('setting-video-codec').value = config.Video.PreferredCodec;
+        document.getElementById('setting-video-hlspreload').value = config.Video.HLSPreloadSeconds;        
         document.getElementById('setting-video-preset').value = config.Video.ConversionPreset;
         document.getElementById('setting-video-thumbcount').value = config.Video.ThumbnailCount;
         document.getElementById('setting-video-thumbfps').value = config.Video.ThumbnailFPS;
@@ -648,8 +646,7 @@ async function loadSettings() {
         
         document.getElementById('setting-feat-archive').checked = config.Features.ArchiveExtraction;
         document.getElementById('setting-feat-archiveext').value = config.Features.ArchiveExtensions.join(';');
-        document.getElementById('setting-feat-thumbpre').checked = config.Features.VideoThumbnailPreGeneration;
-        document.getElementById('setting-feat-lazyconv').checked = config.Features.LazyVideoConversion;
+        document.getElementById('setting-feat-thumbpre').checked = config.Features.VideoThumbnailPreGeneration;        
         document.getElementById('setting-feat-vlc').checked = config.Features.OpenInVLC;
         document.getElementById('setting-feat-collapse').checked = config.Features.CollapsibleFolders;
         document.getElementById('setting-feat-lightbox').checked = config.Features.LightboxViewer;
@@ -672,12 +669,10 @@ async function saveSettings() {
                 VideoExtensions: document.getElementById('setting-media-videos').value.split(';').map(function(s) { return s.trim(); }).filter(Boolean)
             },
             Video: {
-                ThumbnailQuality: parseInt(document.getElementById('setting-video-quality').value),
-                EnableAutoConversion: document.getElementById('setting-video-autoconvert').checked,
+                ThumbnailQuality: parseInt(document.getElementById('setting-video-quality').value),                
                 UseHLS: document.getElementById('setting-video-hls').checked,
                 HLSSegmentDuration: parseInt(document.getElementById('setting-video-hlssegment').value),
-                HLSPreloadSeconds: parseInt(document.getElementById('setting-video-hlspreload').value),
-                PreferredCodec: document.getElementById('setting-video-codec').value,
+                HLSPreloadSeconds: parseInt(document.getElementById('setting-video-hlspreload').value),                
                 ConversionPreset: document.getElementById('setting-video-preset').value,
                 ThumbnailCount: parseInt(document.getElementById('setting-video-thumbcount').value),
                 ThumbnailFPS: parseInt(document.getElementById('setting-video-thumbfps').value),
@@ -721,8 +716,7 @@ async function saveSettings() {
             Features: {
                 ArchiveExtraction: document.getElementById('setting-feat-archive').checked,
                 ArchiveExtensions: document.getElementById('setting-feat-archiveext').value.split(';').map(function(s) { return s.trim(); }).filter(Boolean),
-                VideoThumbnailPreGeneration: document.getElementById('setting-feat-thumbpre').checked,
-                LazyVideoConversion: document.getElementById('setting-feat-lazyconv').checked,
+                VideoThumbnailPreGeneration: document.getElementById('setting-feat-thumbpre').checked,                
                 OpenInVLC: document.getElementById('setting-feat-vlc').checked,
                 CollapsibleFolders: document.getElementById('setting-feat-collapse').checked,
                 LightboxViewer: document.getElementById('setting-feat-lightbox').checked,

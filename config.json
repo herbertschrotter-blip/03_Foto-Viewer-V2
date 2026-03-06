@@ -2,8 +2,6 @@
   "Video": {
     "ConversionPreset": "medium",
     "GIFLoop": false,
-    "PreferredCodec": "h264",
-    "EnableAutoConversion": true,
     "ThumbnailQuality": 85,
     "GIFDuration": 3,
     "ThumbnailStartPercent": 10,
@@ -52,8 +50,7 @@
       ".gz"
     ],
     "VideoThumbnailPreGeneration": false,
-    "ArchiveExtraction": false,
-    "LazyVideoConversion": true
+    "ArchiveExtraction": false    
   },
   "Paths": {
     "ThumbsFolder": ".thumbs",

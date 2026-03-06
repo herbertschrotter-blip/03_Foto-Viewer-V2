@@ -24,7 +24,7 @@ Abhängigkeiten:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.1
+    Version: 0.3.2
 #>
 
 #Requires -Version 7.0
@@ -157,9 +157,7 @@ function Get-DefaultConfig {
     $defaults = @{
         Video = @{
             ConversionPreset = "medium"
-            GIFLoop = $true
-            PreferredCodec = "h264"
-            EnableAutoConversion = $true
+            GIFLoop = $true                        
             ThumbnailQuality = 85
             GIFDuration = 3
             ThumbnailStartPercent = 10
@@ -202,8 +200,7 @@ function Get-DefaultConfig {
             LightboxViewer = $true
             ArchiveExtensions = @(".zip", ".rar", ".7z", ".tar", ".gz")
             VideoThumbnailPreGeneration = $false
-            ArchiveExtraction = $false
-            LazyVideoConversion = $true
+            ArchiveExtraction = $false            
         }
         Paths = @{
             ThumbsFolder = ".thumbs"
