@@ -152,6 +152,7 @@ if (Test-Path -LiteralPath $libSystemCheckPath) {
 # Libs laden - Utils
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_Tools.ps1")
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_BackgroundJobs.ps1")
+. (Join-Path $ScriptRoot "Lib\Utils\Lib_ArchiveExtractor.ps1")
 
 #region OneDrive-Schutz Check
 
@@ -226,6 +227,18 @@ if ([string]::IsNullOrWhiteSpace($script:State.RootPath) -or
 
 # Thumbnail-Cache wird lokal in jedem Ordner (.thumbs/) erstellt
 # Keine zentrale ThumbsDir-Logik mehr nötig
+
+# Archive entpacken (wenn aktiviert)
+if ($config.Features.ArchiveExtraction) {
+    Write-Host "Prüfe Archive..." -ForegroundColor Cyan
+    $extractResult = Invoke-ArchiveExtraction -RootPath $script:State.RootPath
+    if ($extractResult.Extracted -gt 0) {
+        Write-Host "✓ $($extractResult.Extracted) Archive entpackt ($($extractResult.Rounds) Runden)" -ForegroundColor Green
+    }
+    if ($extractResult.Failed -gt 0) {
+        Write-Host "⚠ $($extractResult.Failed) Archive fehlgeschlagen" -ForegroundColor Yellow
+    }
+}
 
 # Medien-Extensions aus Config
 $mediaExtensions = $config.Media.ImageExtensions + $config.Media.VideoExtensions
