@@ -259,6 +259,13 @@ try {
     return
 }
 
+# Runspace Pool für parallele Media-Requests
+$runspacePool = [runspacefactory]::CreateRunspacePool(1, $config.Performance.MaxParallelJobs)
+$runspacePool.Open()
+$script:ActiveRunspaces = [System.Collections.ArrayList]::new()
+
+Write-Host "✓ Runspace Pool gestartet ($($config.Performance.MaxParallelJobs) Worker)" -ForegroundColor Green
+
 # Browser öffnen (wenn aktiviert)
 if ($config.Server.AutoOpenBrowser) {
     try {
@@ -365,8 +372,44 @@ try {
                 }
             }
             
-            # Routes: /original (Media - Lightbox Original-Bilder)
-            if (Register-MediaRoutes -Context $ctx -RootFull $script:State.RootPath) {
+            # Routes: /original, /video, /hls, /hlschunk (Media - über Runspace parallel)
+            if ($path -eq '/original' -or $path -eq '/video' -or $path -eq '/hls' -or $path -eq '/hlschunk') {
+                # Cleanup abgeschlossene Runspaces
+                $toRemove = @()
+                foreach ($rs in $script:ActiveRunspaces) {
+                    if ($rs.Handle.IsCompleted) {
+                        try { $rs.PowerShell.EndInvoke($rs.Handle) } catch { }
+                        $rs.PowerShell.Dispose()
+                        $toRemove += $rs
+                    }
+                }
+                foreach ($rs in $toRemove) {
+                    [void]$script:ActiveRunspaces.Remove($rs)
+                }
+                
+                # Media-Request in Runspace ausführen
+                $ps = [powershell]::Create()
+                $ps.RunspacePool = $runspacePool
+                
+                [void]$ps.AddScript({
+                    param($Context, $RootFull, $ScriptRoot)
+                    
+                    # Libs laden im Runspace
+                    . (Join-Path $ScriptRoot "Lib\Core\Lib_Config.ps1")
+                    . (Join-Path $ScriptRoot "Lib\Media\Lib_VideoHLS.ps1")
+                    . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Media.ps1")
+                    
+                    # Route verarbeiten
+                    Register-MediaRoutes -Context $Context -RootFull $RootFull
+                    
+                }).AddArgument($ctx).AddArgument($script:State.RootPath).AddArgument($ScriptRoot)
+                
+                $handle = $ps.BeginInvoke()
+                [void]$script:ActiveRunspaces.Add(@{
+                    PowerShell = $ps
+                    Handle = $handle
+                })
+                
                 continue
             }
             
@@ -442,6 +485,18 @@ catch {
     Write-Host "StackTrace: $($_.ScriptStackTrace)" -ForegroundColor Red
 }
 finally {
+    # Runspace Pool aufräumen
+    if ($script:ActiveRunspaces) {
+        foreach ($rs in $script:ActiveRunspaces) {
+            try { $rs.PowerShell.Stop(); $rs.PowerShell.Dispose() } catch { }
+        }
+    }
+    if ($runspacePool) {
+        $runspacePool.Close()
+        $runspacePool.Dispose()
+        Write-Host "✓ Runspace Pool beendet" -ForegroundColor Green
+    }
+    
     if ($listener.IsListening) {
         $listener.Stop()
     }
