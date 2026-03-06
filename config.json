@@ -110,7 +110,7 @@
     "ThumbnailEndPercent": 90,
     "HLSSegmentDuration": 2,
     "GIFFrameRate": 10,
-    "ConversionPreset": "medium",
+    "ConversionPreset": "slow",
     "ThumbnailQuality": 85,
     "PreviewAsGIF": true,
     "UseHLS": true,
