@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Sorter — PhotoFolder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f7fafc;
+            min-height: 100vh;
+            padding: 20px;
+            color: #2d3748;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 24px; padding: 20px 24px;
+            background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header h1 { font-size: 1.5em; }
+        .header .badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; padding: 4px 14px; border-radius: 50px;
+            font-size: 0.8em; font-weight: 600;
+        }
+        .back-link {
+            color: #667eea; text-decoration: none; font-size: 14px; font-weight: 500;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
+            padding: 16px; background: white; border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+        .toolbar-group {
+            display: flex; gap: 8px; align-items: center;
+            padding-right: 16px; border-right: 1px solid #e2e8f0;
+        }
+        .toolbar-group:last-child { border-right: none; padding-right: 0; }
+        .toolbar-label { font-size: 12px; color: #718096; font-weight: 600; text-transform: uppercase; }
+
+        .btn {
+            padding: 8px 16px; border: 1px solid #cbd5e0; border-radius: 6px;
+            background: white; color: #2d3748; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+        }
+        .btn:hover { background: #f7fafc; border-color: #a0aec0; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: #667eea; border-color: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-danger { background: #dc2626; border-color: #b91c1c; color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-success { background: #059669; border-color: #047857; color: white; }
+        .btn-success:hover { background: #047857; }
+
+        /* Folder Select */
+        .folder-select {
+            display: flex; gap: 8px; align-items: center; margin-bottom: 20px;
+            padding: 12px 16px; background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+        }
+        .folder-select label { font-size: 13px; font-weight: 600; white-space: nowrap; }
+        .folder-select select {
+            flex: 1; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px;
+            font-size: 13px; font-family: inherit; background: white; color: #2d3748;
+        }
+
+        /* Pattern Panel */
+        .panel {
+            background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+            margin-bottom: 20px; overflow: hidden;
+        }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px; background: #f7fafc; border-bottom: 1px solid #e2e8f0;
+            cursor: pointer; user-select: none;
+        }
+        .panel-header:hover { background: #edf2f7; }
+        .panel-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .panel-toggle { color: #718096; transition: transform 0.3s; }
+        .panel.collapsed .panel-body { display: none; }
+        .panel.collapsed .panel-toggle { transform: rotate(-90deg); }
+        .panel-body { padding: 16px 20px; }
+
+        /* Pattern List */
+        .pattern-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+            margin-bottom: 8px; transition: all 0.2s;
+        }
+        .pattern-item:hover { border-color: #cbd5e0; }
+        .pattern-item.disabled { opacity: 0.5; }
+        .pattern-checkbox { width: 18px; height: 18px; accent-color: #667eea; cursor: pointer; }
+        .pattern-info { flex: 1; }
+        .pattern-name { font-weight: 600; font-size: 13px; }
+        .pattern-regex { font-family: monospace; font-size: 11px; color: #718096; margin-top: 2px; }
+        .pattern-desc { font-size: 11px; color: #a0aec0; margin-top: 2px; }
+        .pattern-badge {
+            font-size: 10px; padding: 2px 8px; border-radius: 10px;
+            background: #edf2f7; color: #718096; font-weight: 600;
+        }
+        .pattern-badge.builtin { background: #e0e7ff; color: #4338ca; }
+        .pattern-delete { cursor: pointer; color: #dc2626; font-size: 16px; padding: 4px; }
+        .pattern-delete:hover { background: #fef2f2; border-radius: 4px; }
+
+        /* Add Pattern Form */
+        .add-pattern-form {
+            display: none; padding: 16px; background: #f7fafc;
+            border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 12px;
+        }
+        .add-pattern-form.show { display: block; }
+        .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .form-row input {
+            flex: 1; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px;
+            font-size: 13px; font-family: inherit;
+        }
+        .form-row input:focus { outline: none; border-color: #667eea; }
+
+        /* Results / Status */
+        .status-bar {
+            padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
+            font-size: 13px; display: none;
+        }
+        .status-bar.show { display: flex; align-items: center; gap: 8px; }
+        .status-bar.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+        .status-bar.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        .status-bar.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+        .status-bar.warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+        .spinner {
+            width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.1);
+            border-top-color: #667eea; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Pattern Summary */
+        .pattern-summary {
+            display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+        }
+        .pattern-summary-item {
+            padding: 8px 16px; background: #f7fafc; border: 1px solid #e2e8f0;
+            border-radius: 8px; font-size: 13px;
+        }
+        .pattern-summary-item strong { color: #667eea; }
+
+        /* Groups List */
+        .group-card {
+            background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+            margin-bottom: 12px; overflow: hidden; transition: all 0.2s;
+        }
+        .group-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .group-header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 14px 16px; cursor: pointer; user-select: none;
+        }
+        .group-header:hover { background: #f7fafc; }
+        .group-checkbox { width: 18px; height: 18px; accent-color: #667eea; cursor: pointer; }
+        .group-prefix {
+            font-weight: 700; font-size: 14px; color: #667eea;
+            font-family: monospace; min-width: 80px;
+        }
+        .group-prefix._unsorted { color: #718096; font-style: italic; }
+        .group-arrow { color: #718096; transition: transform 0.3s; font-size: 12px; }
+        .group-card.expanded .group-arrow { transform: rotate(90deg); }
+        .group-folder-input {
+            padding: 6px 10px; border: 1px solid #cbd5e0; border-radius: 4px;
+            font-size: 13px; font-family: inherit; width: 180px;
+        }
+        .group-folder-input:focus { outline: none; border-color: #667eea; }
+        .group-stats { font-size: 12px; color: #718096; margin-left: auto; white-space: nowrap; }
+        .group-pattern-badge {
+            font-size: 10px; padding: 2px 8px; border-radius: 10px;
+            background: #e0e7ff; color: #4338ca; font-weight: 600;
+        }
+
+        /* Group Body (file list) */
+        .group-body {
+            display: none; padding: 0 16px 12px; max-height: 300px; overflow-y: auto;
+        }
+        .group-card.expanded .group-body { display: block; }
+        .group-file {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 8px; font-size: 12px; color: #4a5568;
+            border-radius: 4px; transition: background 0.1s;
+        }
+        .group-file:hover { background: #f7fafc; }
+        .group-file-name { flex: 1; font-family: monospace; }
+
+        /* Group Actions */
+        .group-actions {
+            display: flex; gap: 4px; padding: 8px 16px 12px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .group-action-btn {
+            padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 4px;
+            background: white; font-size: 11px; cursor: pointer; color: #718096;
+        }
+        .group-action-btn:hover { background: #f7fafc; border-color: #cbd5e0; }
+
+        /* Sort Summary (after sort) */
+        .sort-summary {
+            padding: 20px; background: white; border: 1px solid #e2e8f0;
+            border-radius: 10px; margin-bottom: 20px;
+        }
+        .sort-summary h3 { margin-bottom: 12px; }
+        .sort-stat { display: flex; gap: 16px; margin-bottom: 8px; font-size: 14px; }
+        .sort-stat .label { color: #718096; min-width: 120px; }
+        .sort-stat .value { font-weight: 600; }
+        .sort-stat .value.success { color: #059669; }
+        .sort-stat .value.error { color: #dc2626; }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center; padding: 60px 20px; color: #a0aec0;
+        }
+        .empty-state .icon { font-size: 3em; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .toolbar { flex-direction: column; }
+            .toolbar-group { border-right: none; padding-right: 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+            .group-folder-input { width: 120px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <h1>📂 File Sorter</h1>
+                <span class="badge">v0.1.0</span>
+            </div>
+            <a href="/" class="back-link">← Zurück zur Gallery</a>
+        </div>
+
+        <!-- Folder Select -->
+        <div class="folder-select">
+            <label>📁 Ordner:</label>
+            <select id="folderSelect">
+                <option value=".">Wird geladen...</option>
+            </select>
+            <button class="btn" onclick="loadFolders()">🔄</button>
+            <span id="rootPathDisplay" style="font-size:12px;color:#718096;margin-left:8px"></span>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <span class="toolbar-label">Analyse</span>
+                <button class="btn" onclick="exportFileNames()" id="btnExport">📋 Dateinamen exportieren</button>
+                <button class="btn btn-primary" onclick="analyzeFiles()" id="btnAnalyze">🔍 Analysieren</button>
+            </div>
+            <div class="toolbar-group">
+                <span class="toolbar-label">Aktionen</span>
+                <button class="btn btn-success" onclick="sortFiles()" id="btnSort" disabled>✅ Ausgewählte sortieren</button>
+                <button class="btn" onclick="undoSort()" id="btnUndo" disabled>↩️ Rückgängig</button>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+            <div class="spinner" id="statusSpinner" style="display:none"></div>
+            <span id="statusText"></span>
+        </div>
+
+        <!-- Pattern Panel (collapsible) -->
+        <div class="panel collapsed" id="patternPanel">
+            <div class="panel-header" onclick="togglePanel('patternPanel')">
+                <span class="panel-title">⚙️ Pattern-Engine <span id="patternCount" style="color:#718096;font-weight:400"></span></span>
+                <span class="panel-toggle">▼</span>
+            </div>
+            <div class="panel-body">
+                <div id="patternList"></div>
+                <button class="btn" onclick="toggleAddPattern()" style="margin-top:8px">+ Neues Pattern</button>
+                <div class="add-pattern-form" id="addPatternForm">
+                    <div class="form-row">
+                        <input type="text" id="newPatternName" placeholder="Name (z.B. IMG_Datum)">
+                        <input type="text" id="newPatternRegex" placeholder="Regex (z.B. IMG_(\d{8}))">
+                    </div>
+                    <div class="form-row">
+                        <input type="number" id="newPatternCapture" placeholder="Capture-Group (1)" value="1" style="max-width:120px">
+                        <input type="number" id="newPatternPriority" placeholder="Priorität (50)" value="50" style="max-width:120px">
+                        <input type="text" id="newPatternDesc" placeholder="Beschreibung (optional)">
+                    </div>
+                    <div class="form-row">
+                        <button class="btn btn-primary" onclick="addPattern()">Hinzufügen</button>
+                        <button class="btn" onclick="toggleAddPattern()">Abbrechen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pattern Summary (after analysis) -->
+        <div class="pattern-summary" id="patternSummary" style="display:none"></div>
+
+        <!-- Groups -->
+        <div id="groupsContainer">
+            <div class="empty-state" id="emptyState">
+                <div class="icon">📁</div>
+                <p>Wähle einen Ordner und klicke <strong>Analysieren</strong></p>
+            </div>
+        </div>
+
+        <!-- Sort Summary (after sort) -->
+        <div id="sortSummary" style="display:none"></div>
+    </div>
+
+<script>
+// ============================================================================
+// STATE
+// ============================================================================
+let currentGroups = [];
+let currentFolder = '.';
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+function showStatus(text, type = 'info', showSpinner = false) {
+    const bar = document.getElementById('statusBar');
+    const spin = document.getElementById('statusSpinner');
+    const txt = document.getElementById('statusText');
+    bar.className = 'status-bar show ' + type;
+    spin.style.display = showSpinner ? 'block' : 'none';
+    txt.textContent = text;
+}
+
+function hideStatus() {
+    document.getElementById('statusBar').className = 'status-bar';
+}
+
+function togglePanel(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+}
+
+async function api(url, method = 'GET', body = null) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    return await res.json();
+}
+
+// ============================================================================
+// FOLDER LOADING
+// ============================================================================
+async function loadFolders() {
+    try {
+        const data = await api('/tools/folder-list');
+        if (!data.success) {
+            showStatus('Ordner konnten nicht geladen werden', 'error');
+            return;
+        }
+        
+        const select = document.getElementById('folderSelect');
+        select.innerHTML = '';
+        
+        data.folders.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f.relativePath;
+            opt.textContent = f.displayName + (f.mediaCount > 0 ? ' (' + f.mediaCount + ')' : '');
+            select.appendChild(opt);
+        });
+        
+        document.getElementById('rootPathDisplay').textContent = data.rootPath || '';
+    } catch (e) {
+        showStatus('Ordner-Liste: ' + e.message, 'error');
+    }
+}
+
+// ============================================================================
+// EXPORT
+// ============================================================================
+async function exportFileNames() {
+    const folder = document.getElementById('folderSelect').value;
+    showStatus('Exportiere Dateinamen...', 'info', true);
+    
+    try {
+        const data = await api('/tools/export-filenames', 'POST', { folderPath: folder });
+        if (data.success) {
+            showStatus('✅ ' + data.message, 'success');
+        } else {
+            showStatus('❌ ' + data.error, 'error');
+        }
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+// ============================================================================
+// ANALYZE
+// ============================================================================
+async function analyzeFiles() {
+    const folder = document.getElementById('folderSelect').value;
+    showStatus('Analysiere Dateien...', 'info', true);
+    document.getElementById('btnSort').disabled = true;
+    
+    try {
+        const data = await api('/tools/analyze-files', 'POST', { folderPath: folder });
+        
+        if (!data.success) {
+            showStatus('❌ ' + data.error, 'error');
+            return;
+        }
+        
+        currentGroups = data.groups;
+        currentFolder = folder;
+        
+        showStatus(`✅ ${data.totalGroups} Gruppen erkannt, ${data.totalFiles} Dateien`, 'success');
+        
+        // Pattern Summary
+        renderPatternSummary(data.patternSummary);
+        
+        // Groups
+        renderGroups(data.groups);
+        
+        // Sort-Button aktivieren
+        document.getElementById('btnSort').disabled = false;
+        
+        // Undo check
+        checkUndo();
+        
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+function renderPatternSummary(summary) {
+    const el = document.getElementById('patternSummary');
+    if (!summary || Object.keys(summary).length === 0) {
+        el.style.display = 'none';
+        return;
+    }
+    
+    el.innerHTML = Object.entries(summary).map(([name, info]) => 
+        `<div class="pattern-summary-item">
+            <strong>${name === 'none' ? 'Kein Match' : name}</strong>: 
+            ${info.Groups} Gruppen, ${info.Files} Dateien
+        </div>`
+    ).join('');
+    el.style.display = 'flex';
+}
+
+function renderGroups(groups) {
+    const container = document.getElementById('groupsContainer');
+    
+    if (!groups || groups.length === 0) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">🤷</div><p>Keine Dateien zum Sortieren gefunden</p></div>`;
+        return;
+    }
+    
+    container.innerHTML = groups.map((g, i) => `
+        <div class="group-card" id="group-${i}">
+            <div class="group-header" onclick="toggleGroup(${i})">
+                <input type="checkbox" class="group-checkbox" checked 
+                    onclick="event.stopPropagation()" data-prefix="${g.prefix}">
+                <span class="group-arrow">▶</span>
+                <span class="group-prefix ${g.prefix === '_unsorted' ? '_unsorted' : ''}">${g.prefix}</span>
+                <span>→</span>
+                <input type="text" class="group-folder-input" 
+                    value="${g.suggestedFolder}" 
+                    data-prefix="${g.prefix}"
+                    onclick="event.stopPropagation()"
+                    placeholder="Ordnername">
+                <span class="group-pattern-badge">${g.patternName}</span>
+                <span class="group-stats">${g.fileCount} Dateien · ${g.totalSizeFormatted}</span>
+            </div>
+            <div class="group-body">
+                ${g.files.map(f => `
+                    <div class="group-file">
+                        <span class="group-file-name">${f}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="group-actions">
+                <button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup('${g.prefix}')">🔗 Merge mit...</button>
+                <button class="group-action-btn" onclick="event.stopPropagation(); splitGroup('${g.prefix}')">✂️ Split</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function toggleGroup(index) {
+    document.getElementById('group-' + index).classList.toggle('expanded');
+}
+
+// ============================================================================
+// SORT
+// ============================================================================
+async function sortFiles() {
+    // Sammle Mappings aus den checked Gruppen
+    const mappings = {};
+    const checkboxes = document.querySelectorAll('.group-checkbox:checked');
+    const inputs = document.querySelectorAll('.group-folder-input');
+    
+    inputs.forEach(input => {
+        const prefix = input.dataset.prefix;
+        const checkbox = document.querySelector(`.group-checkbox[data-prefix="${prefix}"]`);
+        if (checkbox && checkbox.checked && input.value.trim()) {
+            mappings[prefix] = input.value.trim();
+        }
+    });
+    
+    if (Object.keys(mappings).length === 0) {
+        showStatus('⚠️ Keine Gruppen ausgewählt', 'warning');
+        return;
+    }
+    
+    const count = Object.keys(mappings).length;
+    if (!confirm(`${count} Gruppen sortieren?\n\nOrdner werden erstellt und Dateien verschoben.\nDies kann mit "Rückgängig" zurückgesetzt werden.`)) {
+        return;
+    }
+    
+    showStatus('Sortiere Dateien...', 'info', true);
+    
+    try {
+        const data = await api('/tools/sort-files', 'POST', { mappings });
+        
+        if (data.success !== undefined) {
+            // Summary anzeigen
+            const summaryEl = document.getElementById('sortSummary');
+            summaryEl.innerHTML = `
+                <div class="sort-summary">
+                    <h3>✅ Sortierung abgeschlossen</h3>
+                    <div class="sort-stat">
+                        <span class="label">Verschoben:</span>
+                        <span class="value success">${data.moved}</span>
+                    </div>
+                    <div class="sort-stat">
+                        <span class="label">Fehlgeschlagen:</span>
+                        <span class="value ${data.failed > 0 ? 'error' : ''}">${data.failed}</span>
+                    </div>
+                    <div class="sort-stat">
+                        <span class="label">Übersprungen:</span>
+                        <span class="value">${data.skipped}</span>
+                    </div>
+                    ${data.createdFolders.length > 0 ? `
+                    <div class="sort-stat">
+                        <span class="label">Neue Ordner:</span>
+                        <span class="value">${data.createdFolders.join(', ')}</span>
+                    </div>` : ''}
+                    ${data.undoAvailable ? '<p style="margin-top:12px;color:#059669;font-size:13px">↩️ Rückgängig-Funktion verfügbar</p>' : ''}
+                </div>`;
+            summaryEl.style.display = 'block';
+            
+            showStatus(`✅ ${data.moved} Dateien verschoben`, 'success');
+            document.getElementById('btnSort').disabled = true;
+            
+            // Groups leeren
+            document.getElementById('groupsContainer').innerHTML = 
+                `<div class="empty-state"><div class="icon">✅</div><p>Sortierung abgeschlossen. Klicke <strong>Analysieren</strong> um den neuen Stand zu sehen.</p></div>`;
+            
+            checkUndo();
+        } else {
+            showStatus('❌ ' + (data.error || 'Unbekannter Fehler'), 'error');
+        }
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+// ============================================================================
+// UNDO
+// ============================================================================
+async function checkUndo() {
+    const folder = document.getElementById('folderSelect').value;
+    try {
+        const data = await api('/tools/check-undo?folderPath=' + encodeURIComponent(folder));
+        const btn = document.getElementById('btnUndo');
+        btn.disabled = !data.hasUndo;
+        if (data.hasUndo && data.undoInfo) {
+            btn.title = `Letzte Sortierung: ${data.undoInfo.movedCount} Dateien (${data.undoInfo.timestamp})`;
+        }
+    } catch (e) { /* ignore */ }
+}
+
+async function undoSort() {
+    const folder = document.getElementById('folderSelect').value;
+    
+    if (!confirm('Letzte Sortierung rückgängig machen?\n\nAlle verschobenen Dateien werden zurück an ihren Ursprungsort verschoben.')) {
+        return;
+    }
+    
+    showStatus('Mache rückgängig...', 'info', true);
+    
+    try {
+        const data = await api('/tools/undo-sort', 'POST', { folderPath: folder });
+        
+        if (data.success) {
+            showStatus(`✅ ${data.restored} Dateien zurück verschoben, ${data.removedFolders.length} leere Ordner entfernt`, 'success');
+            document.getElementById('btnUndo').disabled = true;
+            document.getElementById('sortSummary').style.display = 'none';
+        } else {
+            showStatus('❌ ' + (data.error || `${data.restored} zurück, ${data.failed} fehlgeschlagen`), 'error');
+        }
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+// ============================================================================
+// PATTERNS
+// ============================================================================
+async function loadPatterns() {
+    try {
+        const data = await api('/tools/sorter-patterns');
+        if (!data.success) return;
+        
+        const active = data.patterns.filter(p => p.enabled).length;
+        document.getElementById('patternCount').textContent = `(${active} aktiv / ${data.patterns.length} total)`;
+        
+        const list = document.getElementById('patternList');
+        list.innerHTML = data.patterns.map(p => `
+            <div class="pattern-item ${p.enabled ? '' : 'disabled'}">
+                <input type="checkbox" class="pattern-checkbox" 
+                    ${p.enabled ? 'checked' : ''} 
+                    onchange="togglePattern('${p.name}', this.checked)">
+                <div class="pattern-info">
+                    <div class="pattern-name">${p.name}</div>
+                    <div class="pattern-regex">${p.regex}</div>
+                    ${p.description ? `<div class="pattern-desc">${p.description}</div>` : ''}
+                </div>
+                <span class="pattern-badge ${p.builtIn ? 'builtin' : ''}">
+                    ${p.builtIn ? 'Built-in' : 'Custom'} · P${p.priority}
+                </span>
+                ${!p.builtIn ? `<span class="pattern-delete" onclick="removePattern('${p.name}')" title="Löschen">✕</span>` : ''}
+            </div>
+        `).join('');
+    } catch (e) { /* ignore */ }
+}
+
+async function togglePattern(name, enabled) {
+    try {
+        await api('/tools/sorter-patterns/toggle', 'POST', { name, enabled });
+        loadPatterns();
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+async function removePattern(name) {
+    if (!confirm(`Pattern "${name}" wirklich löschen?`)) return;
+    try {
+        await api('/tools/sorter-patterns/remove', 'POST', { name });
+        loadPatterns();
+        showStatus(`Pattern "${name}" entfernt`, 'success');
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+function toggleAddPattern() {
+    document.getElementById('addPatternForm').classList.toggle('show');
+}
+
+async function addPattern() {
+    const name = document.getElementById('newPatternName').value.trim();
+    const regex = document.getElementById('newPatternRegex').value.trim();
+    const groupCapture = parseInt(document.getElementById('newPatternCapture').value) || 1;
+    const priority = parseInt(document.getElementById('newPatternPriority').value) || 50;
+    const description = document.getElementById('newPatternDesc').value.trim();
+    
+    if (!name || !regex) {
+        showStatus('Name und Regex sind Pflichtfelder', 'warning');
+        return;
+    }
+    
+    try {
+        const data = await api('/tools/sorter-patterns/add', 'POST', {
+            name, regex, groupCapture, priority, description
+        });
+        
+        if (data.success) {
+            showStatus(`✅ Pattern "${name}" hinzugefügt`, 'success');
+            toggleAddPattern();
+            document.getElementById('newPatternName').value = '';
+            document.getElementById('newPatternRegex').value = '';
+            document.getElementById('newPatternDesc').value = '';
+            loadPatterns();
+        } else {
+            showStatus('❌ ' + data.error, 'error');
+        }
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+// ============================================================================
+// MERGE / SPLIT
+// ============================================================================
+async function mergeGroup(sourcePrefix) {
+    const prefixes = currentGroups.map(g => g.prefix).filter(p => p !== sourcePrefix);
+    if (prefixes.length === 0) {
+        showStatus('Keine andere Gruppe zum Mergen vorhanden', 'warning');
+        return;
+    }
+    
+    const target = prompt(`"${sourcePrefix}" mergen mit welcher Gruppe?\n\nVerfügbar: ${prefixes.join(', ')}`);
+    if (!target || !prefixes.includes(target)) return;
+    
+    try {
+        const data = await api('/tools/merge-groups', 'POST', {
+            sourcePrefix: sourcePrefix, targetPrefix: target
+        });
+        
+        if (data.success) {
+            showStatus(`✅ ${sourcePrefix} → ${target} gemerged`, 'success');
+            // Re-analyze to refresh
+            analyzeFiles();
+        } else {
+            showStatus('❌ ' + data.error, 'error');
+        }
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+async function splitGroup(sourcePrefix) {
+    const group = currentGroups.find(g => g.prefix === sourcePrefix);
+    if (!group || group.fileCount < 2) {
+        showStatus('Gruppe muss mindestens 2 Dateien haben', 'warning');
+        return;
+    }
+    
+    const input = prompt(
+        `Dateien aus "${sourcePrefix}" abspalten:\n\n` +
+        `Gib Dateinamen ein (kommagetrennt):\n` +
+        `Vorschau: ${group.files.slice(0, 5).join(', ')}${group.files.length > 5 ? '...' : ''}`
+    );
+    if (!input) return;
+    
+    const newPrefix = prompt('Name für neue Gruppe:');
+    if (!newPrefix) return;
+    
+    const fileNames = input.split(',').map(f => f.trim()).filter(Boolean);
+    
+    try {
+        const data = await api('/tools/split-group', 'POST', {
+            sourcePrefix, fileNames, newPrefix
+        });
+        
+        if (data.success) {
+            showStatus(`✅ ${fileNames.length} Dateien in "${newPrefix}" abgespalten`, 'success');
+            analyzeFiles();
+        } else {
+            showStatus('❌ ' + data.error, 'error');
+        }
+    } catch (e) {
+        showStatus('Fehler: ' + e.message, 'error');
+    }
+}
+
+// ============================================================================
+// INIT
+// ============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    loadFolders();
+    loadPatterns();
+    checkUndo();
+});
+</script>
+</body>
+</html>

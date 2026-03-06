@@ -153,6 +153,14 @@ if (Test-Path -LiteralPath $libSystemCheckPath) {
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_Tools.ps1")
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_BackgroundJobs.ps1")
 . (Join-Path $ScriptRoot "Lib\Utils\Lib_ArchiveExtractor.ps1")
+. (Join-Path $ScriptRoot "Lib\Utils\Lib_FileSorter.ps1")
+
+# Libs laden - Routes (Sorter)
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Sorter.ps1")
+. (Join-Path $ScriptRoot "Lib\Utils\Lib_FileSorter.ps1")
+
+# Libs laden - Routes (Sorter)
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Sorter.ps1")
 
 #region OneDrive-Schutz Check
 
@@ -351,6 +359,30 @@ try {
                 continue
             }
             
+            # Route: /file-sorter (File Sorter UI)
+            if ($path -eq "/file-sorter" -and $req.HttpMethod -eq "GET") {
+                $sorterHtmlPath = Join-Path $ScriptRoot "Templates\file-sorter.html"
+                if (Test-Path -LiteralPath $sorterHtmlPath) {
+                    $sorterHtml = Get-Content -LiteralPath $sorterHtmlPath -Raw -Encoding UTF8
+                    Send-ResponseHtml -Response $res -Html $sorterHtml
+                } else {
+                    Send-ResponseText -Response $res -Text "file-sorter.html nicht gefunden" -StatusCode 404
+                }
+                continue
+            }
+            
+            # Route: /file-sorter (File Sorter UI)
+            if ($path -eq "/file-sorter" -and $req.HttpMethod -eq "GET") {
+                $sorterHtmlPath = Join-Path $ScriptRoot "Templates\file-sorter.html"
+                if (Test-Path -LiteralPath $sorterHtmlPath) {
+                    $sorterHtml = Get-Content -LiteralPath $sorterHtmlPath -Raw -Encoding UTF8
+                    Send-ResponseHtml -Response $res -Html $sorterHtml
+                } else {
+                    Send-ResponseText -Response $res -Text "file-sorter.html nicht gefunden" -StatusCode 404
+                }
+                continue
+            }
+            
             # Route: /changeroot
             if ($path -eq "/changeroot" -and $req.HttpMethod -eq "POST") {
                 $newRoot = Show-FolderDialog -Title "Neuen Root-Ordner wählen" -InitialDirectory $script:State.RootPath
@@ -375,6 +407,20 @@ try {
                     Send-ResponseText -Response $res -Text $json -StatusCode 500 -ContentType "application/json; charset=utf-8"
                 }
                 continue
+            }
+            
+            # Routes: /tools/sorter-* und /tools/analyze-*, /tools/sort-*, /tools/export-*, /tools/undo-*, /tools/check-*, /tools/merge-*, /tools/split-*, /tools/move-*
+            if ($path -match "^/tools/(analyze-|sort-|export-|undo-|check-|sorter-|move-file|merge-|split-)") {
+                if (Handle-SorterRoute -Context $ctx -RootPath $script:State.RootPath -ScriptRoot $ScriptRoot -Config $config) {
+                    continue
+                }
+            }
+            
+            # Routes: /tools/sorter (analyze, sort, export, undo, patterns, groups)
+            if ($path -match "^/tools/(analyze-|sort-|export-|undo-|check-|sorter-|move-file|merge-|split-|folder-list)") {
+                if (Handle-SorterRoute -Context $ctx -RootPath $script:State.RootPath -ScriptRoot $ScriptRoot -Config $config) {
+                    continue
+                }
             }
             
             # Routes: /tools/*
