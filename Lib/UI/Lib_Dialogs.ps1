@@ -53,7 +53,13 @@ function Show-FolderDialog {
             $dialog.SelectedPath = $InitialDirectory
         }
         
-        $result = $dialog.ShowDialog()
+        # Unsichtbares TopMost-Fenster als Owner (Dialog immer im Vordergrund)
+        $topForm = New-Object System.Windows.Forms.Form
+        $topForm.TopMost = $true
+        $topForm.ShowInTaskbar = $false
+        $topForm.WindowState = [System.Windows.Forms.FormWindowState]::Minimized
+        $result = $dialog.ShowDialog($topForm)
+        $topForm.Dispose()
         
         if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
             Write-Verbose "Ordner gewählt: $($dialog.SelectedPath)"
