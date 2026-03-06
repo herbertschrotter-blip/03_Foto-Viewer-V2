@@ -34,6 +34,13 @@ Write-Verbose "Config-Datei existiert: $(Test-Path -LiteralPath $configPath)"
 
 . $configPath
 
+# HLS-Lib laden
+$hlsLibPath = Join-Path $ProjectRoot "Lib\Media\Lib_VideoHLS.ps1"
+if (Test-Path -LiteralPath $hlsLibPath) {
+    . $hlsLibPath
+    Write-Verbose "Lib_VideoHLS.ps1 geladen"
+}
+
 function Register-MediaRoutes {
     <#
     .SYNOPSIS
@@ -84,9 +91,27 @@ function Register-MediaRoutes {
             return $true
         }
         
-        # Route: /video (Videos)
+        # Route: /video (Videos — Direct oder HLS)
         if ($request.Url.LocalPath -eq '/video') {
-            Send-MediaFile -Context $Context -RootFull $RootFull -Config $config -MediaType 'video'
+            # HLS aktiviert? → Konvertieren und Playlist senden
+            if ($config.Video.UseHLS) {
+                Send-VideoHLS -Context $Context -RootFull $RootFull -Config $config -ScriptRoot $ProjectRoot
+            }
+            else {
+                Send-MediaFile -Context $Context -RootFull $RootFull -Config $config -MediaType 'video'
+            }
+            return $true
+        }
+        
+        # Route: /hls (HLS Playlist .m3u8)
+        if ($request.Url.LocalPath -eq '/hls') {
+            Send-HLSPlaylist -Context $Context -RootFull $RootFull -Config $config
+            return $true
+        }
+        
+        # Route: /hlschunk (HLS Segment .ts)
+        if ($request.Url.LocalPath -eq '/hlschunk') {
+            Send-HLSChunk -Context $Context -RootFull $RootFull -Config $config
             return $true
         }
         
@@ -210,6 +235,256 @@ function Send-MediaFile {
     }
     catch {
         Write-Error "Fehler in Send-MediaFile ($MediaType): $_"
+        try { $response.StatusCode = 500; $response.Close() } catch { }
+    }
+}
+
+function Send-VideoHLS {
+    <#
+    .SYNOPSIS
+        Konvertiert Video zu HLS und sendet Playlist-URL
+    
+    .DESCRIPTION
+        On-Demand HLS-Konvertierung. Gibt JSON mit Playlist-URL zurück.
+        Browser nutzt dann /hls und /hlschunk Endpoints zum Streamen.
+    
+    .NOTES
+        Version: 0.1.0
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Net.HttpListenerContext]$Context,
+        
+        [Parameter(Mandatory)]
+        [string]$RootFull,
+        
+        [Parameter(Mandatory)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory)]
+        [string]$ScriptRoot
+    )
+    
+    $request = $Context.Request
+    $response = $Context.Response
+    
+    try {
+        $query = [System.Web.HttpUtility]::ParseQueryString($request.Url.Query)
+        $relPath = $query['path']
+        
+        if (-not $relPath) {
+            $response.StatusCode = 400
+            $response.Close()
+            return
+        }
+        
+        # Path-Traversal Check
+        $combined = Join-Path $RootFull $relPath
+        $fullPath = [System.IO.Path]::GetFullPath($combined)
+        
+        if (-not $fullPath.StartsWith($RootFull, [StringComparison]::OrdinalIgnoreCase)) {
+            $response.StatusCode = 403
+            $response.Close()
+            return
+        }
+        
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            $response.StatusCode = 404
+            $response.Close()
+            return
+        }
+        
+        Write-Verbose "HLS angefordert: $relPath"
+        
+        # HLS bereits vorhanden?
+        if (-not (Test-HLSExists -VideoPath $fullPath -RootFull $RootFull)) {
+            Write-Verbose "HLS-Konvertierung starten..."
+            $playlistPath = Convert-VideoToHLS -VideoPath $fullPath -RootFull $RootFull -ScriptRoot $ScriptRoot
+            
+            if (-not $playlistPath) {
+                Write-Warning "HLS-Konvertierung fehlgeschlagen: $relPath"
+                # Fallback: Direct-Streaming
+                Send-MediaFile -Context $Context -RootFull $RootFull -Config $Config -MediaType 'video'
+                return
+            }
+        }
+        
+        # Playlist-URL als JSON zurückgeben
+        $hlsUrl = "/hls?path=" + [System.Web.HttpUtility]::UrlEncode($relPath)
+        $json = @{ 
+            status = "ready"
+            url = $hlsUrl
+            preloadSeconds = $config.Video.HLSPreloadSeconds
+        } | ConvertTo-Json -Compress
+        
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+        $response.StatusCode = 200
+        $response.ContentType = 'application/json'
+        $response.ContentLength64 = $bytes.Length
+        $response.OutputStream.Write($bytes, 0, $bytes.Length)
+        try { $response.Close() } catch { }
+    }
+    catch {
+        Write-Verbose "Fehler in Send-VideoHLS: $_"
+        try { $response.StatusCode = 500; $response.Close() } catch { }
+    }
+}
+
+function Send-HLSPlaylist {
+    <#
+    .SYNOPSIS
+        Sendet HLS-Playlist (.m3u8) mit umgeschriebenen Chunk-URLs
+    
+    .NOTES
+        Version: 0.1.0
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Net.HttpListenerContext]$Context,
+        
+        [Parameter(Mandatory)]
+        [string]$RootFull,
+        
+        [Parameter(Mandatory)]
+        [hashtable]$Config
+    )
+    
+    $request = $Context.Request
+    $response = $Context.Response
+    
+    try {
+        $query = [System.Web.HttpUtility]::ParseQueryString($request.Url.Query)
+        $relPath = $query['path']
+        
+        if (-not $relPath) {
+            $response.StatusCode = 400
+            $response.Close()
+            return
+        }
+        
+        # Path-Traversal Check
+        $combined = Join-Path $RootFull $relPath
+        $fullPath = [System.IO.Path]::GetFullPath($combined)
+        
+        if (-not $fullPath.StartsWith($RootFull, [StringComparison]::OrdinalIgnoreCase)) {
+            $response.StatusCode = 403
+            $response.Close()
+            return
+        }
+        
+        # Playlist-Pfad berechnen
+        $playlistPath = Get-HLSPlaylistPath -VideoPath $fullPath -RootFull $RootFull
+        
+        if (-not (Test-Path -LiteralPath $playlistPath -PathType Leaf)) {
+            Write-Warning "HLS-Playlist nicht gefunden: $playlistPath"
+            $response.StatusCode = 404
+            $response.Close()
+            return
+        }
+        
+        # Playlist lesen und Chunk-URLs umschreiben
+        $hlsDir = Split-Path -Parent $playlistPath
+        $playlistContent = Get-Content -LiteralPath $playlistPath -Raw -Encoding UTF8
+        
+        # chunk_000.ts → /hlschunk?path=<relative-path-to-chunk>
+        $rewrittenContent = $playlistContent -replace '(chunk_\d+\.ts)', {
+            $chunkFile = $_.Groups[1].Value
+            $chunkFullPath = Join-Path $hlsDir $chunkFile
+            $chunkRelPath = $chunkFullPath.Substring($RootFull.Length).TrimStart('\', '/').Replace('\', '/')
+            "/hlschunk?path=$([System.Web.HttpUtility]::UrlEncode($chunkRelPath))"
+        }
+        
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($rewrittenContent)
+        $response.StatusCode = 200
+        $response.ContentType = 'application/vnd.apple.mpegurl'
+        $response.ContentLength64 = $bytes.Length
+        $response.Headers.Add('Access-Control-Allow-Origin', '*')
+        $response.OutputStream.Write($bytes, 0, $bytes.Length)
+        try { $response.Close() } catch { }
+        
+        Write-Verbose "HLS-Playlist gesendet: $playlistPath"
+    }
+    catch {
+        Write-Verbose "Fehler in Send-HLSPlaylist: $_"
+        try { $response.StatusCode = 500; $response.Close() } catch { }
+    }
+}
+
+function Send-HLSChunk {
+    <#
+    .SYNOPSIS
+        Sendet HLS-Chunk (.ts Segment)
+    
+    .NOTES
+        Version: 0.1.0
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Net.HttpListenerContext]$Context,
+        
+        [Parameter(Mandatory)]
+        [string]$RootFull,
+        
+        [Parameter(Mandatory)]
+        [hashtable]$Config
+    )
+    
+    $request = $Context.Request
+    $response = $Context.Response
+    
+    try {
+        $query = [System.Web.HttpUtility]::ParseQueryString($request.Url.Query)
+        $relPath = $query['path']
+        
+        if (-not $relPath) {
+            $response.StatusCode = 400
+            $response.Close()
+            return
+        }
+        
+        # Path-Traversal Check
+        $combined = Join-Path $RootFull $relPath
+        $fullPath = [System.IO.Path]::GetFullPath($combined)
+        
+        if (-not $fullPath.StartsWith($RootFull, [StringComparison]::OrdinalIgnoreCase)) {
+            $response.StatusCode = 403
+            $response.Close()
+            return
+        }
+        
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            Write-Warning "HLS-Chunk nicht gefunden: $fullPath"
+            $response.StatusCode = 404
+            $response.Close()
+            return
+        }
+        
+        # Chunk streamen
+        $fileInfo = Get-Item -LiteralPath $fullPath
+        $response.StatusCode = 200
+        $response.ContentType = 'video/mp2t'
+        $response.ContentLength64 = $fileInfo.Length
+        $response.Headers.Add('Access-Control-Allow-Origin', '*')
+        
+        $fileStream = [System.IO.File]::Open($fullPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        try {
+            $fileStream.CopyTo($response.OutputStream)
+        }
+        catch {
+            Write-Verbose "Client disconnected während Chunk-Transfer"
+        }
+        finally {
+            $fileStream.Close()
+        }
+        
+        try { $response.Close() } catch { }
+        Write-Verbose "HLS-Chunk gesendet: $relPath"
+    }
+    catch {
+        Write-Verbose "Fehler in Send-HLSChunk: $_"
         try { $response.StatusCode = 500; $response.Close() } catch { }
     }
 }

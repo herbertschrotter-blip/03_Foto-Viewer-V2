@@ -956,21 +956,94 @@ function showLightboxImage() {
     var isVideo = videoExts.indexOf(ext) !== -1;
     
     if (isVideo) {
-        // VIDEO
-        loadingText.textContent = '⏳ Lade Video...';
+        // VIDEO — HLS-Konvertierung anfragen
+        loadingText.textContent = '⏳ Konvertiere Video...';
         var videoUrl = '/video?path=' + encodeURIComponent(mediaPath);
         
-        video.src = videoUrl;
-        video.addEventListener('loadedmetadata', function() {
-            loading.classList.remove('show');
-            video.classList.add('loaded');
-            video.style.display = 'block';
-        }, { once: true });
-        
-        video.addEventListener('error', function() {
-            loading.classList.remove('show');
-            error.classList.add('show');
-        }, { once: true });
+        fetch(videoUrl)
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.status === 'ready' && data.url) {
+                    var hlsUrl = data.url;
+                    var preloadSec = data.preloadSeconds || 15;
+                    
+                    // Warte bis genug Chunks vorhanden (Polling)
+                    loadingText.textContent = '⏳ Konvertiere Video...';
+                    
+                    var pollInterval = setInterval(function() {
+                        fetch(hlsUrl)
+                            .then(function(r) { 
+                                if (!r.ok) return null;
+                                return r.text(); 
+                            })
+                            .then(function(playlist) {
+                                if (!playlist) return;
+                                
+                                // Zähle Chunks in Playlist
+                                var chunks = (playlist.match(/\.ts/g) || []).length;
+                                var segDuration = 10; // aus Config.Video.HLSSegmentDuration
+                                var readySeconds = chunks * segDuration;
+                                
+                                loadingText.textContent = '⏳ Lade Video... ' + readySeconds + 's / ' + preloadSec + 's';
+                                
+                                if (readySeconds >= preloadSec) {
+                                    clearInterval(pollInterval);
+                                    
+                                    // HLS starten
+                                    if (Hls.isSupported()) {
+                                        var hls = new Hls();
+                                        hls.loadSource(hlsUrl);
+                                        hls.attachMedia(video);
+                                        video.hls = hls;
+                                        
+                                        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                                            loading.classList.remove('show');
+                                            video.classList.add('loaded');
+                                            video.style.display = 'block';
+                                            video.play();
+                                        });
+                                        
+                                        hls.on(Hls.Events.ERROR, function(event, errData) {
+                                            console.error('HLS Error:', errData);
+                                            if (errData.fatal) {
+                                                loading.classList.remove('show');
+                                                error.classList.add('show');
+                                            }
+                                        });
+                                    }
+                                    else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                                        video.src = hlsUrl;
+                                        video.addEventListener('loadedmetadata', function() {
+                                            loading.classList.remove('show');
+                                            video.classList.add('loaded');
+                                            video.style.display = 'block';
+                                            video.play();
+                                        }, { once: true });
+                                    }
+                                }
+                            })
+                            .catch(function() { /* Playlist noch nicht bereit */ });
+                    }, 1000); // Poll jede Sekunde
+                    
+                    // Timeout: Nach 5 Minuten aufgeben
+                    setTimeout(function() {
+                        clearInterval(pollInterval);
+                        if (!video.classList.contains('loaded')) {
+                            loading.classList.remove('show');
+                            error.classList.add('show');
+                        }
+                    }, 300000);
+                }
+                else {
+                    loading.classList.remove('show');
+                    error.classList.add('show');
+                }
+            })
+            .catch(function(err) {
+                console.error('Video-Fehler:', err);
+                loading.classList.remove('show');
+                error.classList.add('show');
+            });
     }
     else {
         // BILD
