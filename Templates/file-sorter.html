@@ -91,21 +91,35 @@
         .panel.collapsed .panel-toggle { transform: rotate(-90deg); }
         .panel-body { padding: 16px 20px; }
 
-        /* Info Button (ℹ️) */
+        /* Info Button (ℹ️) — schwebt über dem Feld, nur bei Hover sichtbar */
         .info-btn {
             display: inline-flex; align-items: center; justify-content: center;
-            width: 20px; height: 20px; border-radius: 50%;
-            background: #e0e7ff; color: #4338ca; font-size: 12px; font-weight: 700;
-            text-decoration: none; cursor: pointer; transition: all 0.2s;
-            border: none; font-family: inherit; flex-shrink: 0;
-            position: relative;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 700;
+            text-decoration: none; cursor: pointer; transition: all 0.15s;
+            border: none; font-family: inherit;
+            position: absolute;
+            top: -7px; right: -4px;
+            opacity: 0; pointer-events: none;
+            z-index: 5;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        .form-field:hover .info-btn {
+            opacity: 1; pointer-events: auto;
         }
         .info-btn:hover {
             background: #667eea; color: white;
             transform: scale(1.15);
+            opacity: 1; pointer-events: auto;
         }
-        .info-btn-lg {
-            width: 24px; height: 24px; font-size: 13px;
+        /* Info Button im Panel-Header: inline, immer sichtbar */
+        .info-btn-inline {
+            position: static;
+            opacity: 0; pointer-events: none;
+            width: 20px; height: 20px; font-size: 12px;
+        }
+        .panel-title:hover .info-btn-inline {
+            opacity: 1; pointer-events: auto;
         }
         /* Tooltip */
         .info-btn[data-tooltip]:hover::after {
@@ -158,9 +172,9 @@
             font-size: 13px; font-family: inherit;
         }
         .form-row input:focus { outline: none; border-color: #667eea; }
-        .form-field { display: flex; align-items: center; gap: 4px; flex: 1; }
-        .form-field input { flex: 1; }
-        .form-field-short { max-width: 140px; }
+        .form-field { position: relative; flex: 1; }
+        .form-field input { width: 100%; }
+        .form-field-short { min-width: 120px; max-width: 160px; }
 
         /* Results / Status */
         .status-bar {
@@ -342,7 +356,7 @@
                 <span class="panel-title">
                     ⚙️ Pattern-Engine
                     <span id="patternCount" style="color:#718096;font-weight:400"></span>
-                    <a href="/file-sorter-help#overview" target="_blank" class="info-btn info-btn-lg" data-tooltip="Was ist die Pattern-Engine?" onclick="event.stopPropagation()">ℹ</a>
+                    <a href="/file-sorter-help#overview" target="_blank" class="info-btn info-btn-inline" data-tooltip="Was ist die Pattern-Engine?" onclick="event.stopPropagation()">ℹ</a>
                 </span>
                 <span class="panel-toggle">▼</span>
             </div>
