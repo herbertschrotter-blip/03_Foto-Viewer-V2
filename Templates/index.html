@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Foto Viewer V2 - Phase 4.1</title>
+    <!-- HLS.js für Video-Streaming -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     {{STYLES}}
 </head>
 <body>
@@ -507,7 +509,8 @@
         <button class="lightbox-next" onclick="navigateLightbox(1)" aria-label="Nächstes Bild">›</button>
         <div class="lightbox-content">
             <img id="lightboxImage" src="" alt="">
-            <div class="lightbox-loading">⏳ Lädt...</div>
+            <video id="lightboxVideo" controls preload="metadata"></video>
+            <div class="lightbox-loading"><span id="lightboxLoadingText">⏳ Lädt...</span></div>
             <div class="lightbox-error">❌ Fehler beim Laden</div>
         </div>
         <div class="lightbox-info">

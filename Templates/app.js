@@ -834,8 +834,8 @@ initThumbSize();
 var lightboxImages = [];
 var currentLightboxIndex = 0;
 
-function openLightbox(imagePath, allImages) {
-    // Filter nur Bilder (keine Videos)
+function openLightbox(mediaPath, allMedia) {
+    // Filter Bilder UND Videos
     var config = null;
     fetch('/settings/get')
         .then(function(response) { return response.json(); })
@@ -844,16 +844,19 @@ function openLightbox(imagePath, allImages) {
             var imageExtensions = config.Media.ImageExtensions.map(function(ext) { 
                 return ext.toLowerCase(); 
             });
-            
-            lightboxImages = allImages.filter(function(file) {
-                var ext = file.substring(file.lastIndexOf('.')).toLowerCase();
-                return imageExtensions.includes(ext);
+            var videoExtensions = config.Media.VideoExtensions.map(function(ext) { 
+                return ext.toLowerCase(); 
             });
             
-            currentLightboxIndex = lightboxImages.indexOf(imagePath);
+            lightboxImages = allMedia.filter(function(file) {
+                var ext = file.substring(file.lastIndexOf('.')).toLowerCase();
+                return imageExtensions.includes(ext) || videoExtensions.includes(ext);
+            });
+            
+            currentLightboxIndex = lightboxImages.indexOf(mediaPath);
             
             if (currentLightboxIndex === -1) {
-                console.error('Bild nicht in Liste gefunden:', imagePath);
+                console.error('Media nicht in Liste gefunden:', mediaPath);
                 return;
             }
             
@@ -873,6 +876,19 @@ function closeLightbox() {
     var img = document.getElementById('lightboxImage');
     img.src = '';
     img.classList.remove('loaded');
+    img.style.display = 'none';
+    
+    var video = document.getElementById('lightboxVideo');
+    video.pause();
+    video.src = '';
+    video.classList.remove('loaded');
+    video.style.display = 'none';
+    
+    // HLS cleanup
+    if (video.hls) {
+        video.hls.destroy();
+        video.hls = null;
+    }
 }
 
 function navigateLightbox(direction) {
@@ -888,9 +904,11 @@ function navigateLightbox(direction) {
 }
 
 function showLightboxImage() {
-    var imagePath = lightboxImages[currentLightboxIndex];
+    var mediaPath = lightboxImages[currentLightboxIndex];
     var img = document.getElementById('lightboxImage');
+    var video = document.getElementById('lightboxVideo');
     var loading = document.querySelector('.lightbox-loading');
+    var loadingText = document.getElementById('lightboxLoadingText');
     var error = document.querySelector('.lightbox-error');
     var filename = document.getElementById('lightboxFilename');
     var counter = document.getElementById('lightboxCounter');
@@ -900,11 +918,22 @@ function showLightboxImage() {
     // Reset states
     img.classList.remove('loaded');
     img.src = '';
+    img.style.display = 'none';
+    
+    video.classList.remove('loaded');
+    video.pause();
+    video.src = '';
+    video.style.display = 'none';
+    if (video.hls) {
+        video.hls.destroy();
+        video.hls = null;
+    }
+    
     loading.classList.add('show');
     error.classList.remove('show');
     
     // Update info
-    var name = imagePath.split('/').pop();
+    var name = mediaPath.split('/').pop();
     filename.textContent = name;
     counter.textContent = (currentLightboxIndex + 1) + ' / ' + lightboxImages.length;
     
@@ -921,20 +950,46 @@ function showLightboxImage() {
         nextBtn.style.display = 'flex';
     }
     
-    // Load original image
-    var originalUrl = '/original?path=' + encodeURIComponent(imagePath);
+    // Prüfe: Bild oder Video?
+    var ext = mediaPath.substring(mediaPath.lastIndexOf('.')).toLowerCase();
+    var videoExts = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.wmv', '.flv', '.mpg', '.mpeg', '.3gp'];
+    var isVideo = videoExts.indexOf(ext) !== -1;
     
-    var tempImg = new Image();
-    tempImg.onload = function() {
-        img.src = originalUrl;
-        img.classList.add('loaded');
-        loading.classList.remove('show');
-    };
-    tempImg.onerror = function() {
-        loading.classList.remove('show');
-        error.classList.add('show');
-    };
-    tempImg.src = originalUrl;
+    if (isVideo) {
+        // VIDEO
+        loadingText.textContent = '⏳ Lade Video...';
+        var videoUrl = '/video?path=' + encodeURIComponent(mediaPath);
+        
+        video.src = videoUrl;
+        video.addEventListener('loadedmetadata', function() {
+            loading.classList.remove('show');
+            video.classList.add('loaded');
+            video.style.display = 'block';
+        }, { once: true });
+        
+        video.addEventListener('error', function() {
+            loading.classList.remove('show');
+            error.classList.add('show');
+        }, { once: true });
+    }
+    else {
+        // BILD
+        loadingText.textContent = '⏳ Lädt...';
+        var originalUrl = '/original?path=' + encodeURIComponent(mediaPath);
+        
+        var tempImg = new Image();
+        tempImg.onload = function() {
+            img.src = originalUrl;
+            img.classList.add('loaded');
+            img.style.display = 'block';
+            loading.classList.remove('show');
+        };
+        tempImg.onerror = function() {
+            loading.classList.remove('show');
+            error.classList.add('show');
+        };
+        tempImg.src = originalUrl;
+    }
 }
 
 // Keyboard Navigation
@@ -964,13 +1019,9 @@ function attachLightboxHandlers() {
             img.addEventListener('click', function(e) {
                 e.stopPropagation();
                 
-                // Nur bei Bildern, nicht bei Videos
                 var filepath = item.dataset.filepath;
-                var isVideo = /\.(mp4|mov|avi|mkv|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i.test(filepath);
                 
-                if (isVideo) return;
-                
-                // Sammle alle Bilder aus dem gleichen Ordner
+                // Sammle alle Bilder UND Videos aus dem gleichen Ordner
                 var folderCard = item.closest('.folder-card');
                 var allMediaItems = folderCard.querySelectorAll('.media-item');
                 var allFiles = Array.from(allMediaItems).map(function(mediaItem) {

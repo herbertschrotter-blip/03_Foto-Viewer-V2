@@ -890,7 +890,8 @@ h1 {
     justify-content: center;
 }
 
-.lightbox-content img {
+.lightbox-content img,
+.lightbox-content video {
     max-width: 100%;
     max-height: 90vh;
     object-fit: contain;
@@ -900,8 +901,15 @@ h1 {
     transition: opacity 0.3s ease;
 }
 
-.lightbox-content img.loaded {
+.lightbox-content img.loaded,
+.lightbox-content video.loaded {
     opacity: 1;
+    display: block;
+}
+
+.lightbox-content video {
+    background: #000;
+    display: none;
 }
 
 .lightbox-loading,
