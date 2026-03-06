@@ -106,9 +106,9 @@ function Handle-SorterRoute {
                     return $true
                 }
 
-                # Extensions aus Config
+                # Extensions aus Body (optional)
                 $extensions = $null
-                if ($data.extensions) {
+                if ($data.PSObject.Properties['extensions'] -and $data.extensions) {
                     $extensions = @($data.extensions)
                 }
 
@@ -236,7 +236,9 @@ function Handle-SorterRoute {
                 }
 
                 $extensions = $null
-                if ($data.extensions) { $extensions = @($data.extensions) }
+                if ($data.PSObject.Properties['extensions'] -and $data.extensions) {
+                    $extensions = @($data.extensions)
+                }
 
                 $logPath = Export-FileNames -FolderPath $absolutePath -Extensions $extensions
 
