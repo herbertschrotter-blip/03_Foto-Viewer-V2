@@ -683,9 +683,7 @@ async function loadSettings() {
         
         document.getElementById('setting-perf-parallel').checked = config.Performance.UseParallelProcessing;
         document.getElementById('setting-perf-maxjobs').value = config.Performance.MaxParallelJobs;
-        document.getElementById('setting-perf-cache').checked = config.Performance.CacheThumbnails;
-        document.getElementById('setting-perf-lazy').checked = config.Performance.LazyLoading;
-        document.getElementById('setting-perf-timeout').value = config.Performance.DeleteJobTimeout;
+        
         
         document.getElementById('setting-file-recycle').checked = config.FileOperations.UseRecycleBin;
         document.getElementById('setting-file-confirm').checked = config.FileOperations.ConfirmDelete;
@@ -751,10 +749,8 @@ async function saveSettings() {
             },
             Performance: {
                 UseParallelProcessing: document.getElementById('setting-perf-parallel').checked,
-                MaxParallelJobs: parseInt(document.getElementById('setting-perf-maxjobs').value),
-                CacheThumbnails: document.getElementById('setting-perf-cache').checked,
-                LazyLoading: document.getElementById('setting-perf-lazy').checked,
-                DeleteJobTimeout: parseInt(document.getElementById('setting-perf-timeout').value)
+                MaxParallelJobs: parseInt(document.getElementById('setting-perf-maxjobs').value)
+                
             },
             FileOperations: {
                 UseRecycleBin: document.getElementById('setting-file-recycle').checked,

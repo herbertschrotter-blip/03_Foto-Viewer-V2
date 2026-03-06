@@ -219,13 +219,13 @@
                         </select>
                     </div>
                     <div style="height: 12px;"></div>
-                    <div class="settings-group">
-                        <label class="settings-label">Anzahl Thumbnails pro Video</label>
-                        <input type="number" class="settings-input" id="setting-video-thumbcount" min="1" max="20">
+                    <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
+                        <label class="settings-label">Anzahl Thumbnails pro Video <span style="font-size:11px;color:#999;">(geplant)</span></label>
+                        <input type="number" class="settings-input" id="setting-video-thumbcount" min="1" max="20" disabled>
                     </div>
-                    <div class="settings-group">
-                        <label class="settings-label">Thumbnails pro Sekunde (FPS)</label>
-                        <input type="number" class="settings-input" id="setting-video-thumbfps" min="1" max="10">
+                    <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
+                        <label class="settings-label">Thumbnails pro Sekunde (FPS) <span style="font-size:11px;color:#999;">(geplant)</span></label>
+                        <input type="number" class="settings-input" id="setting-video-thumbfps" min="1" max="10" disabled>
                     </div>
                     <div class="settings-group">
                         <label class="settings-label" style="margin-bottom: 8px;">Zeitbereich (% der Video-Dauer)</label>
@@ -234,9 +234,9 @@
                                 <label class="settings-label" style="font-size: 12px; color: #aaa;">Von</label>
                                 <input type="number" class="settings-input" id="setting-video-thumbstart" min="0" max="100">
                             </div>
-                            <div class="settings-group">
-                                <label class="settings-label" style="font-size: 12px; color: #aaa;">Bis</label>
-                                <input type="number" class="settings-input" id="setting-video-thumbend" min="0" max="100">
+                            <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
+                                <label class="settings-label" style="font-size: 12px; color: #aaa;">Bis <span style="font-size:11px;color:#999;">(geplant)</span></label>
+                                <input type="number" class="settings-input" id="setting-video-thumbend" min="0" max="100" disabled>
                             </div>
                         </div>
                     </div>
@@ -250,29 +250,29 @@
                         <label class="settings-label">HLS Segment-Länge (Sekunden)</label>
                         <input type="number" class="settings-input" id="setting-video-hlssegment" min="1" max="30">
                     </div>
-                    <div class="settings-group">
-                        <label class="settings-label">HLS Preload (Sekunden vor Playback-Start)</label>
-                        <input type="number" class="settings-input" id="setting-video-hlspreload" min="1" max="60">
+                    <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
+                        <label class="settings-label">HLS Preload (Sekunden vor Playback-Start) <span style="font-size:11px;color:#999;">(geplant)</span></label>
+                        <input type="number" class="settings-input" id="setting-video-hlspreload" min="1" max="60" disabled>
                     </div>
                     <div style="height: 12px;"></div>
-                    <div class="settings-group">
+                    <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
                         <div class="settings-checkbox-wrapper">
-                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifpreview">
-                            <label class="settings-checkbox-label" for="setting-video-gifpreview">Video-Vorschau als animiertes GIF</label>
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifpreview" disabled>
+                            <label class="settings-checkbox-label" for="setting-video-gifpreview">Video-Vorschau als animiertes GIF <span style="font-size:11px;color:#999;">(geplant)</span></label>
                         </div>
                     </div>
-                    <div class="settings-group">
-                        <label class="settings-label">GIF-Länge (Sekunden)</label>
-                        <input type="number" class="settings-input" id="setting-video-gifduration" min="1" max="10">
+                    <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
+                        <label class="settings-label">GIF-Länge (Sekunden) <span style="font-size:11px;color:#999;">(geplant)</span></label>
+                        <input type="number" class="settings-input" id="setting-video-gifduration" min="1" max="10" disabled>
                     </div>
-                    <div class="settings-group">
-                        <label class="settings-label">GIF Bilder pro Sekunde (FPS)</label>
-                        <input type="number" class="settings-input" id="setting-video-gifframerate" min="5" max="30">
+                    <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
+                        <label class="settings-label">GIF Bilder pro Sekunde (FPS) <span style="font-size:11px;color:#999;">(geplant)</span></label>
+                        <input type="number" class="settings-input" id="setting-video-gifframerate" min="5" max="30" disabled>
                     </div>
-                    <div class="settings-group">
+                    <div class="settings-group" style="opacity: 0.5;" title="Noch nicht implementiert">
                         <div class="settings-checkbox-wrapper">
-                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifloop">
-                            <label class="settings-checkbox-label" for="setting-video-gifloop">GIF endlos wiederholen</label>
+                            <input type="checkbox" class="settings-checkbox" id="setting-video-gifloop" disabled>
+                            <label class="settings-checkbox-label" for="setting-video-gifloop">GIF endlos wiederholen <span style="font-size:11px;color:#999;">(geplant)</span></label>
                         </div>
                     </div>
                 </div>
@@ -366,22 +366,7 @@
                         <label class="settings-label">Max. Parallele Jobs</label>
                         <input type="number" class="settings-input" id="setting-perf-maxjobs" min="1" max="32">
                     </div>
-                    <div class="settings-group">
-                        <div class="settings-checkbox-wrapper">
-                            <input type="checkbox" class="settings-checkbox" id="setting-perf-cache">
-                            <label class="settings-checkbox-label" for="setting-perf-cache">Thumbnails cachen</label>
-                        </div>
-                    </div>
-                    <div class="settings-group">
-                        <div class="settings-checkbox-wrapper">
-                            <input type="checkbox" class="settings-checkbox" id="setting-perf-lazy">
-                            <label class="settings-checkbox-label" for="setting-perf-lazy">Lazy Loading</label>
-                        </div>
-                    </div>
-                    <div class="settings-group">
-                        <label class="settings-label">Lösch-Job Timeout (Sekunden)</label>
-                        <input type="number" class="settings-input" id="setting-perf-timeout" min="1" max="60">
-                    </div>
+                    
                 </div>
             </div>
             
