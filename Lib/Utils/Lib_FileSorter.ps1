@@ -855,8 +855,52 @@ function Invoke-FileSorting {
             }
 
             try {
+                # Thumbnail-Hash VOR dem Move berechnen (alter Pfad)
+                $oldThumbsDir = Join-Path $FolderPath ".thumbs"
+                $oldThumbHash = $null
+                if (Test-Path -LiteralPath $oldThumbsDir -PathType Container) {
+                    try {
+                        $fi = [System.IO.FileInfo]::new($sourcePath)
+                        $hashInput = "$($fi.FullName)-$($fi.LastWriteTimeUtc.Ticks)"
+                        $oldThumbHash = [System.BitConverter]::ToString(
+                            [System.Security.Cryptography.MD5]::Create().ComputeHash(
+                                [System.Text.Encoding]::UTF8.GetBytes($hashInput)
+                            )
+                        ).Replace('-', '').ToLowerInvariant()
+                    }
+                    catch { }
+                }
+
                 Move-Item -LiteralPath $sourcePath -Destination $targetPath -ErrorAction Stop
                 $moved++
+
+                # Thumbnail in neuen .thumbs/ kopieren
+                if ($oldThumbHash) {
+                    $oldThumbPath = Join-Path $oldThumbsDir "$oldThumbHash.jpg"
+                    if (Test-Path -LiteralPath $oldThumbPath -PathType Leaf) {
+                        $newThumbsDir = Join-Path $targetFolder ".thumbs"
+                        if (-not (Test-Path -LiteralPath $newThumbsDir -PathType Container)) {
+                            New-Item -ItemType Directory -Path $newThumbsDir -Force | Out-Null
+                            # Hidden + System Attribute (OneDrive-Schutz)
+                            $tf = Get-Item -LiteralPath $newThumbsDir -Force
+                            $tf.Attributes = [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System
+                        }
+                        # Neuen Hash berechnen (neuer Pfad, gleiche LastWriteTime)
+                        try {
+                            $newFi = [System.IO.FileInfo]::new($targetPath)
+                            $newHashInput = "$($newFi.FullName)-$($newFi.LastWriteTimeUtc.Ticks)"
+                            $newThumbHash = [System.BitConverter]::ToString(
+                                [System.Security.Cryptography.MD5]::Create().ComputeHash(
+                                    [System.Text.Encoding]::UTF8.GetBytes($newHashInput)
+                                )
+                            ).Replace('-', '').ToLowerInvariant()
+                            $newThumbPath = Join-Path $newThumbsDir "$newThumbHash.jpg"
+                            Copy-Item -LiteralPath $oldThumbPath -Destination $newThumbPath -Force
+                        }
+                        catch { }
+                    }
+                }
+
                 [void]$undoEntries.Add(@{ File = $fileName; From = $sourcePath; To = $targetPath })
                 [void]$details.Add([PSCustomObject]@{
                     File = $fileName; Prefix = $prefix; Target = $targetName

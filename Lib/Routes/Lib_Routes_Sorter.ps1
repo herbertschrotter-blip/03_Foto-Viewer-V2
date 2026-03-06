@@ -192,6 +192,19 @@ function Handle-SorterRoute {
                 # Session leeren nach Sortierung
                 $script:SorterSession.Groups = $null
 
+                # Re-Scan: Ordner-Struktur aktualisieren
+                if ($result.Moved -gt 0 -and $script:State) {
+                    try {
+                        $mediaExts = $Config.Media.ImageExtensions + $Config.Media.VideoExtensions
+                        $script:State.Folders = @(Get-MediaFolders -RootPath $RootPath -Extensions $mediaExts -ScriptRoot $ScriptRoot)
+                        Save-State -State $script:State
+                        Write-Verbose "Re-Scan nach Sortierung: $($script:State.Folders.Count) Ordner"
+                    }
+                    catch {
+                        Write-Warning "Re-Scan fehlgeschlagen: $($_.Exception.Message)"
+                    }
+                }
+
                 Send-JsonResponse -Response $res -Data @{
                     success        = $true
                     moved          = $result.Moved
