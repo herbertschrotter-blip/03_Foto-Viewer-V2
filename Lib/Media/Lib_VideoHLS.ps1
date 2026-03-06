@@ -23,7 +23,7 @@ Abhängigkeiten:
 
 .NOTES
     Autor: Herbert
-    Version: 0.2.0
+    Version: 0.2.1
 
     ÄNDERUNGEN v0.2.0:
     - Convert-VideoToHLS (synchrone Version) entfernt - toter Code
@@ -151,7 +151,7 @@ function Start-HLSConversion {
     
     .NOTES
         Autor: Herbert
-        Version: 0.2.0
+        Version: 0.2.1
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -215,7 +215,7 @@ function Start-HLSConversion {
         
         Start-Process -FilePath $ffmpegPath -ArgumentList $argString -WindowStyle Hidden -PassThru | Out-Null
         
-        Write-Host "  → HLS-Konvertierung gestartet (Background)" -ForegroundColor Yellow
+        Write-Verbose "HLS-Konvertierung gestartet (Background)"
         
         return $playlistPath
     }
