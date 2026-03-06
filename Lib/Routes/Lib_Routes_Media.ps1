@@ -4,7 +4,7 @@ ManifestHint:
   Description     = "Media-Routes (Original-Bilder + Videos)"
   Category        = "Routes"
   Tags            = @("HTTP","Media","Images","Videos")
-  Dependencies    = @("System.Net.HttpListener")
+  Dependencies    = @("System.Net.HttpListener", "Lib_Logging.ps1")
 
 Zweck:
   - Route: /original?path=... (Original-Bilder senden)
@@ -33,6 +33,7 @@ Write-Verbose "Lib_Routes_Media.ps1 lädt Config von: $configPath"
 Write-Verbose "Config-Datei existiert: $(Test-Path -LiteralPath $configPath)"
 
 . $configPath
+. (Join-Path $ProjectRoot "Lib\Core\Lib_Logging.ps1")
 
 # HLS-Lib laden
 $hlsLibPath = Join-Path $ProjectRoot "Lib\Media\Lib_VideoHLS.ps1"
@@ -67,7 +68,7 @@ function Register-MediaRoutes {
     
     .NOTES
         Autor: Herbert
-        Version: 0.1.0
+        Version: 0.2.0
     #>
     [CmdletBinding()]
     param(
@@ -205,7 +206,7 @@ function Send-MediaFile {
         
         # Datei existiert?
         if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-            Write-Warning "$MediaType nicht gefunden: $fullPath"
+            Write-Warning "$MediaType nicht gefunden: $(Get-AnonymizedLogPath -FullPath $fullPath -ProjectRoot $ProjectRoot)"
             $response.StatusCode = 404
             $response.Close()
             return
@@ -462,7 +463,7 @@ function Send-HLSChunk {
         }
         
         if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-            Write-Warning "HLS-Chunk nicht gefunden: $fullPath"
+            Write-Warning "HLS-Chunk nicht gefunden: $(Get-AnonymizedLogPath -FullPath $fullPath -ProjectRoot $ProjectRoot)"
             $response.StatusCode = 404
             $response.Close()
             return
@@ -566,7 +567,7 @@ function Send-OriginalImage {
         
         # Datei existiert?
         if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-            Write-Warning "Datei nicht gefunden: $fullPath"
+            Write-Warning "Datei nicht gefunden: $(Get-AnonymizedLogPath -FullPath $fullPath -ProjectRoot $ProjectRoot)"
             $response.StatusCode = 404
             $response.Close()
             return

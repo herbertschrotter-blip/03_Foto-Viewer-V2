@@ -131,6 +131,7 @@ if (Test-Path -LiteralPath $libSystemCheckPath) {
 . (Join-Path $ScriptRoot "Lib\Core\Lib_Config.ps1")
 . (Join-Path $ScriptRoot "Lib\Core\Lib_State.ps1")
 . (Join-Path $ScriptRoot "Lib\Core\Lib_Http.ps1")
+. (Join-Path $ScriptRoot "Lib\Core\Lib_Logging.ps1")
 
 # Libs laden - Media
 . (Join-Path $ScriptRoot "Lib\Media\Lib_Scanner.ps1")

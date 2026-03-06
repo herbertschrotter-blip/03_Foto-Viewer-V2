@@ -4,7 +4,11 @@ ManifestHint:
   Description     = "Thumbnail-Generierung für Bilder mit System.Drawing"
   Category        = "Media"
   Tags            = @("Thumbnails", "Images", "Cache")
-  Dependencies    = @("System.Drawing", "Lib_Config.ps1")
+  Dependencies    = @("System.Drawing", "Lib_Config.ps1", "Lib_Logging.ps1")
+
+ÄNDERUNGEN v0.3.0:
+  - Lib_Logging.ps1 geladen (Get-AnonymizedLogPath)
+  - Write-Warning "Bild nicht gefunden" zeigt anonymisierten Pfad (Privacy)
 
 Zweck:
   - Thumbnail-Generierung für Bilder (System.Drawing)
@@ -23,7 +27,7 @@ Abhängigkeiten:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
     
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
@@ -47,6 +51,13 @@ if (Test-Path -LiteralPath $libConfigPath) {
     $script:config = Get-Config
 } else {
     throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_ImageThumbnails benötigt Config."
+}
+
+$libLoggingPath = Join-Path $ProjectRoot "Lib\Core\Lib_Logging.ps1"
+if (Test-Path -LiteralPath $libLoggingPath) {
+    . $libLoggingPath
+} else {
+    throw "FEHLER: Lib_Logging.ps1 nicht gefunden! Lib_ImageThumbnails benötigt Logging."
 }
 
 #region Helper Functions
@@ -228,7 +239,7 @@ function Get-ImageThumbnail {
     try {
         # Datei existiert?
         if (-not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
-            Write-Warning "Bild nicht gefunden: $ImagePath"
+            Write-Warning "Bild nicht gefunden: $(Get-AnonymizedLogPath -FullPath $ImagePath -ProjectRoot $ProjectRoot)"
             return $null
         }
         
