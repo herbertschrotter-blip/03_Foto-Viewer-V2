@@ -247,7 +247,11 @@
                     </div>
                     <div class="settings-group">
                         <label class="settings-label">HLS Segment-Länge (Sekunden)</label>
-                        <input type="number" class="settings-input" id="setting-video-hlssegment" min="5" max="30">
+                        <input type="number" class="settings-input" id="setting-video-hlssegment" min="1" max="30">
+                    </div>
+                    <div class="settings-group">
+                        <label class="settings-label">HLS Preload (Sekunden vor Playback-Start)</label>
+                        <input type="number" class="settings-input" id="setting-video-hlspreload" min="1" max="60">
                     </div>
                     <div style="height: 12px;"></div>
                     <div class="settings-group">

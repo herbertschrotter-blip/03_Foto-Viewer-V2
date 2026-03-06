@@ -12,7 +12,7 @@
     "UseHLS": true,
     "ThumbnailCount": 1,
     "HLSSegmentDuration": 2,
-    "HLSPreloadSeconds": 3,
+    "HLSPreloadSeconds": 4,
     "GIFFrameRate": 10,
     "ThumbnailFPS": 1
   },

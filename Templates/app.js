@@ -607,6 +607,7 @@ async function loadSettings() {
         document.getElementById('setting-video-autoconvert').checked = config.Video.EnableAutoConversion;
         document.getElementById('setting-video-hls').checked = config.Video.UseHLS;
         document.getElementById('setting-video-hlssegment').value = config.Video.HLSSegmentDuration;
+        document.getElementById('setting-video-hlspreload').value = config.Video.HLSPreloadSeconds;
         document.getElementById('setting-video-codec').value = config.Video.PreferredCodec;
         document.getElementById('setting-video-preset').value = config.Video.ConversionPreset;
         document.getElementById('setting-video-thumbcount').value = config.Video.ThumbnailCount;
@@ -674,6 +675,7 @@ async function saveSettings() {
                 EnableAutoConversion: document.getElementById('setting-video-autoconvert').checked,
                 UseHLS: document.getElementById('setting-video-hls').checked,
                 HLSSegmentDuration: parseInt(document.getElementById('setting-video-hlssegment').value),
+                HLSPreloadSeconds: parseInt(document.getElementById('setting-video-hlspreload').value),
                 PreferredCodec: document.getElementById('setting-video-codec').value,
                 ConversionPreset: document.getElementById('setting-video-preset').value,
                 ThumbnailCount: parseInt(document.getElementById('setting-video-thumbcount').value),
