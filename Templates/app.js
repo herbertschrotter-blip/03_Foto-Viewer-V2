@@ -309,7 +309,6 @@ async function changeRoot() {
 }
 
 async function shutdownServer() {
-    if (!confirm('Server wirklich beenden?')) return;
     try {
         await fetch('/shutdown', { method: 'POST' });
         document.body.innerHTML = '<div style="display:flex;flex-direction:column;gap:20px;align-items:center;justify-content:center;min-height:100vh;font-size:24px;color:#2d3748;"><div style="font-size:60px;">✓</div><div>Server beendet!</div></div>';
