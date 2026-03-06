@@ -223,6 +223,14 @@ async function deleteSelected() {
     }
 }
 
+async function openRecycleBin() {
+    try {
+        await fetch('/open-recyclebin', { method: 'POST' });
+    } catch (err) {
+        console.error('Fehler:', err);
+    }
+}
+
 function toggleFolder(header) {
     const card = header.closest('.folder-card');
     const grid = card.querySelector('.media-grid');

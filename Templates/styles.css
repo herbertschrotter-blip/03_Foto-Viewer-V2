@@ -1340,3 +1340,11 @@ h1 {
     margin-top: 4px;
     word-break: break-all;
 }
+
+.action-bar-btn-recycle {
+    color: #059669;
+}
+
+.action-bar-btn-recycle:hover {
+    background: #ecfdf5;
+}

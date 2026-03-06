@@ -459,6 +459,17 @@ try {
                 continue
             }
             
+            # Route: /open-recyclebin
+            if ($path -eq "/open-recyclebin" -and $req.HttpMethod -eq "POST") {
+                try {
+                    Start-Process "explorer.exe" -ArgumentList "shell:RecycleBinFolder"
+                    Send-ResponseText -Response $res -Text '{"success":true}' -StatusCode 200 -ContentType "application/json; charset=utf-8"
+                } catch {
+                    Send-ResponseText -Response $res -Text '{"success":false}' -StatusCode 500 -ContentType "application/json; charset=utf-8"
+                }
+                continue
+            }
+            
             # Route: /ping
             if ($path -eq "/ping" -and $req.HttpMethod -eq "GET") {
                 Send-ResponseText -Response $res -Text "OK" -StatusCode 200
