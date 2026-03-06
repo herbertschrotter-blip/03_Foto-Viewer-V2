@@ -192,6 +192,7 @@ function Get-DefaultConfig {
             DefaultThumbSize = "medium"
             ShowBrowserCompatibility = $true
             FolderPreviewCount = 5
+            FolderPreviewMode = "folders"
         }
         Features = @{
             CollapsibleFolders = $true

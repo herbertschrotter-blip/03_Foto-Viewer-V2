@@ -115,6 +115,7 @@ function Handle-SettingsRoute {
                 $currentConfig.UI.ThumbnailSize            = $newSettings.UI.ThumbnailSize
                 $currentConfig.UI.GridColumns              = $newSettings.UI.GridColumns
                 $currentConfig.UI.FolderPreviewCount       = $newSettings.UI.FolderPreviewCount
+                $currentConfig.UI.FolderPreviewMode        = $newSettings.UI.FolderPreviewMode
                 $currentConfig.UI.ShowVideoMetadata        = $newSettings.UI.ShowVideoMetadata
                 $currentConfig.UI.ShowVideoCodec           = $newSettings.UI.ShowVideoCodec
                 $currentConfig.UI.ShowVideoDuration        = $newSettings.UI.ShowVideoDuration

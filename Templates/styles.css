@@ -1286,3 +1286,43 @@ h1 {
 .preview-action-btn:hover {
     background: white;
 }
+
+/* Preview Toggle */
+.preview-toggle {
+    display: flex;
+    gap: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.preview-toggle-btn {
+    padding: 6px 12px;
+    border: none;
+    background: white;
+    color: #718096;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preview-toggle-btn:first-child {
+    border-right: 1px solid #d1d5db;
+}
+
+.preview-toggle-btn.active {
+    background: #667eea;
+    color: white;
+}
+
+.preview-toggle-btn:hover:not(.active) {
+    background: #f3f4f6;
+}
+
+.preview-grid-flat {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+}

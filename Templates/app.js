@@ -629,6 +629,7 @@ async function loadSettings() {
         document.getElementById('setting-ui-thumbsize').value = config.UI.ThumbnailSize;
         document.getElementById('setting-ui-columns').value = config.UI.GridColumns;
         document.getElementById('setting-ui-folderpreview').value = config.UI.FolderPreviewCount || 5;
+        document.getElementById('setting-ui-previewmode').value = config.UI.FolderPreviewMode || 'folders';
         document.getElementById('setting-ui-showmetadata').checked = config.UI.ShowVideoMetadata;
         document.getElementById('setting-ui-showcodec').checked = config.UI.ShowVideoCodec;
         document.getElementById('setting-ui-showduration').checked = config.UI.ShowVideoDuration;
@@ -695,6 +696,7 @@ async function saveSettings() {
                 ThumbnailSize: parseInt(document.getElementById('setting-ui-thumbsize').value),
                 GridColumns: parseInt(document.getElementById('setting-ui-columns').value),
                 FolderPreviewCount: parseInt(document.getElementById('setting-ui-folderpreview').value),
+                FolderPreviewMode: document.getElementById('setting-ui-previewmode').value,
                 ShowVideoMetadata: document.getElementById('setting-ui-showmetadata').checked,
                 ShowVideoCodec: document.getElementById('setting-ui-showcodec').checked,
                 ShowVideoDuration: document.getElementById('setting-ui-showduration').checked,
@@ -1288,8 +1290,10 @@ function openFolderPreview() {
         .then(function(r) { return r.json(); })
         .then(function(cfg) {
             folderPreviewCount = cfg.UI.FolderPreviewCount || 5;
+            var defaultMode = cfg.UI.FolderPreviewMode || 'folders';
             var videoExts = cfg.Media.VideoExtensions.map(function(e) { return e.toLowerCase(); });
-            renderFolderPreview(videoExts);
+            window._previewVideoExts = videoExts;
+            setPreviewMode(defaultMode);
         })
         .catch(function() {
             renderFolderPreview([]);
@@ -1408,8 +1412,82 @@ function closeFolderPreview() {
     document.getElementById('folderPreviewOverlay').classList.remove('show');
 }
 
+var currentPreviewMode = 'folders';
+
+function setPreviewMode(mode) {
+    currentPreviewMode = mode;
+
+    document.getElementById('previewModeFolders').classList.toggle('active', mode === 'folders');
+    document.getElementById('previewModeGrid').classList.toggle('active', mode === 'grid');
+
+    var videoExts = window._previewVideoExts || [];
+
+    if (mode === 'folders') {
+        renderFolderPreview(videoExts);
+    } else {
+        renderGridPreview(videoExts);
+    }
+
+    var searchQuery = document.getElementById('previewSearchInput').value;
+    if (searchQuery) {
+        filterPreview(searchQuery);
+    }
+}
+
+function renderGridPreview(videoExts) {
+    var body = document.getElementById('folderPreviewBody');
+    var cards = document.querySelectorAll('.folder-card');
+    var html = '<div class="preview-grid preview-grid-flat">';
+
+    cards.forEach(function(card) {
+        var folderPath = card.dataset.path || '';
+        var files = [];
+        try { files = JSON.parse(card.dataset.files || '[]'); } catch(e) {}
+        if (files.length === 0) return;
+
+        var selected = selectPreviewFiles(files, folderPreviewCount);
+
+        selected.forEach(function(file) {
+            var filePath = folderPath === '.' ? file : folderPath + '/' + file;
+            var imgUrl = '/img?path=' + encodeURIComponent(filePath);
+            var ext = file.substring(file.lastIndexOf('.')).toLowerCase();
+            var isVideo = videoExts.indexOf(ext) !== -1;
+            var folderName = folderPath === '.' ? 'Root' : folderPath;
+
+            html += '<div class="preview-item" data-filepath="' + filePath + '" data-filename="' + file.toLowerCase() + '" data-folderpath="' + folderPath + '">';
+            html += '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">';
+            if (isVideo) html += '<span class="video-badge">▶</span>';
+            html += '<div class="preview-item-actions">';
+            html += '<button class="preview-action-btn" onclick="event.stopPropagation(); goToFolder(\'' + folderPath.replace(/'/g, "\\'") + '\')">📂</button>';
+            html += '<button class="preview-action-btn" onclick="event.stopPropagation(); openPreviewLightbox(\'' + filePath.replace(/'/g, "\\'") + '\', \'' + folderPath.replace(/'/g, "\\'") + '\')">🔍</button>';
+            html += '</div>';
+            html += '</div>';
+        });
+    });
+
+    html += '</div>';
+    body.innerHTML = html;
+}
+
 function filterPreview(query) {
     var q = query.toLowerCase().trim();
+
+    // Grid-Modus: einzelne Items filtern
+    document.querySelectorAll('.preview-grid-flat .preview-item').forEach(function(item) {
+        if (!q) {
+            item.style.display = '';
+            return;
+        }
+        var filename = item.dataset.filename || '';
+        var folderPath = (item.dataset.folderpath || '').toLowerCase();
+        if (filename.indexOf(q) !== -1 || folderPath.indexOf(q) !== -1) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    // Ordner-Modus
     var folders = document.querySelectorAll('.preview-folder');
 
     folders.forEach(function(folder) {

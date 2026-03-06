@@ -310,6 +310,13 @@
                         <label class="settings-label">Bilder pro Ordner in Vorschau</label>
                         <input type="number" class="settings-input" id="setting-ui-folderpreview" min="1" max="20">
                     </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Vorschau Standard-Ansicht</label>
+                        <select class="settings-input" id="setting-ui-previewmode">
+                            <option value="folders">Ordner-Ansicht</option>
+                            <option value="grid">Grid-Ansicht</option>
+                        </select>
+                    </div>
                     <div style="height: 12px;"></div>
                     <div class="settings-group">
                         <div class="settings-checkbox-wrapper">
@@ -504,6 +511,10 @@
                 <div class="overlay-title">
                     <span>🖼️</span>
                     <span>Ordner-Vorschau</span>
+                </div>
+                <div class="preview-toggle">
+                    <button class="preview-toggle-btn active" id="previewModeFolders" onclick="setPreviewMode('folders')">📁 Ordner</button>
+                    <button class="preview-toggle-btn" id="previewModeGrid" onclick="setPreviewMode('grid')">🖼️ Grid</button>
                 </div>
                 <div class="folder-preview-search">
                     <input type="text" id="previewSearchInput" class="search-input" placeholder="Filtern..." oninput="filterPreview(this.value)">
