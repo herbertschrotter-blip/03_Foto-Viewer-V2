@@ -1,47 +1,29 @@
 {
-  "Video": {
-    "ConversionPreset": "medium",
-    "GIFLoop": false,
-    "ThumbnailQuality": 85,
-    "GIFDuration": 3,
-    "ThumbnailStartPercent": 10,
-    "PreviewAsGIF": false,
-    "ThumbnailEndPercent": 90,
-    "UseHLS": true,
-    "ThumbnailCount": 1,
-    "HLSSegmentDuration": 2,
-    "HLSPreloadSeconds": 4,
-    "GIFFrameRate": 10,
-    "ThumbnailFPS": 1
-  },
   "Cache": {
+    "CacheFolder": ".cache",
     "UseScanCache": true,
-    "VideoMetadataCache": true,
-    "CacheFolder": ".cache"
+    "VideoMetadataCache": true
+  },
+  "Paths": {
+    "TempFolder": ".temp",
+    "RootFolder": "",
+    "ThumbsFolder": ".thumbs"
+  },
+  "Performance": {
+    "DeleteJobTimeout": 10,
+    "MaxParallelJobs": 8,
+    "CacheThumbnails": true,
+    "UseParallelProcessing": true,
+    "LazyLoading": true
   },
   "FileOperations": {
-    "EnableFlattenAndMove": false,
     "UseRecycleBin": true,
-    "EnableMove": false,
     "ConfirmDelete": true,
-    "RangeRequestSupport": true
-  },
-  "UI": {
-    "GridColumns": 3,
-    "ShowVideoDuration": true,
-    "Theme": "light",
-    "ShowVideoMetadata": true,
-    "ShowVideoCodec": true,
-    "ThumbnailSize": 200,
-    "DefaultThumbSize": "medium",
-    "ShowBrowserCompatibility": true,
-    "FolderPreviewCount": 5
+    "EnableFlattenAndMove": false,
+    "RangeRequestSupport": true,
+    "EnableMove": false
   },
   "Features": {
-    "CollapsibleFolders": true,
-    "KeyboardNavigation": true,
-    "OpenInVLC": false,
-    "LightboxViewer": true,
     "ArchiveExtensions": [
       ".zip",
       ".rar",
@@ -49,37 +31,42 @@
       ".tar",
       ".gz"
     ],
-    "VideoThumbnailPreGeneration": false,
-    "ArchiveExtraction": false
-  },
-  "Paths": {
-    "ThumbsFolder": ".thumbs",
-    "TempFolder": ".temp",
-    "RootFolder": ""
+    "CollapsibleFolders": true,
+    "OpenInVLC": false,
+    "ArchiveExtraction": false,
+    "LightboxViewer": true,
+    "KeyboardNavigation": true,
+    "VideoThumbnailPreGeneration": false
   },
   "Server": {
     "Host": "localhost",
     "Port": 8888,
     "AutoOpenBrowser": true
   },
-  "Performance": {
-    "DeleteJobTimeout": 10,
-    "UseParallelProcessing": true,
-    "LazyLoading": true,
-    "MaxParallelJobs": 8,
-    "CacheThumbnails": true
-  },
   "Media": {
-    "ImageExtensions": [
-      ".jpg",
-      ".jpeg",
-      ".png",
-      ".webp",
-      ".gif",
-      ".bmp",
-      ".tif",
-      ".tiff"
-    ],
+    "MimeTypes": {
+      ".jpg": "image/jpeg",
+      ".mpeg": "video/mpeg",
+      ".webp": "image/webp",
+      ".mpg": "video/mpeg",
+      ".webm": "video/webm",
+      ".flv": "video/x-flv",
+      ".mov": "video/quicktime",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".bmp": "image/bmp",
+      ".m4v": "video/mp4",
+      ".m3u8": "application/vnd.apple.mpegurl",
+      ".3gp": "video/3gpp",
+      ".gif": "image/gif",
+      ".avi": "video/x-msvideo",
+      ".ts": "video/mp2t",
+      ".wmv": "video/x-ms-wmv",
+      ".mkv": "video/x-matroska",
+      ".tif": "image/tiff",
+      ".mp4": "video/mp4",
+      ".tiff": "image/tiff"
+    },
     "VideoExtensions": [
       ".mp4",
       ".mov",
@@ -93,28 +80,42 @@
       ".mpeg",
       ".3gp"
     ],
-    "MimeTypes": {
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".png": "image/png",
-      ".webp": "image/webp",
-      ".gif": "image/gif",
-      ".bmp": "image/bmp",
-      ".tif": "image/tiff",
-      ".tiff": "image/tiff",
-      ".mp4": "video/mp4",
-      ".mov": "video/quicktime",
-      ".avi": "video/x-msvideo",
-      ".mkv": "video/x-matroska",
-      ".webm": "video/webm",
-      ".m4v": "video/mp4",
-      ".wmv": "video/x-ms-wmv",
-      ".flv": "video/x-flv",
-      ".mpg": "video/mpeg",
-      ".mpeg": "video/mpeg",
-      ".3gp": "video/3gpp",
-      ".m3u8": "application/vnd.apple.mpegurl",
-      ".ts": "video/mp2t"
-    }
+    "ImageExtensions": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".webp",
+      ".gif",
+      ".bmp",
+      ".tif",
+      ".tiff"
+    ]
+  },
+  "UI": {
+    "ShowVideoCodec": true,
+    "ShowVideoMetadata": true,
+    "ThumbnailSize": 200,
+    "Theme": "light",
+    "FolderPreviewCount": 5,
+    "ShowBrowserCompatibility": true,
+    "GridColumns": 3,
+    "FolderPreviewMode": "folders",
+    "DefaultThumbSize": "medium",
+    "ShowVideoDuration": true
+  },
+  "Video": {
+    "GIFDuration": 3,
+    "ThumbnailFPS": 1,
+    "ThumbnailEndPercent": 90,
+    "HLSSegmentDuration": 2,
+    "GIFFrameRate": 10,
+    "ConversionPreset": "medium",
+    "ThumbnailQuality": 85,
+    "PreviewAsGIF": true,
+    "UseHLS": true,
+    "ThumbnailStartPercent": 10,
+    "GIFLoop": true,
+    "HLSPreloadSeconds": 3,
+    "ThumbnailCount": 5
   }
 }
