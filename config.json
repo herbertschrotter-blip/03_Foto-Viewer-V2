@@ -28,7 +28,7 @@
   },
   "UI": {
     "GridColumns": 3,
-    "ShowVideoDuration": true,    
+    "ShowVideoDuration": true,
     "Theme": "light",
     "ShowVideoMetadata": true,
     "ShowVideoCodec": true,
@@ -50,7 +50,7 @@
       ".gz"
     ],
     "VideoThumbnailPreGeneration": false,
-    "ArchiveExtraction": false    
+    "ArchiveExtraction": false
   },
   "Paths": {
     "ThumbsFolder": ".thumbs",

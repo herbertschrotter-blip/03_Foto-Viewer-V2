@@ -694,7 +694,6 @@ async function saveSettings() {
                 DefaultThumbSize: document.getElementById('setting-ui-defaultsize').value,
                 ThumbnailSize: parseInt(document.getElementById('setting-ui-thumbsize').value),
                 GridColumns: parseInt(document.getElementById('setting-ui-columns').value),
-                PreviewThumbnailCount: parseInt(document.getElementById('setting-ui-previewcount').value),
                 FolderPreviewCount: parseInt(document.getElementById('setting-ui-folderpreview').value),
                 ShowVideoMetadata: document.getElementById('setting-ui-showmetadata').checked,
                 ShowVideoCodec: document.getElementById('setting-ui-showcodec').checked,
