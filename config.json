@@ -24,6 +24,8 @@
     "EnableMove": false
   },
   "Features": {
+    "LightboxViewer": true,
+    "OpenInVLC": false,
     "ArchiveExtensions": [
       ".zip",
       ".rar",
@@ -31,10 +33,9 @@
       ".tar",
       ".gz"
     ],
+    "ArchiveAfterExtract": "recycle",
+    "ArchiveExtraction": true,
     "CollapsibleFolders": true,
-    "OpenInVLC": false,
-    "ArchiveExtraction": false,
-    "LightboxViewer": true,
     "KeyboardNavigation": true,
     "VideoThumbnailPreGeneration": false
   },

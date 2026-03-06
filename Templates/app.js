@@ -699,6 +699,7 @@ async function loadSettings() {
         
         document.getElementById('setting-feat-archive').checked = config.Features.ArchiveExtraction;
         document.getElementById('setting-feat-archiveext').value = config.Features.ArchiveExtensions.join(';');
+        document.getElementById('setting-feat-archiveafter').value = config.Features.ArchiveAfterExtract || 'recycle';
         document.getElementById('setting-feat-thumbpre').checked = config.Features.VideoThumbnailPreGeneration;        
         document.getElementById('setting-feat-vlc').checked = config.Features.OpenInVLC;
         document.getElementById('setting-feat-collapse').checked = config.Features.CollapsibleFolders;
@@ -770,6 +771,7 @@ async function saveSettings() {
             Features: {
                 ArchiveExtraction: document.getElementById('setting-feat-archive').checked,
                 ArchiveExtensions: document.getElementById('setting-feat-archiveext').value.split(';').map(function(s) { return s.trim(); }).filter(Boolean),
+                ArchiveAfterExtract: document.getElementById('setting-feat-archiveafter').value,
                 VideoThumbnailPreGeneration: document.getElementById('setting-feat-thumbpre').checked,                
                 OpenInVLC: document.getElementById('setting-feat-vlc').checked,
                 CollapsibleFolders: document.getElementById('setting-feat-collapse').checked,
