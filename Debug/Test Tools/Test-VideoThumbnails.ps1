@@ -26,7 +26,7 @@
     Version: 0.1.0
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 [CmdletBinding()]
 param(
     [Parameter()]

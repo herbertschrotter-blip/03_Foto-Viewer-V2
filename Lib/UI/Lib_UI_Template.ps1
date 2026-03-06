@@ -16,7 +16,7 @@
     Version: 0.2.0
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 
 function Get-IndexHTML {

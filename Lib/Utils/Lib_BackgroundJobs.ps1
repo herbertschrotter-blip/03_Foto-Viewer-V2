@@ -40,7 +40,7 @@
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
 #>
 
-#Requires -Version 5.1
+#Requires -Version 7.0
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $PSDefaultParameterValues['*:Encoding'] = 'utf8'
