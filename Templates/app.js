@@ -289,6 +289,11 @@ function toggleFolder(header) {
         }
         grid.style.display = 'grid';
         
+        var searchQuery = document.getElementById('searchInput').value;
+        if (searchQuery) {
+            filterFolders(searchQuery);
+        }
+        
         updateActionBarVisibility();
     }
 }
@@ -1200,6 +1205,9 @@ function filterFolders(query) {
         cards.forEach(function(card) {
             card.classList.remove('search-hidden');
             removeHighlights(card);
+            card.querySelectorAll('.media-item').forEach(function(item) {
+                item.style.display = '';
+            });
         });
         return;
     }
@@ -1208,14 +1216,25 @@ function filterFolders(query) {
         var folderPath = (card.dataset.path || '').toLowerCase();
         var files = [];
         try { files = JSON.parse(card.dataset.files || '[]'); } catch(e) {}
-        var filesStr = files.join(' ').toLowerCase();
 
         var matchFolder = folderPath.indexOf(q) !== -1;
-        var matchFiles = filesStr.indexOf(q) !== -1;
+        var matchingFiles = files.filter(function(f) {
+            return f.toLowerCase().indexOf(q) !== -1;
+        });
 
-        if (matchFolder || matchFiles) {
+        if (matchFolder || matchingFiles.length > 0) {
             card.classList.remove('search-hidden');
             highlightMatch(card, q);
+
+            card.querySelectorAll('.media-item').forEach(function(item) {
+                var filepath = (item.dataset.filepath || '').toLowerCase();
+                var filename = filepath.split('/').pop();
+                if (matchFolder || filename.indexOf(q) !== -1) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         } else {
             card.classList.add('search-hidden');
             removeHighlights(card);
