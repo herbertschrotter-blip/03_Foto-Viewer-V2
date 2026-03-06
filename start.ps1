@@ -189,6 +189,11 @@ if (-not $Port) {
     $Port = $config.Server.Port
 }
 
+# MaxParallelJobs auf CPU-Kerne setzen
+$cpuCores = [Environment]::ProcessorCount
+$config.Performance.MaxParallelJobs = $cpuCores
+Write-Host "✓ CPU: $cpuCores logische Kerne (MaxParallelJobs = $cpuCores)" -ForegroundColor Green
+
 # PowerShell Version Info
 $psInfo = Get-PowerShellVersionInfo
 Write-Host "✓ PowerShell: $($psInfo.DisplayName)" -ForegroundColor Green
@@ -480,6 +485,15 @@ try {
                 } catch {
                     Send-ResponseText -Response $res -Text '{"success":false}' -StatusCode 500 -ContentType "application/json; charset=utf-8"
                 }
+                continue
+            }
+            
+            # Route: /system/info
+            if ($path -eq "/system/info" -and $req.HttpMethod -eq "GET") {
+                $json = @{
+                    ProcessorCount = [Environment]::ProcessorCount
+                } | ConvertTo-Json -Compress
+                Send-ResponseText -Response $res -Text $json -StatusCode 200 -ContentType "application/json; charset=utf-8"
                 continue
             }
             

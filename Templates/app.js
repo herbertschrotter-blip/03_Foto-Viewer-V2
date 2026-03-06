@@ -684,6 +684,16 @@ async function loadSettings() {
         document.getElementById('setting-perf-parallel').checked = config.Performance.UseParallelProcessing;
         document.getElementById('setting-perf-maxjobs').value = config.Performance.MaxParallelJobs;
         
+        // CPU-Kerne abfragen und max dynamisch setzen
+        fetch('/system/info')
+            .then(function(r) { return r.json(); })
+            .then(function(info) {
+                var cores = info.ProcessorCount;
+                document.getElementById('setting-perf-maxjobs').max = cores;
+                document.getElementById('cpu-cores-info').textContent = '(max ' + cores + ' Kerne)';
+            })
+            .catch(function() {});
+        
         
         document.getElementById('setting-file-recycle').checked = config.FileOperations.UseRecycleBin;
         document.getElementById('setting-file-confirm').checked = config.FileOperations.ConfirmDelete;

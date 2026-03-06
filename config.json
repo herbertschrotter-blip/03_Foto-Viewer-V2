@@ -11,7 +11,7 @@
   },
   "Performance": {
     "DeleteJobTimeout": 10,
-    "MaxParallelJobs": 8,
+    "MaxParallelJobs": 12,
     "CacheThumbnails": true,
     "UseParallelProcessing": true,
     "LazyLoading": true
