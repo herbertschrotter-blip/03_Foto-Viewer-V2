@@ -45,3 +45,6 @@ ffprobe.exe
 
 # Debug-Log
 debug.log
+
+# Logging
+Lib/Core/char-map.json
