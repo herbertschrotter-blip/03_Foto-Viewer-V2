@@ -1364,6 +1364,10 @@ function selectPreviewFiles(files, count) {
         selected.push(remaining[k]);
     }
 
+    selected.sort(function(a, b) {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     return selected;
 }
 
