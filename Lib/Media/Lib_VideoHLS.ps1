@@ -219,6 +219,64 @@ function Start-HLSConversion {
         return $null
     }
 }
+
+function Get-VideoDuration {
+    <#
+    .SYNOPSIS
+        Ermittelt Video-Dauer mit FFprobe
+    
+    .PARAMETER VideoPath
+        Vollständiger Pfad zum Video
+    
+    .PARAMETER ScriptRoot
+        Projekt-Root (für FFprobe-Pfad)
+    
+    .OUTPUTS
+        [double] Dauer in Sekunden oder 0 bei Fehler
+    
+    .NOTES
+        Version: 0.1.0
+    #>
+    [CmdletBinding()]
+    [OutputType([double])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$VideoPath,
+        
+        [Parameter(Mandatory)]
+        [string]$ScriptRoot
+    )
+    
+    try {
+        $ffprobePath = Join-Path $ScriptRoot "ffmpeg\ffprobe.exe"
+        
+        if (-not (Test-Path -LiteralPath $ffprobePath -PathType Leaf)) {
+            Write-Warning "FFprobe nicht gefunden: $ffprobePath"
+            return 0
+        }
+        
+        $ffprobeArgs = @(
+            '-v', 'quiet'
+            '-print_format', 'json'
+            '-show_format'
+            $VideoPath
+        )
+        
+        $output = & $ffprobePath @ffprobeArgs 2>&1 | Out-String
+        $json = $output | ConvertFrom-Json
+        
+        if ($json.format.duration) {
+            return [double]$json.format.duration
+        }
+        
+        return 0
+    }
+    catch {
+        Write-Verbose "Fehler bei FFprobe: $_"
+        return 0
+    }
+}
+
 function Convert-VideoToHLS {
     <#
     .SYNOPSIS

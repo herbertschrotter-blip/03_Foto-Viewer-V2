@@ -311,12 +311,17 @@ function Send-VideoHLS {
             }
         }
         
+        # Video-Dauer ermitteln (für korrekte Zeitleiste im Player)
+        $duration = Get-VideoDuration -VideoPath $fullPath -ScriptRoot $ScriptRoot
+        
         # Sofort antworten — Frontend pollt /hls bis Playlist + Chunks da sind
         $hlsUrl = "/hls?path=" + [System.Web.HttpUtility]::UrlEncode($relPath)
         $json = @{ 
             status = if ($hlsReady) { "ready" } else { "converting" }
             url = $hlsUrl
             preloadSeconds = $config.Video.HLSPreloadSeconds
+            segmentDuration = $config.Video.HLSSegmentDuration
+            duration = $duration
         } | ConvertTo-Json -Compress
         
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)

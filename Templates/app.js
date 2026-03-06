@@ -968,9 +968,12 @@ function showLightboxImage() {
                 if ((data.status === 'ready' || data.status === 'converting') && data.url) {
                     var hlsUrl = data.url;
                     var preloadSec = data.preloadSeconds || 15;
+                    var totalDuration = data.duration || 0;
+                    var segDuration = data.segmentDuration || 2;
                     
                     // Warte bis genug Chunks vorhanden (Polling)
-                    loadingText.textContent = '⏳ Konvertiere Video...';
+                    var durationText = totalDuration > 0 ? ' (' + Math.floor(totalDuration / 60) + ':' + ('0' + Math.floor(totalDuration % 60)).slice(-2) + ')' : '';
+                    loadingText.textContent = '⏳ Konvertiere Video...' + durationText;
                     
                     var pollInterval = setInterval(function() {
                         fetch(hlsUrl)
@@ -983,7 +986,6 @@ function showLightboxImage() {
                                 
                                 // Zähle Chunks in Playlist
                                 var chunks = (playlist.match(/\.ts/g) || []).length;
-                                var segDuration = 10; // aus Config.Video.HLSSegmentDuration
                                 var readySeconds = chunks * segDuration;
                                 
                                 loadingText.textContent = '⏳ Lade Video... ' + readySeconds + 's / ' + preloadSec + 's';
@@ -1014,6 +1016,8 @@ function showLightboxImage() {
                                                 updateHLSStatus(videoName, 'error');
                                             }
                                         });
+                                        
+                                        
                                     }
                                     else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                                         video.src = hlsUrl;
