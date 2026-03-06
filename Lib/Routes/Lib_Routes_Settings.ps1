@@ -10,7 +10,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
 
     ÄNDERUNGEN v0.2.0:
     - Lib_Config.ps1 dot-source hinzugefügt (war fehlend)
@@ -96,11 +96,9 @@ function Handle-SettingsRoute {
 
                 # Video
                 $currentConfig.Video.ThumbnailQuality      = $newSettings.Video.ThumbnailQuality
-                $currentConfig.Video.EnableAutoConversion   = $newSettings.Video.EnableAutoConversion
                 $currentConfig.Video.UseHLS                 = $newSettings.Video.UseHLS
                 $currentConfig.Video.HLSSegmentDuration     = $newSettings.Video.HLSSegmentDuration
                 $currentConfig.Video.HLSPreloadSeconds      = $newSettings.Video.HLSPreloadSeconds
-                $currentConfig.Video.PreferredCodec         = $newSettings.Video.PreferredCodec
                 $currentConfig.Video.ConversionPreset       = $newSettings.Video.ConversionPreset
                 $currentConfig.Video.ThumbnailCount         = $newSettings.Video.ThumbnailCount
                 $currentConfig.Video.ThumbnailFPS           = $newSettings.Video.ThumbnailFPS
@@ -116,7 +114,7 @@ function Handle-SettingsRoute {
                 $currentConfig.UI.DefaultThumbSize         = $newSettings.UI.DefaultThumbSize
                 $currentConfig.UI.ThumbnailSize            = $newSettings.UI.ThumbnailSize
                 $currentConfig.UI.GridColumns              = $newSettings.UI.GridColumns
-                $currentConfig.UI.PreviewThumbnailCount    = $newSettings.UI.PreviewThumbnailCount
+                $currentConfig.UI.FolderPreviewCount       = $newSettings.UI.FolderPreviewCount
                 $currentConfig.UI.ShowVideoMetadata        = $newSettings.UI.ShowVideoMetadata
                 $currentConfig.UI.ShowVideoCodec           = $newSettings.UI.ShowVideoCodec
                 $currentConfig.UI.ShowVideoDuration        = $newSettings.UI.ShowVideoDuration
@@ -145,7 +143,6 @@ function Handle-SettingsRoute {
                 $currentConfig.Features.ArchiveExtraction          = $newSettings.Features.ArchiveExtraction
                 $currentConfig.Features.ArchiveExtensions          = $newSettings.Features.ArchiveExtensions
                 $currentConfig.Features.VideoThumbnailPreGeneration = $newSettings.Features.VideoThumbnailPreGeneration
-                $currentConfig.Features.LazyVideoConversion        = $newSettings.Features.LazyVideoConversion
                 $currentConfig.Features.OpenInVLC                  = $newSettings.Features.OpenInVLC
                 $currentConfig.Features.CollapsibleFolders         = $newSettings.Features.CollapsibleFolders
                 $currentConfig.Features.LightboxViewer             = $newSettings.Features.LightboxViewer
