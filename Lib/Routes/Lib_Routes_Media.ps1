@@ -1,14 +1,15 @@
 <#
 ManifestHint:
   ExportFunctions = @("Register-MediaRoutes")
-  Description     = "Media-Routes (Original-Bilder, Videos)"
+  Description     = "Media-Routes (Original-Bilder + Videos)"
   Category        = "Routes"
   Tags            = @("HTTP","Media","Images","Videos")
   Dependencies    = @("System.Net.HttpListener")
 
 Zweck:
   - Route: /original?path=... (Original-Bilder senden)
-  - MIME-Type Detection
+  - Route: /video?path=... (Video-Streaming)
+  - MIME-Type Detection (Bilder + Videos)
   - Range-Request Support (aus Config)
   - Path-Traversal Security
 
@@ -16,7 +17,7 @@ Funktionen:
   - Register-MediaRoutes: Registriert alle Media-Routes
 
 Abhängigkeiten:
-  - Lib_Config.ps1 (Get-AppConfig)
+  - Lib_Config.ps1 (Get-Config)
 #>
 
 #Requires -Version 7.0
@@ -77,9 +78,15 @@ function Register-MediaRoutes {
         # Config laden
         $config = Get-Config
         
-        # Route: /original
+        # Route: /original (Bilder)
         if ($request.Url.LocalPath -eq '/original') {
             Send-OriginalImage -Context $Context -RootFull $RootFull -Config $config
+            return $true
+        }
+        
+        # Route: /video (Videos)
+        if ($request.Url.LocalPath -eq '/video') {
+            Send-MediaFile -Context $Context -RootFull $RootFull -Config $config -MediaType 'video'
             return $true
         }
         
@@ -90,6 +97,120 @@ function Register-MediaRoutes {
         $response.StatusCode = 500
         $response.Close()
         return $true
+    }
+}
+
+function Send-MediaFile {
+    <#
+    .SYNOPSIS
+        Sendet Media-Datei (Video/Bild) an Client
+    
+    .DESCRIPTION
+        Universelle Funktion für Media-Streaming.
+        Unterstützt Range-Requests für Video-Seeking.
+        
+        Features:
+        - Path-Traversal Security Check
+        - MIME-Type Detection
+        - Range-Request Support (aus Config)
+        - Robustes Error-Handling für Client-Disconnect
+    
+    .PARAMETER Context
+        HttpListener Context
+    
+    .PARAMETER RootFull
+        Root-Ordner (vollständiger Pfad)
+    
+    .PARAMETER Config
+        App-Config (für RangeRequestSupport)
+    
+    .PARAMETER MediaType
+        'video' oder 'image' (für Logging)
+    
+    .EXAMPLE
+        Send-MediaFile -Context $ctx -RootFull "C:\Media" -Config $config -MediaType 'video'
+    
+    .NOTES
+        Autor: Herbert
+        Version: 0.2.0
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [System.Net.HttpListenerContext]$Context,
+        
+        [Parameter(Mandatory)]
+        [string]$RootFull,
+        
+        [Parameter(Mandatory)]
+        [hashtable]$Config,
+        
+        [Parameter(Mandatory)]
+        [ValidateSet('video', 'image')]
+        [string]$MediaType
+    )
+    
+    $request = $Context.Request
+    $response = $Context.Response
+    
+    try {
+        # Query-Parameter: path
+        $query = [System.Web.HttpUtility]::ParseQueryString($request.Url.Query)
+        $relPath = $query['path']
+        
+        if (-not $relPath) {
+            Write-Warning "Kein 'path' Parameter ($MediaType)"
+            $response.StatusCode = 400
+            $response.Close()
+            return
+        }
+        
+        Write-Verbose "$MediaType angefordert: $relPath"
+        
+        # Path-Traversal Security Check
+        $combined = Join-Path $RootFull $relPath
+        $fullPath = [System.IO.Path]::GetFullPath($combined)
+        
+        if (-not $fullPath.StartsWith($RootFull, [StringComparison]::OrdinalIgnoreCase)) {
+            Write-Warning "Path-Traversal Versuch blockiert: $relPath"
+            $response.StatusCode = 403
+            $response.Close()
+            return
+        }
+        
+        # Datei existiert?
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            Write-Warning "$MediaType nicht gefunden: $fullPath"
+            $response.StatusCode = 404
+            $response.Close()
+            return
+        }
+        
+        # MIME-Type Detection
+        $extension = [System.IO.Path]::GetExtension($fullPath).ToLower()
+        $mimeType = Get-MimeType -Extension $extension -Config $Config
+        
+        Write-Verbose "MIME-Type: $mimeType"
+        
+        # Datei-Info
+        $fileInfo = Get-Item -LiteralPath $fullPath
+        $fileSize = $fileInfo.Length
+        
+        # Range-Request Support (aus Config)
+        $supportsRange = $Config.FileOperations.RangeRequestSupport
+        
+        if ($supportsRange -and $request.Headers['Range']) {
+            Write-Verbose "Range-Request erkannt ($MediaType)"
+            Send-RangeResponse -Context $Context -FilePath $fullPath -FileSize $fileSize -MimeType $mimeType
+        }
+        else {
+            Write-Verbose "Vollständige Datei senden ($MediaType)"
+            Send-FullResponse -Context $Context -FilePath $fullPath -FileSize $fileSize -MimeType $mimeType
+        }
+    }
+    catch {
+        Write-Error "Fehler in Send-MediaFile ($MediaType): $_"
+        try { $response.StatusCode = 500; $response.Close() } catch { }
     }
 }
 
@@ -172,8 +293,7 @@ function Send-OriginalImage {
         
         # MIME-Type Detection
         $extension = [System.IO.Path]::GetExtension($fullPath).ToLower()
-        $mimeType = Get-MimeType -Extension $extension
-        
+        $mimeType = Get-MimeType -Extension $extension -Config $Config        
         Write-Verbose "MIME-Type: $mimeType"
         
         # Datei-Info
@@ -384,48 +504,45 @@ function Send-RangeResponse {
 function Get-MimeType {
     <#
     .SYNOPSIS
-        Ermittelt MIME-Type anhand Extension
+        Ermittelt MIME-Type aus Config (Media.MimeTypes)
     
     .DESCRIPTION
         Gibt passenden MIME-Type für Datei-Extension zurück.
+        Liest MIME-Types aus Config.Media.MimeTypes.
     
     .PARAMETER Extension
         Datei-Extension (z.B. ".jpg")
     
+    .PARAMETER Config
+        App-Config (mit Media.MimeTypes)
+    
     .EXAMPLE
-        Get-MimeType -Extension ".jpg"
+        Get-MimeType -Extension ".jpg" -Config $config
         # Returns: "image/jpeg"
     
     .NOTES
-        Version: 0.1.0
+        Version: 0.2.0
     #>
     [CmdletBinding()]
     [OutputType([string])]
     param(
         [Parameter(Mandatory)]
-        [string]$Extension
+        [string]$Extension,
+        
+        [Parameter(Mandatory)]
+        [hashtable]$Config
     )
     
-    # MIME-Type Mapping
-    $mimeTypes = @{
-        '.jpg'  = 'image/jpeg'
-        '.jpeg' = 'image/jpeg'
-        '.png'  = 'image/png'
-        '.gif'  = 'image/gif'
-        '.webp' = 'image/webp'
-        '.bmp'  = 'image/bmp'
-        '.tif'  = 'image/tiff'
-        '.tiff' = 'image/tiff'
-        '.svg'  = 'image/svg+xml'
-        '.ico'  = 'image/x-icon'
+    # MIME-Types aus Config
+    $mimeTypes = $Config.Media.MimeTypes
+    
+    if ($mimeTypes) {
+        $mime = $mimeTypes[$Extension.ToLower()]
+        if ($mime) {
+            return $mime
+        }
     }
     
-    $mime = $mimeTypes[$Extension.ToLower()]
-    
-    if ($mime) {
-        return $mime
-    }
-    
-    # Fallback
+    Write-Verbose "Kein MIME-Type für '$Extension' in Config - nutze Fallback"
     return 'application/octet-stream'
 }
