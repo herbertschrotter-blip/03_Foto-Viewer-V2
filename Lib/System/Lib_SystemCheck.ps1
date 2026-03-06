@@ -23,7 +23,7 @@ Abhängigkeiten:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.1.1
     
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
@@ -205,8 +205,7 @@ function Test-SystemRequirements {
             $checks.Errors += "PowerShell $psVersion nicht unterstützt (benötigt: 7.0+)"
             
             if ($ShowWarnings) {
-                Write-Host "❌ PowerShell Version: $psVersion" -ForegroundColor Red
-                Write-Host "   PhotoFolder benötigt PowerShell 7.0 oder höher!" -ForegroundColor Yellow
+                Write-Warning "PowerShell Version $psVersion nicht unterstützt - benötigt 7.0+"
             }
         }
     } catch {
@@ -225,10 +224,8 @@ function Test-SystemRequirements {
             $checks.Warnings += "Long Path Support deaktiviert (max 260 Zeichen)"
             
             if ($ShowWarnings) {
-                Write-Host "⚠️  Long Path Support: DEAKTIVIERT" -ForegroundColor Yellow
-                Write-Host "   Maximale Pfad-Länge: 260 Zeichen" -ForegroundColor Gray
-                Write-Host "   Für lange Pfade aktivieren? (Benötigt Admin-Rechte)" -ForegroundColor Gray
-                Write-Host "   Siehe: Lib\System\Lib_AdminTools.ps1 → Enable-LongPathSupport" -ForegroundColor Gray
+                Write-Warning "Long Path Support DEAKTIVIERT (max 260 Zeichen)"
+                Write-Verbose "Für lange Pfade aktivieren: Lib\System\Lib_AdminTools.ps1 → Enable-LongPathSupport"
             }
         }
     } catch {
@@ -249,9 +246,7 @@ function Test-SystemRequirements {
                 $checks.Warnings += "FFmpeg nicht gefunden (Video-Thumbnails deaktiviert)"
                 
                 if ($ShowWarnings) {
-                    Write-Host "⚠️  FFmpeg: NICHT GEFUNDEN" -ForegroundColor Yellow
-                    Write-Host "   Pfad: $ffmpegPath" -ForegroundColor Gray
-                    Write-Host "   Video-Thumbnails werden nicht funktionieren!" -ForegroundColor Gray
+                    Write-Warning "FFmpeg nicht gefunden: $ffmpegPath - Video-Thumbnails deaktiviert"
                 }
             }
         } catch {

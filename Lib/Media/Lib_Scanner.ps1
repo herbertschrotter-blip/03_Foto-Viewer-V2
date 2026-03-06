@@ -12,7 +12,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.0
+    Version: 0.3.1
     
     ÄNDERUNGEN v0.3.0:
     - PowerShell 7.0 ONLY
@@ -130,11 +130,11 @@ function Get-MediaFolders {
         Write-Verbose "Extensions: $($Extensions -join ', ')"
         
         # Ordner zählen für Progress (Root-Ordner selbst inkludieren!)
-        Write-Host "  → Zähle Ordner..." -ForegroundColor DarkGray
+        Write-Verbose "Zähle Ordner..."
         $subDirs = @(Get-ChildItem -LiteralPath $rootFull -Recurse -Directory -ErrorAction SilentlyContinue)
         $allDirs = @([System.IO.DirectoryInfo]::new($rootFull)) + $subDirs
         $totalDirs = $allDirs.Count
-        Write-Host "  → Scanne $totalDirs Ordner..." -ForegroundColor DarkGray
+        Write-Verbose "Scanne $totalDirs Ordner..."
         
         # Alle Dateien rekursiv mit Progress
         $allFiles = @()
