@@ -129,9 +129,10 @@ function Get-MediaFolders {
         Write-Verbose "Scanne: $rootFull"
         Write-Verbose "Extensions: $($Extensions -join ', ')"
         
-        # Ordner zählen für Progress
+        # Ordner zählen für Progress (Root-Ordner selbst inkludieren!)
         Write-Host "  → Zähle Ordner..." -ForegroundColor DarkGray
-        $allDirs = @(Get-ChildItem -LiteralPath $rootFull -Recurse -Directory -ErrorAction SilentlyContinue)
+        $subDirs = @(Get-ChildItem -LiteralPath $rootFull -Recurse -Directory -ErrorAction SilentlyContinue)
+        $allDirs = @([System.IO.DirectoryInfo]::new($rootFull)) + $subDirs
         $totalDirs = $allDirs.Count
         Write-Host "  → Scanne $totalDirs Ordner..." -ForegroundColor DarkGray
         
