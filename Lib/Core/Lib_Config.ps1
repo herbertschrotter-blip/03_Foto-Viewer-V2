@@ -24,7 +24,7 @@ Abhängigkeiten:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.2
+    Version: 0.3.3
 #>
 
 #Requires -Version 7.0
@@ -192,6 +192,7 @@ function Get-DefaultConfig {
             ThumbnailSize = 200
             DefaultThumbSize = "medium"
             ShowBrowserCompatibility = $true
+            FolderPreviewCount = 5
         }
         Features = @{
             CollapsibleFolders = $true

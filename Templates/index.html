@@ -37,6 +37,11 @@
             </button>
         </div>
         <div class="sidebar-row">
+            <button class="sidebar-btn preview-btn" onclick="openFolderPreview()" data-tooltip="Ordner-Vorschau">
+                🖼️
+            </button>
+        </div>
+        <div class="sidebar-row">
             <button class="sidebar-btn tools-btn" onclick="openTools()" data-tooltip="Tools">
                 🛠️
             </button>
@@ -304,6 +309,10 @@
                         <label class="settings-label">Anzahl Vorschau-Thumbnails</label>
                         <input type="number" class="settings-input" id="setting-ui-previewcount" min="1" max="20">
                     </div>
+                    <div class="settings-group">
+                        <label class="settings-label">Bilder pro Ordner in Vorschau</label>
+                        <input type="number" class="settings-input" id="setting-ui-folderpreview" min="1" max="20">
+                    </div>
                     <div style="height: 12px;"></div>
                     <div class="settings-group">
                         <div class="settings-checkbox-wrapper">
@@ -488,6 +497,23 @@
                 <button class="settings-btn settings-btn-secondary" onclick="closeSettings()">Abbrechen</button>
                 <button class="settings-btn settings-btn-secondary" onclick="resetSettings()">Standard wiederherstellen</button>
                 <button class="settings-btn settings-btn-primary" onclick="saveSettings()">Speichern</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="overlay" id="folderPreviewOverlay">
+        <div class="overlay-content folder-preview-content">
+            <div class="overlay-header">
+                <div class="overlay-title">
+                    <span>🖼️</span>
+                    <span>Ordner-Vorschau</span>
+                </div>
+                <div class="folder-preview-search">
+                    <input type="text" id="previewSearchInput" class="search-input" placeholder="Filtern..." oninput="filterPreview(this.value)">
+                </div>
+                <button class="overlay-close" onclick="closeFolderPreview()">×</button>
+            </div>
+            <div class="overlay-body" id="folderPreviewBody">
             </div>
         </div>
     </div>

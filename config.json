@@ -35,7 +35,8 @@
     "ShowVideoCodec": true,
     "ThumbnailSize": 200,
     "DefaultThumbSize": "medium",
-    "ShowBrowserCompatibility": true
+    "ShowBrowserCompatibility": true,
+    "FolderPreviewCount": 5
   },
   "Features": {
     "CollapsibleFolders": true,

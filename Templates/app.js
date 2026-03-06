@@ -629,6 +629,7 @@ async function loadSettings() {
         document.getElementById('setting-ui-thumbsize').value = config.UI.ThumbnailSize;
         document.getElementById('setting-ui-columns').value = config.UI.GridColumns;
         document.getElementById('setting-ui-previewcount').value = config.UI.PreviewThumbnailCount;
+        document.getElementById('setting-ui-folderpreview').value = config.UI.FolderPreviewCount || 5;
         document.getElementById('setting-ui-showmetadata').checked = config.UI.ShowVideoMetadata;
         document.getElementById('setting-ui-showcodec').checked = config.UI.ShowVideoCodec;
         document.getElementById('setting-ui-showduration').checked = config.UI.ShowVideoDuration;
@@ -695,6 +696,7 @@ async function saveSettings() {
                 ThumbnailSize: parseInt(document.getElementById('setting-ui-thumbsize').value),
                 GridColumns: parseInt(document.getElementById('setting-ui-columns').value),
                 PreviewThumbnailCount: parseInt(document.getElementById('setting-ui-previewcount').value),
+                FolderPreviewCount: parseInt(document.getElementById('setting-ui-folderpreview').value),
                 ShowVideoMetadata: document.getElementById('setting-ui-showmetadata').checked,
                 ShowVideoCodec: document.getElementById('setting-ui-showcodec').checked,
                 ShowVideoDuration: document.getElementById('setting-ui-showduration').checked,
@@ -1271,3 +1273,178 @@ function clearSearch() {
     filterFolders('');
     input.focus();
 }
+
+// ============================================
+// Folder Preview
+// ============================================
+
+var folderPreviewCount = 5;
+
+function openFolderPreview() {
+    var body = document.getElementById('folderPreviewBody');
+    body.innerHTML = '<div class="overlay-result">⏳ Lade Vorschau...</div>';
+    document.getElementById('folderPreviewOverlay').classList.add('show');
+    document.getElementById('previewSearchInput').value = '';
+
+    fetch('/settings/get')
+        .then(function(r) { return r.json(); })
+        .then(function(cfg) {
+            folderPreviewCount = cfg.UI.FolderPreviewCount || 5;
+            var videoExts = cfg.Media.VideoExtensions.map(function(e) { return e.toLowerCase(); });
+            renderFolderPreview(videoExts);
+        })
+        .catch(function() {
+            renderFolderPreview([]);
+        });
+}
+
+function renderFolderPreview(videoExts) {
+    var body = document.getElementById('folderPreviewBody');
+    var cards = document.querySelectorAll('.folder-card');
+    var html = '';
+
+    cards.forEach(function(card) {
+        var folderPath = card.dataset.path || '';
+        var files = [];
+        try { files = JSON.parse(card.dataset.files || '[]'); } catch(e) {}
+        if (files.length === 0) return;
+
+        var selected = selectPreviewFiles(files, folderPreviewCount);
+        var folderName = folderPath === '.' ? 'Root' : folderPath;
+
+        html += '<div class="preview-folder" data-folder-path="' + folderPath + '" data-folder-files=\'' + JSON.stringify(files).replace(/'/g, '&#39;') + '\'>';
+        html += '<div class="preview-folder-header" onclick="goToFolder(\'' + folderPath.replace(/'/g, "\\'") + '\')">';
+        html += '<span>📁</span>';
+        html += '<span class="preview-folder-name">' + folderName + '</span>';
+        html += '<span class="preview-folder-count">(' + files.length + ')</span>';
+        html += '</div>';
+        html += '<div class="preview-grid">';
+
+        selected.forEach(function(file) {
+            var filePath = folderPath === '.' ? file : folderPath + '/' + file;
+            var imgUrl = '/img?path=' + encodeURIComponent(filePath);
+            var ext = file.substring(file.lastIndexOf('.')).toLowerCase();
+            var isVideo = videoExts.indexOf(ext) !== -1;
+
+            html += '<div class="preview-item" data-filepath="' + filePath + '" data-filename="' + file.toLowerCase() + '">';
+            html += '<img src="' + imgUrl + '" alt="' + file + '" loading="lazy">';
+            if (isVideo) html += '<span class="video-badge">▶</span>';
+            html += '<div class="preview-item-actions">';
+            html += '<button class="preview-action-btn" onclick="event.stopPropagation(); goToFolder(\'' + folderPath.replace(/'/g, "\\'") + '\')">📂 Ordner</button>';
+            html += '<button class="preview-action-btn" onclick="event.stopPropagation(); openPreviewLightbox(\'' + filePath.replace(/'/g, "\\'") + '\', \'' + folderPath.replace(/'/g, "\\'") + '\')">🔍 Lightbox</button>';
+            html += '</div>';
+            html += '</div>';
+        });
+
+        html += '</div></div>';
+    });
+
+    if (!html) {
+        body.innerHTML = '<div class="overlay-result">Keine Ordner mit Medien gefunden</div>';
+    } else {
+        body.innerHTML = html;
+    }
+}
+
+function selectPreviewFiles(files, count) {
+    if (files.length <= count) return files.slice();
+
+    var selected = [];
+    var lastFive = files.slice(-5);
+    var randomFromLast = lastFive[Math.floor(Math.random() * lastFive.length)];
+    selected.push(randomFromLast);
+
+    var remaining = files.filter(function(f) { return f !== randomFromLast; });
+    for (var i = remaining.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = remaining[i];
+        remaining[i] = remaining[j];
+        remaining[j] = temp;
+    }
+
+    for (var k = 0; k < count - 1 && k < remaining.length; k++) {
+        selected.push(remaining[k]);
+    }
+
+    return selected;
+}
+
+function goToFolder(folderPath) {
+    closeFolderPreview();
+    var cards = document.querySelectorAll('.folder-card');
+    cards.forEach(function(card) {
+        if (card.dataset.path === folderPath) {
+            var header = card.querySelector('.folder-header');
+            if (!card.classList.contains('expanded')) {
+                toggleFolder(header);
+            }
+            setTimeout(function() {
+                header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 200);
+        }
+    });
+}
+
+function openPreviewLightbox(filePath, folderPath) {
+    closeFolderPreview();
+    var card = null;
+    document.querySelectorAll('.folder-card').forEach(function(c) {
+        if (c.dataset.path === folderPath) card = c;
+    });
+    if (!card) return;
+
+    var files = [];
+    try { files = JSON.parse(card.dataset.files || '[]'); } catch(e) {}
+    var allPaths = files.map(function(f) {
+        return folderPath === '.' ? f : folderPath + '/' + f;
+    });
+
+    openLightbox(filePath, allPaths);
+}
+
+function closeFolderPreview() {
+    document.getElementById('folderPreviewOverlay').classList.remove('show');
+}
+
+function filterPreview(query) {
+    var q = query.toLowerCase().trim();
+    var folders = document.querySelectorAll('.preview-folder');
+
+    folders.forEach(function(folder) {
+        if (!q) {
+            folder.classList.remove('preview-hidden');
+            folder.querySelectorAll('.preview-item').forEach(function(item) {
+                item.style.display = '';
+            });
+            return;
+        }
+
+        var folderPath = (folder.dataset.folderPath || '').toLowerCase();
+        var files = [];
+        try { files = JSON.parse(folder.dataset.folderFiles || '[]'); } catch(e) {}
+
+        var matchFolder = folderPath.indexOf(q) !== -1;
+        var matchingFiles = files.filter(function(f) {
+            return f.toLowerCase().indexOf(q) !== -1;
+        });
+
+        if (matchFolder || matchingFiles.length > 0) {
+            folder.classList.remove('preview-hidden');
+
+            folder.querySelectorAll('.preview-item').forEach(function(item) {
+                var filename = item.dataset.filename || '';
+                if (matchFolder || filename.indexOf(q) !== -1) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        } else {
+            folder.classList.add('preview-hidden');
+        }
+    });
+}
+
+document.getElementById('folderPreviewOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeFolderPreview();
+});
