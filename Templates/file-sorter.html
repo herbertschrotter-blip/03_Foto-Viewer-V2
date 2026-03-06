@@ -176,6 +176,48 @@
         .form-field input { width: 100%; }
         .form-field-short { min-width: 120px; max-width: 160px; }
 
+        /* Multi-Level Panel */
+        .multilevel-toggle {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 16px; background: white; border: 1px solid #e2e8f0;
+            border-radius: 10px; margin-bottom: 20px;
+        }
+        .multilevel-toggle label { font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        .multilevel-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: #667eea; cursor: pointer; }
+        .multilevel-toggle .ml-desc { font-size: 12px; color: #718096; }
+        .sublevel-list { margin-top: 12px; }
+        .sublevel-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+            margin-bottom: 6px; font-size: 13px; background: white;
+        }
+        .sublevel-item .sl-name { font-weight: 600; min-width: 80px; }
+        .sublevel-item .sl-regex { font-family: monospace; font-size: 11px; color: #718096; flex: 1; }
+        .sublevel-item .sl-delete { cursor: pointer; color: #dc2626; font-size: 14px; padding: 2px 4px; }
+        .sublevel-item .sl-delete:hover { background: #fef2f2; border-radius: 4px; }
+        .sublevel-form { display: none; margin-top: 8px; }
+        .sublevel-form.show { display: block; }
+
+        /* Sub-Group Tree in Groups */
+        .subgroup-tree { padding: 8px 16px 12px; border-top: 1px solid #f0f0f0; }
+        .subgroup-branch {
+            margin-left: 20px; padding: 6px 0;
+            border-left: 2px solid #e2e8f0;
+        }
+        .subgroup-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 12px; font-size: 13px;
+        }
+        .subgroup-key {
+            font-family: monospace; font-weight: 600; color: #7c3aed;
+            min-width: 80px;
+        }
+        .subgroup-count { color: #718096; font-size: 12px; }
+        .subgroup-folder-input {
+            padding: 4px 8px; border: 1px solid #e2e8f0; border-radius: 4px;
+            font-size: 12px; font-family: inherit; width: 120px; color: #718096;
+        }
+
         /* Results / Status */
         .status-bar {
             padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
@@ -318,7 +360,7 @@
         <div class="header">
             <div class="header-left">
                 <h1>📂 File Sorter</h1>
-                <span class="badge">v0.2.1</span>
+                <span class="badge">v0.3.0</span>
             </div>
             <div style="display:flex;align-items:center;gap:12px;">
                 <a href="/file-sorter-help" class="back-link" target="_blank" title="Hilfe & Referenz öffnen">📖 Hilfe</a>
@@ -397,6 +439,51 @@
             </div>
         </div>
 
+        <div class="multilevel-toggle" id="multilevelPanel">
+            <label>
+                <input type="checkbox" id="multiLevelEnabled" onchange="toggleMultiLevel()">
+                Mehrstufig sortieren
+            </label>
+            <span class="ml-desc">Verschachtelte Unterordner (z.B. Prefix → Variante)</span>
+            <a href="/file-sorter-help?section=priority-system" target="_blank" class="info-btn info-btn-inline" data-tooltip="Wie funktioniert mehrstufige Sortierung?" style="opacity:0.5;pointer-events:auto;">ℹ</a>
+        </div>
+        <div id="sublevelContainer" style="display:none;">
+            <div class="panel" id="sublevelPanel">
+                <div class="panel-header" onclick="togglePanel('sublevelPanel')">
+                    <span class="panel-title">📐 Sub-Level Patterns <span id="sublevelCount" style="color:#718096;font-weight:400"></span></span>
+                    <span class="panel-toggle">▼</span>
+                </div>
+                <div class="panel-body">
+                    <div class="sublevel-list" id="sublevelList">
+                        <div class="sublevel-item">
+                            <span class="sl-name">Variante</span>
+                            <span class="sl-regex">_1_(result(?:_\d+)?)\.</span>
+                            <span style="font-size:11px;color:#a0aec0;">Capture: 1</span>
+                            <span class="sl-delete" onclick="removeSubLevel(0)">✕</span>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="toggleSubLevelForm()" style="margin-top:4px">+ Sub-Level hinzufügen</button>
+                    <div class="sublevel-form" id="sublevelForm">
+                        <div class="form-row">
+                            <div class="form-field">
+                                <input type="text" id="newSubLevelName" placeholder="Name (z.B. Variante)">
+                            </div>
+                            <div class="form-field">
+                                <input type="text" id="newSubLevelRegex" placeholder="Regex (z.B. _1_(result(?:_\d+)?)\.)">
+                            </div>
+                            <div class="form-field form-field-short">
+                                <input type="number" id="newSubLevelCapture" placeholder="Capture" value="1">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <button class="btn btn-primary" onclick="addSubLevel()">Hinzufügen</button>
+                            <button class="btn" onclick="toggleSubLevelForm()">Abbrechen</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="pattern-summary" id="patternSummary" style="display:none"></div>
         <div id="groupsContainer">
             <div class="empty-state"><div class="icon">📁</div><p>Wähle einen Ordner und klicke <strong>Analysieren</strong></p></div>
@@ -408,6 +495,9 @@
 var currentGroups = [];
 var currentFolder = '.';
 var expandedGroups = {};
+var subLevels = [
+    { name: "Variante", regex: "_1_(result(?:_\\d+)?)\\.", groupCapture: 1 }
+];
 
 function showStatus(text, type, showSpinner) {
     var bar = document.getElementById('statusBar');
@@ -423,6 +513,51 @@ async function api(url, method, body) {
     if (body) opts.body = JSON.stringify(body);
     var res = await fetch(url, opts);
     return await res.json();
+}
+
+// === MULTI-LEVEL ===
+function toggleMultiLevel() {
+    var enabled = document.getElementById('multiLevelEnabled').checked;
+    document.getElementById('sublevelContainer').style.display = enabled ? 'block' : 'none';
+}
+
+function renderSubLevels() {
+    var list = document.getElementById('sublevelList');
+    document.getElementById('sublevelCount').textContent = '(' + subLevels.length + ' Ebenen)';
+    if (subLevels.length === 0) {
+        list.innerHTML = '<div style="color:#a0aec0;font-size:13px;padding:8px;">Keine Sub-Levels definiert. Füge mindestens eines hinzu.</div>';
+        return;
+    }
+    list.innerHTML = subLevels.map(function(sl, i) {
+        return '<div class="sublevel-item">' +
+            '<span class="sl-name">' + sl.name + '</span>' +
+            '<span class="sl-regex">' + sl.regex + '</span>' +
+            '<span style="font-size:11px;color:#a0aec0;">Capture: ' + sl.groupCapture + '</span>' +
+            '<span class="sl-delete" onclick="removeSubLevel(' + i + ')">✕</span></div>';
+    }).join('');
+}
+
+function removeSubLevel(i) {
+    subLevels.splice(i, 1);
+    renderSubLevels();
+}
+
+function toggleSubLevelForm() {
+    document.getElementById('sublevelForm').classList.toggle('show');
+}
+
+function addSubLevel() {
+    var name = document.getElementById('newSubLevelName').value.trim();
+    var regex = document.getElementById('newSubLevelRegex').value.trim();
+    var capture = parseInt(document.getElementById('newSubLevelCapture').value) || 1;
+    if (!name || !regex) { showStatus('Name und Regex sind Pflicht', 'warning'); return; }
+    try { new RegExp(regex); } catch(e) { showStatus('Ungültiger Regex: ' + e.message, 'error'); return; }
+    subLevels.push({ name: name, regex: regex, groupCapture: capture });
+    document.getElementById('newSubLevelName').value = '';
+    document.getElementById('newSubLevelRegex').value = '';
+    toggleSubLevelForm();
+    renderSubLevels();
+    showStatus('Sub-Level "' + name + '" hinzugefügt', 'success');
 }
 
 // === FOLDERS ===
@@ -458,7 +593,12 @@ async function analyzeFiles() {
     document.getElementById('btnSort').disabled = true;
     expandedGroups = {};
     try {
-        var data = await api('/tools/analyze-files', 'POST', { folderPath: folder });
+        var body = { folderPath: folder };
+        var isMulti = document.getElementById('multiLevelEnabled').checked;
+        if (isMulti && subLevels.length > 0) {
+            body.subLevels = subLevels;
+        }
+        var data = await api('/tools/analyze-files', 'POST', body);
         if (!data.success) { showStatus('❌ ' + data.error, 'error'); return; }
         currentGroups = data.groups;
         currentFolder = folder;
@@ -525,10 +665,25 @@ function renderGroups(groups) {
                 '<button class="group-sel-btn" onclick="splitSelected(' + i + ')">✂️ Split</button> ' +
                 '<button class="group-sel-btn" onclick="moveSelectedToGroup(' + i + ')">📦 Verschieben</button>' +
             '</div>' +
+            (g.subGroups && g.subGroups.length > 0 ?
+                '<div class="subgroup-tree">' + renderSubGroupTree(g.subGroups, g.prefix) + '</div>' : '') +
             '<div class="group-actions">' +
                 '<button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup(\'' + g.prefix + '\')">🔗 Merge ganze Gruppe</button>' +
             '</div></div>';
     }).join('');
+}
+
+function renderSubGroupTree(subGroups, parentPath) {
+    if (!subGroups || subGroups.length === 0) return '';
+    return '<div class="subgroup-branch">' + subGroups.map(function(sg) {
+        var path = parentPath + '/' + sg.subKey;
+        var children = sg.subGroups && sg.subGroups.length > 0 ? renderSubGroupTree(sg.subGroups, path) : '';
+        return '<div class="subgroup-item">' +
+            '<span style="color:#a0aec0;">📁</span>' +
+            '<span class="subgroup-key">' + sg.subKey + '</span>' +
+            '<span class="subgroup-count">' + sg.fileCount + ' Dateien</span>' +
+            '</div>' + children;
+    }).join('') + '</div>';
 }
 
 function toggleGroup(i) { document.getElementById('group-' + i).classList.toggle('expanded'); }
@@ -728,6 +883,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadFolders();
     await loadPatterns();
     await checkUndo();
+    renderSubLevels();
 });
 </script>
 </body>

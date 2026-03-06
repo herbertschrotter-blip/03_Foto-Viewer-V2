@@ -18,7 +18,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
 
     Abhängigkeiten:
     - Lib_FileSorter.ps1 (Get-FileGroups, Invoke-FileSorting, etc.)
@@ -29,11 +29,13 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Session-Cache für Gruppen (zwischen Analyse und Sortierung)
+# Session-Cache fuer Gruppen (zwischen Analyse und Sortierung)
 $script:SorterSession = @{
     Groups     = $null
     FolderPath = $null
     Timestamp  = $null
+    MultiLevel = $false
+    SubLevels  = $null
 }
 
 
@@ -114,10 +116,26 @@ function Handle-SorterRoute {
 
                 $groups = Get-FileGroups -FolderPath $absolutePath -ScriptRoot $ScriptRoot -Extensions $extensions
 
-                # Session speichern (für spätere Manipulation + Sortierung)
+                # Multi-Level: Sub-Levels aus Body (optional)
+                $isMultiLevel = $false
+                if ($data.PSObject.Properties['subLevels'] -and $data.subLevels -and $data.subLevels.Count -gt 0) {
+                    $subLevels = @($data.subLevels | ForEach-Object {
+                        @{
+                            Regex        = [string]$_.regex
+                            GroupCapture = [int]($_.groupCapture ?? 1)
+                            Name         = [string]($_.name ?? "Ebene")
+                        }
+                    })
+                    $groups = Get-MultiLevelGroups -Groups $groups -SubLevels $subLevels
+                    $isMultiLevel = $true
+                }
+
+                # Session speichern (fuer spaetere Manipulation + Sortierung)
                 $script:SorterSession.Groups = $groups
                 $script:SorterSession.FolderPath = $absolutePath
                 $script:SorterSession.Timestamp = (Get-Date).ToString('o')
+                $script:SorterSession.MultiLevel = $isMultiLevel
+                $script:SorterSession.SubLevels = if ($isMultiLevel) { $subLevels } else { $null }
 
                 # Pattern-Info für Frontend
                 $patternSummary = @{}
@@ -134,9 +152,10 @@ function Handle-SorterRoute {
                     folderPath     = $absolutePath
                     totalGroups    = $groups.Count
                     totalFiles     = ($groups | Measure-Object -Property FileCount -Sum).Sum
+                    multiLevel     = $isMultiLevel
                     patternSummary = $patternSummary
                     groups         = @($groups | ForEach-Object {
-                        @{
+                        $groupData = @{
                             prefix             = $_.Prefix
                             patternName        = $_.PatternName
                             suggestedFolder    = $_.SuggestedFolder
@@ -146,6 +165,15 @@ function Handle-SorterRoute {
                             previewFiles       = $_.PreviewFiles
                             files              = $_.Files
                         }
+                        # Sub-Gruppen hinzufuegen wenn Multi-Level
+                        if ($_.PSObject.Properties['SubGroups'] -and $_.SubGroups) {
+                            $groupData.subGroups = @($_.SubGroups | ForEach-Object {
+                                Convert-SubGroupToResponse -SubGroup $_
+                            })
+                            $groupData.isMultiLevel = $true
+                            $groupData.levelCount = $_.LevelCount
+                        }
+                        $groupData
                     })
                 }
 
@@ -184,10 +212,19 @@ function Handle-SorterRoute {
                     $mappings[$_.Name] = $_.Value
                 }
 
-                $result = Invoke-FileSorting `
-                    -FolderPath $script:SorterSession.FolderPath `
-                    -GroupMappings $mappings `
-                    -Groups $script:SorterSession.Groups
+                # Einstufig oder mehrstufig sortieren
+                $result = if ($script:SorterSession.MultiLevel) {
+                    Invoke-MultiLevelSorting `
+                        -FolderPath $script:SorterSession.FolderPath `
+                        -Groups $script:SorterSession.Groups `
+                        -GroupMappings $mappings
+                }
+                else {
+                    Invoke-FileSorting `
+                        -FolderPath $script:SorterSession.FolderPath `
+                        -GroupMappings $mappings `
+                        -Groups $script:SorterSession.Groups
+                }
 
                 # Session leeren nach Sortierung
                 $script:SorterSession.Groups = $null
@@ -669,6 +706,32 @@ function Read-RequestBody {
     finally {
         $reader.Close()
     }
+}
+
+
+function Convert-SubGroupToResponse {
+    <# Rekursiver Helper: SubGroup-Objekt in JSON-faehige Hashtable #>
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory)]
+        [PSCustomObject]$SubGroup
+    )
+
+    $result = @{
+        subKey    = $SubGroup.SubKey
+        levelName = $SubGroup.LevelName
+        fileCount = $SubGroup.FileCount
+        files     = $SubGroup.Files
+    }
+
+    if ($SubGroup.SubGroups -and $SubGroup.SubGroups.Count -gt 0) {
+        $result.subGroups = @($SubGroup.SubGroups | ForEach-Object {
+            Convert-SubGroupToResponse -SubGroup $_
+        })
+    }
+
+    return $result
 }
 
 
