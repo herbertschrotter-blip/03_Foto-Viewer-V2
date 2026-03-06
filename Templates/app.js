@@ -263,7 +263,8 @@ function toggleFolder(header) {
             const shouldSelectAll = folderCheckbox && folderCheckbox.checked;
             
             files.forEach(function(file) {
-                const isVideo = /\.(mp4|mov|avi|mkv|webm|m4v|wmv|flv|mpg|mpeg|3gp)$/i.test(file);
+                const ext = file.substring(file.lastIndexOf('.')).toLowerCase();
+                const isVideo = window._lightboxVideoExts ? window._lightboxVideoExts.indexOf(ext) !== -1 : false;
                 const filePath = folderPath === '.' ? file : folderPath + '/' + file;
                 const imgUrl = '/img?path=' + encodeURIComponent(filePath);
                 const item = document.createElement('div');
@@ -831,6 +832,16 @@ async function triggerFolderThumbnailJob(card) {
 }
 
 initThumbSize();
+
+// Video-Extensions aus Config laden (für toggleFolder + Lightbox)
+fetch('/settings/get')
+    .then(function(r) { return r.json(); })
+    .then(function(cfg) {
+        window._lightboxVideoExts = cfg.Media.VideoExtensions.map(function(ext) {
+            return ext.toLowerCase();
+        });
+    })
+    .catch(function() { /* Config nicht verfügbar */ });
 
 // Lightbox Viewer
 var lightboxImages = [];
