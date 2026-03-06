@@ -959,6 +959,8 @@ function showLightboxImage() {
         // VIDEO — HLS-Konvertierung anfragen
         loadingText.textContent = '⏳ Konvertiere Video...';
         var videoUrl = '/video?path=' + encodeURIComponent(mediaPath);
+        var videoName = mediaPath.split('/').pop();
+        updateHLSStatus(videoName, 'converting');
         
         fetch(videoUrl)
             .then(function(resp) { return resp.json(); })
@@ -1001,6 +1003,7 @@ function showLightboxImage() {
                                             video.classList.add('loaded');
                                             video.style.display = 'block';
                                             video.play();
+                                            updateHLSStatus(videoName, 'ready');
                                         });
                                         
                                         hls.on(Hls.Events.ERROR, function(event, errData) {
@@ -1008,6 +1011,7 @@ function showLightboxImage() {
                                             if (errData.fatal) {
                                                 loading.classList.remove('show');
                                                 error.classList.add('show');
+                                                updateHLSStatus(videoName, 'error');
                                             }
                                         });
                                     }
@@ -1115,6 +1119,48 @@ var lightboxObserver = new MutationObserver(function(mutations) {
         }
     });
 });
+
+// ============================================
+// HLS Konvertierungs-Status Tracker
+// ============================================
+var hlsConversions = {};
+
+function updateHLSStatus(videoName, status) {
+    if (status === 'ready' || status === 'error') {
+        hlsConversions[videoName] = status;
+        setTimeout(function() {
+            delete hlsConversions[videoName];
+            renderHLSStatus();
+        }, 3000);
+    } else {
+        hlsConversions[videoName] = status;
+    }
+    renderHLSStatus();
+}
+
+function renderHLSStatus() {
+    var bar = document.getElementById('hlsStatusBar');
+    if (!bar) return;
+    var keys = Object.keys(hlsConversions);
+    
+    if (keys.length === 0) {
+        bar.classList.remove('show');
+        bar.innerHTML = '';
+        return;
+    }
+    
+    bar.classList.add('show');
+    bar.innerHTML = keys.map(function(name) {
+        var status = hlsConversions[name];
+        if (status === 'converting') {
+            return '<div class="status-item"><div class="status-spinner"></div> Konvertiere: ' + name + '</div>';
+        } else if (status === 'ready') {
+            return '<div class="status-item"><span class="status-done">✓</span> Fertig: ' + name + '</div>';
+        } else {
+            return '<div class="status-item"><span style="color:#f44336;">✗</span> Fehler: ' + name + '</div>';
+        }
+    }).join('');
+}
 
 lightboxObserver.observe(document.body, {
     childList: true,

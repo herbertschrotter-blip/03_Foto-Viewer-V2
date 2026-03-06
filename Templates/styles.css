@@ -912,6 +912,51 @@ h1 {
     display: none;
 }
 
+/* HLS Konvertierungs-Status Banner */
+#hlsStatusBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 8px 16px;
+    font-size: 12px;
+    z-index: 9000;
+    backdrop-filter: blur(8px);
+    display: none;
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+#hlsStatusBar.show {
+    display: block;
+}
+
+#hlsStatusBar .status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+#hlsStatusBar .status-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+#hlsStatusBar .status-done {
+    color: #4CAF50;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .lightbox-loading,
 .lightbox-error {
     display: none;
