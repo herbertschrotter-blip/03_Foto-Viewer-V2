@@ -99,9 +99,9 @@ function Get-SorterPatterns {
 
     $defaults = @(
         [PSCustomObject]@{
-            Name = "Prefix"; Regex = '^([a-zA-Z]\d{3})'; GroupCapture = 1
+            Name = "Prefix"; Regex = '^([a-zA-Z]{1,2}\d{2,3})'; GroupCapture = 1
             Priority = 10; Enabled = $true; BuiltIn = $true
-            Description = "Buchstabe + 3 Ziffern am Anfang (z.B. p006, w001)"
+            Description = "1-2 Buchstaben + 2-3 Ziffern (z.B. p006, pa09, pa170)"
         }
         [PSCustomObject]@{
             Name = "Datum_YYYY-MM-DD"; Regex = '(\d{4}-\d{2}-\d{2})'; GroupCapture = 1
@@ -384,9 +384,9 @@ function Export-FileNames {
 
     # Prefix-Voranalyse
     $prefixGroups = $allFiles | Group-Object {
-        if ($_.BaseName -match '^([a-zA-Z]\d{3})') { $Matches[1].ToLowerInvariant() } else { "_other" }
+                if ($_.BaseName -match '^([a-zA-Z]{1,2}\d{2,3})') { $Matches[1].ToLowerInvariant() } else { "_other" }
     } | Sort-Object Name
-    [void]$sb.AppendLine("PREFIX-ANALYSE (Buchstabe + 3 Ziffern):")
+    [void]$sb.AppendLine("PREFIX-ANALYSE (1-2 Buchstaben + 2-3 Ziffern):")
     foreach ($pg in $prefixGroups) { [void]$sb.AppendLine("  $($pg.Name): $($pg.Count) Dateien") }
     [void]$sb.AppendLine("")
 
