@@ -1348,3 +1348,11 @@ h1 {
 .action-bar-btn-recycle:hover {
     background: #ecfdf5;
 }
+
+.preview-size-small,
+.preview-size-medium,
+.preview-size-large {
+    min-width: 32px;
+    font-weight: 600;
+    font-size: 11px;
+}

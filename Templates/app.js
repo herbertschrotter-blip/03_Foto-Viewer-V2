@@ -838,6 +838,12 @@ function setThumbSize(size) {
     
     document.querySelector('.size-' + size).classList.add('active');
     
+    document.querySelectorAll('.preview-size-small, .preview-size-medium, .preview-size-large').forEach(function(btn) {
+        btn.classList.remove('active');
+    });
+    var previewBtn = document.querySelector('.preview-size-' + size);
+    if (previewBtn) previewBtn.classList.add('active');
+    
     var style = document.querySelector('style.dynamic-thumb-size');
     if (!style) {
         style = document.createElement('style');
@@ -1345,6 +1351,18 @@ function openFolderPreview() {
             var defaultMode = cfg.UI.FolderPreviewMode || 'folders';
             var videoExts = cfg.Media.VideoExtensions.map(function(e) { return e.toLowerCase(); });
             window._previewVideoExts = videoExts;
+            
+            var currentSize = document.querySelector('.size-btn.active');
+            if (currentSize) {
+                var sizeClass = currentSize.classList.contains('size-small') ? 'small' :
+                                currentSize.classList.contains('size-medium') ? 'medium' : 'large';
+                document.querySelectorAll('.preview-size-small, .preview-size-medium, .preview-size-large').forEach(function(btn) {
+                    btn.classList.remove('active');
+                });
+                var previewBtn = document.querySelector('.preview-size-' + sizeClass);
+                if (previewBtn) previewBtn.classList.add('active');
+            }
+            
             setPreviewMode(defaultMode);
         })
         .catch(function() {

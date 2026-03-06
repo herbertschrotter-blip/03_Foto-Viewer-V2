@@ -521,6 +521,11 @@
                     <button class="preview-toggle-btn active" id="previewModeFolders" onclick="setPreviewMode('folders')">📁 Ordner</button>
                     <button class="preview-toggle-btn" id="previewModeGrid" onclick="setPreviewMode('grid')">🖼️ Grid</button>
                 </div>
+                <div class="preview-toggle">
+                    <button class="preview-toggle-btn preview-size-small" onclick="setThumbSize('small')">S</button>
+                    <button class="preview-toggle-btn preview-size-medium" onclick="setThumbSize('medium')">M</button>
+                    <button class="preview-toggle-btn preview-size-large" onclick="setThumbSize('large')">L</button>
+                </div>
                 <div class="folder-preview-search">
                     <input type="text" id="previewSearchInput" class="search-input" placeholder="Filtern..." oninput="filterPreview(this.value)">
                 </div>
