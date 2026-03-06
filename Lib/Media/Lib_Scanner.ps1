@@ -12,7 +12,7 @@
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.1
+    Version: 0.3.2
     
     ÄNDERUNGEN v0.3.0:
     - PowerShell 7.0 ONLY
@@ -131,7 +131,17 @@ function Get-MediaFolders {
         
         # Ordner zählen für Progress (Root-Ordner selbst inkludieren!)
         Write-Verbose "Zähle Ordner..."
-        $subDirs = @(Get-ChildItem -LiteralPath $rootFull -Recurse -Directory -ErrorAction SilentlyContinue)
+        $excludeDirs = @($script:config.Paths.ThumbsFolder, $script:config.Paths.TempFolder, $script:config.Cache.CacheFolder)
+        $subDirs = @(Get-ChildItem -LiteralPath $rootFull -Recurse -Directory -ErrorAction SilentlyContinue |
+            Where-Object {
+                $dirName = $_.Name
+                $skip = $false
+                foreach ($ex in $excludeDirs) {
+                    if ($dirName -eq $ex) { $skip = $true; break }
+                    if ($_.FullName -match ([regex]::Escape($ex) + '[\\/]')) { $skip = $true; break }
+                }
+                -not $skip
+            })
         $allDirs = @([System.IO.DirectoryInfo]::new($rootFull)) + $subDirs
         $totalDirs = $allDirs.Count
         Write-Verbose "Scanne $totalDirs Ordner..."
