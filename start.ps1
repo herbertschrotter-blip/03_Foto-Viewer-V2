@@ -367,6 +367,18 @@ try {
                 continue
             }
             
+            # Route: /file-sorter-help (Hilfe-Seite)
+            if ($path -eq "/file-sorter-help" -and $req.HttpMethod -eq "GET") {
+                $helpHtmlPath = Join-Path $ScriptRoot "Templates\file-sorter-help.html"
+                if (Test-Path -LiteralPath $helpHtmlPath) {
+                    $helpHtml = Get-Content -LiteralPath $helpHtmlPath -Raw -Encoding UTF8
+                    Send-ResponseHtml -Response $res -Html $helpHtml
+                } else {
+                    Send-ResponseText -Response $res -Text "file-sorter-help.html nicht gefunden" -StatusCode 404
+                }
+                continue
+            }
+            
             # Route: /changeroot
             if ($path -eq "/changeroot" -and $req.HttpMethod -eq "POST") {
                 $newRoot = Show-FolderDialog -Title "Neuen Root-Ordner wählen" -InitialDirectory $script:State.RootPath

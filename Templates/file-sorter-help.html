@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Sorter Hilfe — PhotoFolder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f7fafc;
+            min-height: 100vh;
+            color: #2d3748;
+            line-height: 1.7;
+        }
+
+        /* === LAYOUT === */
+        .help-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* === SIDEBAR NAV === */
+        .help-sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        .help-sidebar-header {
+            padding: 0 20px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+        }
+        .help-sidebar-header h2 {
+            font-size: 16px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .help-sidebar-header .back-link {
+            display: block;
+            margin-top: 8px;
+            color: #718096;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .help-sidebar-header .back-link:hover { color: #667eea; }
+
+        .nav-section {
+            padding: 8px 20px 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #a0aec0;
+        }
+        .nav-link {
+            display: block;
+            padding: 6px 20px 6px 28px;
+            color: #4a5568;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.15s;
+            border-left: 3px solid transparent;
+        }
+        .nav-link:hover {
+            background: #f7fafc;
+            color: #667eea;
+            border-left-color: #e2e8f0;
+        }
+        .nav-link.active {
+            background: #eff6ff;
+            color: #667eea;
+            font-weight: 600;
+            border-left-color: #667eea;
+        }
+
+        /* === MAIN CONTENT === */
+        .help-content {
+            flex: 1;
+            margin-left: 260px;
+            padding: 32px 48px 80px;
+            max-width: 900px;
+        }
+
+        .help-content h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: #1a202c;
+        }
+        .help-content .subtitle {
+            font-size: 15px;
+            color: #718096;
+            margin-bottom: 32px;
+        }
+
+        /* Sections */
+        .help-section {
+            margin-bottom: 48px;
+            scroll-margin-top: 24px;
+        }
+        .help-section h2 {
+            font-size: 22px;
+            color: #2d3748;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .help-section h3 {
+            font-size: 16px;
+            color: #4a5568;
+            margin: 20px 0 10px;
+        }
+        .help-section p {
+            margin-bottom: 12px;
+            color: #4a5568;
+        }
+
+        /* Code / Regex Blocks */
+        code {
+            background: #edf2f7;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+            color: #5a3e8e;
+        }
+        .code-block {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 16px 20px;
+            border-radius: 8px;
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 12px 0 16px;
+            line-height: 1.6;
+        }
+        .code-block .comment { color: #718096; }
+        .code-block .highlight { color: #f6e05e; font-weight: 600; }
+        .code-block .match { color: #68d391; }
+        .code-block .group { color: #63b3ed; }
+
+        /* Regex Reference Table */
+        .regex-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 20px;
+            font-size: 14px;
+        }
+        .regex-table th {
+            background: #667eea;
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .regex-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+        .regex-table tr:hover { background: #f7fafc; }
+        .regex-table .sym {
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 15px;
+            color: #5a3e8e;
+            font-weight: 600;
+            white-space: nowrap;
+            background: #edf2f7;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* Example Cards */
+        .example-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin: 12px 0 16px;
+        }
+        .example-card-title {
+            font-weight: 700;
+            font-size: 14px;
+            color: #667eea;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .example-card .file-list {
+            font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            color: #4a5568;
+            line-height: 1.8;
+        }
+        .example-card .file-list .matched {
+            background: #c6f6d5;
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: #22543d;
+        }
+        .example-card .file-list .group-val {
+            background: #bee3f8;
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: #2a4365;
+            font-weight: 600;
+        }
+        .example-card .arrow { color: #a0aec0; margin: 0 6px; }
+
+        /* Info Boxes */
+        .info-box {
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin: 12px 0 16px;
+            font-size: 14px;
+        }
+        .info-box.tip {
+            background: #eff6ff;
+            border-left: 4px solid #667eea;
+            color: #1e40af;
+        }
+        .info-box.warning {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+        .info-box.success {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            color: #166534;
+        }
+        .info-box strong { font-weight: 700; }
+
+        /* Field Reference Cards */
+        .field-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin: 16px 0;
+            overflow: hidden;
+        }
+        .field-card-header {
+            background: #f7fafc;
+            padding: 12px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .field-card-header .field-name {
+            font-weight: 700;
+            font-size: 15px;
+            color: #2d3748;
+        }
+        .field-card-header .field-type {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #e0e7ff;
+            color: #4338ca;
+            font-weight: 600;
+        }
+        .field-card-header .field-required {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #fef2f2;
+            color: #991b1b;
+            font-weight: 600;
+        }
+        .field-card-header .field-optional {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #f0fdf4;
+            color: #166534;
+            font-weight: 600;
+        }
+        .field-card-body {
+            padding: 16px 20px;
+        }
+        .field-card-body p { margin-bottom: 8px; font-size: 14px; }
+
+        /* Workflow Steps */
+        .workflow-steps {
+            counter-reset: step;
+            margin: 16px 0;
+        }
+        .workflow-step {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            align-items: flex-start;
+        }
+        .workflow-step::before {
+            counter-increment: step;
+            content: counter(step);
+            background: #667eea;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .workflow-step-content {
+            flex: 1;
+            padding-top: 4px;
+        }
+        .workflow-step-content strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #2d3748;
+        }
+        .workflow-step-content p {
+            font-size: 14px;
+            color: #718096;
+            margin-bottom: 0;
+        }
+
+        /* Priority Visualization */
+        .priority-bar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin: 8px 0;
+        }
+        .priority-segment {
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .help-sidebar { display: none; }
+            .help-content { margin-left: 0; padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="help-layout">
+
+        <!-- SIDEBAR NAVIGATION -->
+        <nav class="help-sidebar">
+            <div class="help-sidebar-header">
+                <h2>📖 File Sorter Hilfe</h2>
+                <a href="/file-sorter" class="back-link">← Zurück zum File Sorter</a>
+            </div>
+
+            <div class="nav-section">Einführung</div>
+            <a href="#overview" class="nav-link">Was ist die Pattern-Engine?</a>
+            <a href="#workflow" class="nav-link">Workflow</a>
+
+            <div class="nav-section">Regex lernen</div>
+            <a href="#regex-basics" class="nav-link">Regex-Grundlagen</a>
+            <a href="#regex-chars" class="nav-link">Zeichen-Referenz</a>
+            <a href="#regex-quantifiers" class="nav-link">Quantifizierer</a>
+            <a href="#regex-groups" class="nav-link">Gruppen &amp; Capture</a>
+            <a href="#regex-anchors" class="nav-link">Anker &amp; Grenzen</a>
+            <a href="#regex-classes" class="nav-link">Zeichenklassen</a>
+
+            <div class="nav-section">Felder-Referenz</div>
+            <a href="#field-name" class="nav-link">Name</a>
+            <a href="#field-regex" class="nav-link">Regex</a>
+            <a href="#field-capture" class="nav-link">Capture-Group</a>
+            <a href="#field-priority" class="nav-link">Priorität</a>
+            <a href="#field-description" class="nav-link">Beschreibung</a>
+
+            <div class="nav-section">Patterns</div>
+            <a href="#builtin-patterns" class="nav-link">Built-in Patterns</a>
+            <a href="#custom-patterns" class="nav-link">Custom Patterns erstellen</a>
+            <a href="#priority-system" class="nav-link">Prioritäts-System</a>
+
+            <div class="nav-section">Praxis</div>
+            <a href="#examples" class="nav-link">Praxis-Beispiele</a>
+            <a href="#tips" class="nav-link">Tipps &amp; Tricks</a>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main class="help-content">
+
+            <h1>📖 File Sorter — Hilfe &amp; Referenz</h1>
+            <p class="subtitle">Alles über die Pattern-Engine, Regex-Syntax und wie du deine Dateien automatisch sortierst.</p>
+
+
+            <!-- ============================== -->
+            <!-- OVERVIEW -->
+            <!-- ============================== -->
+            <section class="help-section" id="overview">
+                <h2>🎯 Was ist die Pattern-Engine?</h2>
+
+                <p>Die Pattern-Engine erkennt <strong>Muster in Dateinamen</strong> und gruppiert Dateien automatisch. Statt hunderte Dateien einzeln zu sortieren, analysiert die Engine Gemeinsamkeiten und schlägt Ordner-Strukturen vor.</p>
+
+                <div class="example-card">
+                    <div class="example-card-title">💡 Beispiel</div>
+                    <div class="file-list">
+                        <span class="matched">p006</span>_0042.jpg <span class="arrow">→</span> Gruppe <span class="group-val">p006</span><br>
+                        <span class="matched">p006</span>_0043.jpg <span class="arrow">→</span> Gruppe <span class="group-val">p006</span><br>
+                        <span class="matched">p020</span>_0001.jpg <span class="arrow">→</span> Gruppe <span class="group-val">p020</span><br>
+                        <span class="matched">2024-08-15</span>_Urlaub.jpg <span class="arrow">→</span> Gruppe <span class="group-val">2024-08-15</span><br>
+                    </div>
+                </div>
+
+                <p>Die Engine nutzt <strong>Reguläre Ausdrücke (Regex)</strong>, um den „gruppenbildenden" Teil eines Dateinamens zu extrahieren. Du musst kein Regex-Experte sein — die Built-in Patterns decken die häufigsten Fälle ab. Für Spezialfälle kannst du eigene Patterns erstellen.</p>
+
+                <div class="info-box tip">
+                    <strong>💡 Tipp:</strong> Wenn du dir unsicher bist, nutze einfach die Built-in Patterns und klicke „Analysieren". Du siehst sofort, wie die Dateien gruppiert werden und kannst dann anpassen.
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- WORKFLOW -->
+            <!-- ============================== -->
+            <section class="help-section" id="workflow">
+                <h2>🔄 Workflow</h2>
+
+                <p>So funktioniert der File Sorter Schritt für Schritt:</p>
+
+                <div class="workflow-steps">
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Ordner wählen</strong>
+                            <p>Wähle im Dropdown den Ordner aus, dessen Dateien du sortieren möchtest.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Patterns prüfen (optional)</strong>
+                            <p>Öffne das Pattern-Panel (⚙️), um aktive Patterns zu sehen. Du kannst Patterns aktivieren, deaktivieren oder eigene hinzufügen.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Analysieren</strong>
+                            <p>Klicke 🔍 <strong>Analysieren</strong>. Die Engine prüft jeden Dateinamen gegen alle aktiven Patterns (nach Priorität) und gruppiert die Treffer.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Ergebnis prüfen &amp; anpassen</strong>
+                            <p>Prüfe die Gruppen. Du kannst: Ordnernamen ändern, einzelne Dateien per Checkbox umgruppieren (✂️ Split / 📦 Verschieben), Gruppen zusammenführen (🔗 Merge), oder ganze Gruppen per Checkbox abwählen.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Sortieren</strong>
+                            <p>Klicke ✅ <strong>Ausgewählte sortieren</strong>. Für jede aktivierte Gruppe wird ein Unterordner erstellt und die Dateien hineinverschoben.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Rückgängig (bei Bedarf)</strong>
+                            <p>Nicht zufrieden? Klicke ↩️ <strong>Rückgängig</strong>. Alle Dateien werden zurückverschoben und die leeren Ordner entfernt.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- REGEX BASICS -->
+            <!-- ============================== -->
+            <section class="help-section" id="regex-basics">
+                <h2>🔤 Regex-Grundlagen</h2>
+
+                <p><strong>Reguläre Ausdrücke (Regex)</strong> sind Suchmuster für Text. Stell dir vor, du könntest in einem Dateinamen sagen: „Finde am Anfang 1-2 Buchstaben gefolgt von 2-3 Ziffern". Genau das macht Regex.</p>
+
+                <h3>Einfache Zeichen</h3>
+                <p>Normale Buchstaben und Zahlen stehen für sich selbst:</p>
+
+                <div class="code-block">
+                    <span class="comment"># Regex: IMG</span><br>
+                    <span class="match">IMG</span>_1234.jpg     ✅ Match<br>
+                    DSC_1234.jpg     ❌ Kein Match<br>
+                    <span class="match">IMG</span>_5678.png     ✅ Match
+                </div>
+
+                <h3>Spezielle Zeichen (Metazeichen)</h3>
+                <p>Einige Zeichen haben in Regex eine Sonderbedeutung. Das sind die „Bausteine", mit denen du flexible Muster baust. Die folgende Tabelle zeigt <strong>alle wichtigen Zeichen</strong>, die du brauchst.</p>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- REGEX CHARS REFERENCE -->
+            <!-- ============================== -->
+            <section class="help-section" id="regex-chars">
+                <h2>📋 Zeichen-Referenz</h2>
+
+                <table class="regex-table">
+                    <thead>
+                        <tr>
+                            <th>Zeichen</th>
+                            <th>Bedeutung</th>
+                            <th>Beispiel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="sym">.</span></td>
+                            <td><strong>Beliebiges Zeichen</strong> — steht für genau ein beliebiges Zeichen (außer Zeilenumbruch)</td>
+                            <td><code>a.c</code> matcht <code>abc</code>, <code>a1c</code>, <code>a-c</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\d</span></td>
+                            <td><strong>Eine Ziffer</strong> — entspricht [0-9]</td>
+                            <td><code>\d\d\d</code> matcht <code>123</code>, <code>007</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\D</span></td>
+                            <td><strong>Keine Ziffer</strong> — alles außer 0-9</td>
+                            <td><code>\D\D</code> matcht <code>AB</code>, <code>--</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\w</span></td>
+                            <td><strong>Wort-Zeichen</strong> — Buchstabe, Ziffer oder Unterstrich [a-zA-Z0-9_]</td>
+                            <td><code>\w+</code> matcht <code>IMG_01</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\W</span></td>
+                            <td><strong>Kein Wort-Zeichen</strong> — alles außer \w</td>
+                            <td><code>\W</code> matcht <code>-</code>, <code> </code>, <code>.</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\s</span></td>
+                            <td><strong>Leerzeichen</strong> — Space, Tab, Zeilenumbruch</td>
+                            <td><code>a\sb</code> matcht <code>a b</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\.</span></td>
+                            <td><strong>Wörtlicher Punkt</strong> — der Backslash „escaped" das Sonderzeichen</td>
+                            <td><code>v1\.0</code> matcht <code>v1.0</code> aber nicht <code>v1X0</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\\</span></td>
+                            <td><strong>Wörtlicher Backslash</strong></td>
+                            <td><code>C:\\Fotos</code> matcht <code>C:\Fotos</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">|</span></td>
+                            <td><strong>Oder</strong> — Alternative zwischen zwei Möglichkeiten</td>
+                            <td><code>IMG|DSC</code> matcht <code>IMG</code> oder <code>DSC</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="info-box tip">
+                    <strong>💡 Escape-Regel:</strong> Wenn du ein Sonderzeichen (<code>. * + ? ^ $ { } [ ] ( ) | \</code>) wörtlich suchen willst, setze einen <code>\</code> davor. Beispiel: <code>\.</code> sucht nach einem echten Punkt.
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- REGEX QUANTIFIERS -->
+            <!-- ============================== -->
+            <section class="help-section" id="regex-quantifiers">
+                <h2>🔢 Quantifizierer (Wie oft?)</h2>
+
+                <p>Quantifizierer stehen <strong>hinter</strong> einem Zeichen oder einer Gruppe und bestimmen, wie oft es vorkommen darf:</p>
+
+                <table class="regex-table">
+                    <thead>
+                        <tr>
+                            <th>Zeichen</th>
+                            <th>Bedeutung</th>
+                            <th>Beispiel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="sym">*</span></td>
+                            <td><strong>0 oder mehr</strong> — beliebig oft (auch gar nicht)</td>
+                            <td><code>ab*c</code> matcht <code>ac</code>, <code>abc</code>, <code>abbc</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">+</span></td>
+                            <td><strong>1 oder mehr</strong> — mindestens einmal</td>
+                            <td><code>ab+c</code> matcht <code>abc</code>, <code>abbc</code>, aber nicht <code>ac</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">?</span></td>
+                            <td><strong>0 oder 1</strong> — optional (einmal oder gar nicht)</td>
+                            <td><code>colou?r</code> matcht <code>color</code> und <code>colour</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">{n}</span></td>
+                            <td><strong>Genau n-mal</strong></td>
+                            <td><code>\d{4}</code> matcht genau 4 Ziffern: <code>2024</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">{n,}</span></td>
+                            <td><strong>Mindestens n-mal</strong></td>
+                            <td><code>\d{2,}</code> matcht 2 oder mehr Ziffern: <code>12</code>, <code>123</code>, <code>1234</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">{n,m}</span></td>
+                            <td><strong>Zwischen n und m-mal</strong></td>
+                            <td><code>\d{2,3}</code> matcht 2-3 Ziffern: <code>12</code>, <code>123</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="example-card">
+                    <div class="example-card-title">📝 Praxis: „1-2 Buchstaben + 2-3 Ziffern"</div>
+                    <div class="code-block">
+                        <span class="comment"># Regex: [a-zA-Z]{1,2}\d{2,3}</span><br><br>
+                        <span class="match">p006</span>_0042.jpg    ✅ "p" + "006"<br>
+                        <span class="match">AB12</span>_test.jpg    ✅ "AB" + "12"<br>
+                        <span class="match">x99</span>_foto.jpg     ✅ "x" + "99"<br>
+                        ABC1234_test.jpg  ❌ 3 Buchstaben = zu viele
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- REGEX GROUPS -->
+            <!-- ============================== -->
+            <section class="help-section" id="regex-groups">
+                <h2>📦 Gruppen &amp; Capture</h2>
+
+                <p>Klammern <code>( )</code> bilden eine <strong>Capture-Gruppe</strong>. Das ist der Teil des Dateinamens, der als Gruppenname extrahiert wird.</p>
+
+                <div class="code-block">
+                    <span class="comment"># Regex: ^(<span class="group">[a-zA-Z]{1,2}\d{2,3}</span>)</span><br>
+                    <span class="comment">#          ↑ Capture-Gruppe 1 ↑</span><br><br>
+                    <span class="comment"># Dateiname: p006_0042.jpg</span><br>
+                    <span class="comment"># Gesamter Match: p006</span><br>
+                    <span class="comment"># Gruppe 1: <span class="group">p006</span>  ← Das wird der Gruppen-Name!</span>
+                </div>
+
+                <h3>Mehrere Gruppen</h3>
+                <p>Ein Regex kann mehrere Gruppen enthalten. Die Nummer der Gruppe zählt von links nach rechts:</p>
+
+                <div class="code-block">
+                    <span class="comment"># Regex: ^(<span class="group">IMG</span>)_(<span class="highlight">(\d{4})-(\d{2})-(\d{2})</span>)</span><br>
+                    <span class="comment">#         ↑G1↑  ↑──── G2 ────↑↑G3↑  ↑G4↑  ↑G5↑</span><br><br>
+                    <span class="comment"># Dateiname: IMG_2024-08-15_Urlaub.jpg</span><br>
+                    <span class="comment"># Gruppe 1: IMG</span><br>
+                    <span class="comment"># Gruppe 2: <span class="highlight">2024-08-15</span>  ← Oft die nützlichste!</span><br>
+                    <span class="comment"># Gruppe 3: 2024</span><br>
+                    <span class="comment"># Gruppe 4: 08</span><br>
+                    <span class="comment"># Gruppe 5: 15</span>
+                </div>
+
+                <p>Das Feld <strong>Capture-Group</strong> im Pattern bestimmt, welche Gruppe als Ordnername verwendet wird. Im Beispiel oben: Capture-Group = <code>2</code> ergibt Ordner <code>2024-08-15</code>.</p>
+
+                <div class="info-box tip">
+                    <strong>💡 Faustregel:</strong> Setze Klammern um den Teil, der zum Ordnernamen werden soll. Meistens ist das Capture-Group <code>1</code>.
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- REGEX ANCHORS -->
+            <!-- ============================== -->
+            <section class="help-section" id="regex-anchors">
+                <h2>⚓ Anker &amp; Grenzen</h2>
+
+                <p>Anker bestimmen <strong>wo</strong> im Text das Muster stehen muss:</p>
+
+                <table class="regex-table">
+                    <thead>
+                        <tr>
+                            <th>Zeichen</th>
+                            <th>Bedeutung</th>
+                            <th>Beispiel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="sym">^</span></td>
+                            <td><strong>Anfang</strong> — Muster muss am Anfang des Textes stehen</td>
+                            <td><code>^IMG</code> matcht <code>IMG_001.jpg</code> aber nicht <code>old_IMG_001.jpg</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">$</span></td>
+                            <td><strong>Ende</strong> — Muster muss am Ende des Textes stehen</td>
+                            <td><code>\.jpg$</code> matcht Dateien die auf <code>.jpg</code> enden</td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">\b</span></td>
+                            <td><strong>Wortgrenze</strong> — Übergang zwischen Wort-Zeichen und Nicht-Wort-Zeichen</td>
+                            <td><code>\bIMG\b</code> matcht <code>IMG</code> als ganzes Wort, nicht in <code>SIMG</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="info-box warning">
+                    <strong>⚠️ Wichtig für File Sorter:</strong> Die Built-in Patterns nutzen <code>^</code> (Anfangs-Anker), damit nur der <strong>Anfang</strong> des Dateinamens geprüft wird. Das ist fast immer gewünscht — Dateinamen beginnen typischerweise mit dem Präfix (z.B. <code>p006_</code>, <code>IMG_</code>, <code>2024-08-15_</code>).
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- REGEX CLASSES -->
+            <!-- ============================== -->
+            <section class="help-section" id="regex-classes">
+                <h2>🎭 Zeichenklassen</h2>
+
+                <p>Eckige Klammern <code>[ ]</code> definieren eine <strong>Auswahl erlaubter Zeichen</strong> für eine Position:</p>
+
+                <table class="regex-table">
+                    <thead>
+                        <tr>
+                            <th>Zeichen</th>
+                            <th>Bedeutung</th>
+                            <th>Beispiel</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="sym">[abc]</span></td>
+                            <td><strong>Eines von a, b oder c</strong></td>
+                            <td><code>[abc]</code> matcht <code>a</code> oder <code>b</code> oder <code>c</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">[a-z]</span></td>
+                            <td><strong>Bereich</strong> — alle Kleinbuchstaben</td>
+                            <td><code>[a-z]+</code> matcht <code>img</code>, <code>dsc</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">[A-Z]</span></td>
+                            <td><strong>Großbuchstaben</strong></td>
+                            <td><code>[A-Z]{3}</code> matcht <code>IMG</code>, <code>DSC</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">[0-9]</span></td>
+                            <td><strong>Ziffern</strong> — identisch mit <code>\d</code></td>
+                            <td><code>[0-9]{4}</code> matcht <code>2024</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">[a-zA-Z]</span></td>
+                            <td><strong>Alle Buchstaben</strong> (klein + groß)</td>
+                            <td><code>[a-zA-Z]+</code> matcht <code>IMG</code>, <code>foto</code></td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">[^abc]</span></td>
+                            <td><strong>Negation</strong> — alles <em>außer</em> a, b, c</td>
+                            <td><code>[^0-9]</code> matcht alles außer Ziffern</td>
+                        </tr>
+                        <tr>
+                            <td><span class="sym">[._-]</span></td>
+                            <td><strong>Spezialzeichen in Klasse</strong> — die meisten Sonderzeichen brauchen in <code>[]</code> kein Escaping</td>
+                            <td><code>[._-]</code> matcht <code>.</code>, <code>_</code> oder <code>-</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="example-card">
+                    <div class="example-card-title">📝 Kombination: Kamera-Prefix</div>
+                    <div class="code-block">
+                        <span class="comment"># Regex: ^([A-Z]{2,4})[_-]</span><br>
+                        <span class="comment"># Bedeutung: Am Anfang, 2-4 Großbuchstaben, dann _ oder -</span><br><br>
+                        <span class="match">IMG</span>_1234.jpg    ✅ Gruppe 1: "IMG"<br>
+                        <span class="match">DSC</span>-5678.jpg    ✅ Gruppe 1: "DSC"<br>
+                        <span class="match">DSCF</span>_9999.jpg   ✅ Gruppe 1: "DSCF"<br>
+                        foto_001.jpg      ❌ Kleinbuchstaben
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- FIELD: NAME -->
+            <!-- ============================== -->
+            <section class="help-section" id="field-name">
+                <h2>📋 Felder-Referenz</h2>
+
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Name</span>
+                        <span class="field-type">Text</span>
+                        <span class="field-required">Pflichtfeld</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p>Ein <strong>eindeutiger, beschreibender Name</strong> für dein Pattern. Wird im Pattern-Panel und in der Analyse-Zusammenfassung angezeigt.</p>
+                        <p><strong>Regeln:</strong></p>
+                        <p>— Muss eindeutig sein (kein anderes Pattern darf den gleichen Namen haben)<br>
+                           — Sollte das Muster beschreiben, z.B. „Kamera-Prefix", „Datum_YYYYMMDD", „WhatsApp-Format"<br>
+                           — Keine Sonderzeichen-Einschränkung, aber kurze, sprechende Namen sind ideal</p>
+                        <p><strong>Gute Beispiele:</strong> <code>IMG_Datum</code>, <code>Kamera-Prefix</code>, <code>Serien-Nr</code>, <code>WhatsApp-Foto</code></p>
+                        <p><strong>Schlechte Beispiele:</strong> <code>test</code>, <code>pattern1</code>, <code>abc</code></p>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- FIELD: REGEX -->
+            <!-- ============================== -->
+            <section class="help-section" id="field-regex">
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Regex</span>
+                        <span class="field-type">Regulärer Ausdruck</span>
+                        <span class="field-required">Pflichtfeld</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p>Der <strong>Reguläre Ausdruck</strong>, der auf den Dateinamen (ohne Extension) angewendet wird.</p>
+                        <p><strong>Wichtig:</strong></p>
+                        <p>— Das Pattern wird auf den Dateinamen <strong>ohne Dateiendung</strong> angewendet. Bei <code>p006_0042.jpg</code> wird <code>p006_0042</code> geprüft.<br>
+                           — Nutze <code>^</code> am Anfang, damit das Pattern nur am Anfang des Namens greift.<br>
+                           — Setze <strong>mindestens eine Capture-Gruppe <code>( )</code></strong> um den Teil, der als Gruppenname extrahiert werden soll.<br>
+                           — Das Pattern muss gültige Regex-Syntax sein, sonst wird es abgelehnt.</p>
+                        <p><strong>Validierung:</strong> Beim Hinzufügen wird geprüft, ob der Regex kompilierbar ist. Ungültige Syntax wird mit Fehlermeldung abgelehnt.</p>
+
+                        <div class="code-block">
+                            <span class="comment"># Beispiel-Patterns:</span><br>
+                            ^(<span class="group">[a-zA-Z]{1,2}\d{2,3}</span>)           <span class="comment"># Prefix wie p006, AB12</span><br>
+                            ^(<span class="group">\d{4}-\d{2}-\d{2}</span>)               <span class="comment"># Datum 2024-08-15</span><br>
+                            ^(<span class="group">\d{8}</span>)                           <span class="comment"># Datum 20240815</span><br>
+                            ^(<span class="group">IMG|DSC|DSCF|VID</span>)[_-]            <span class="comment"># Kamera-Typ</span><br>
+                            ^(<span class="group">WhatsApp Image \d{4}-\d{2}-\d{2}</span>) <span class="comment"># WhatsApp</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- FIELD: CAPTURE GROUP -->
+            <!-- ============================== -->
+            <section class="help-section" id="field-capture">
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Capture-Group</span>
+                        <span class="field-type">Zahl</span>
+                        <span class="field-optional">Optional (Standard: 1)</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p>Welche <strong>Klammer-Gruppe</strong> aus dem Regex als Gruppenname verwendet wird.</p>
+                        <p><strong>Standard: <code>1</code></strong> — die erste Klammer. Das passt in 95% der Fälle.</p>
+                        <p><strong>Wann ändern?</strong> Nur wenn dein Regex mehrere Gruppen hat und du eine innere Gruppe brauchst:</p>
+
+                        <div class="code-block">
+                            <span class="comment"># Regex: ^(IMG)_(\d{4}-\d{2}-\d{2})</span><br>
+                            <span class="comment">#         ↑G1↑   ↑──── G2 ────↑</span><br><br>
+                            <span class="comment"># Capture-Group = 1 → Gruppenname: "IMG"</span><br>
+                            <span class="comment"># Capture-Group = 2 → Gruppenname: "2024-08-15"  ← Meistens nützlicher!</span>
+                        </div>
+
+                        <div class="info-box tip">
+                            <strong>💡 Tipp:</strong> Wenn du unsicher bist, lass es auf <code>1</code> stehen. Du kannst nach der Analyse sehen, wie die Gruppen benannt werden, und dann anpassen.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- FIELD: PRIORITY -->
+            <!-- ============================== -->
+            <section class="help-section" id="field-priority">
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Priorität</span>
+                        <span class="field-type">Zahl</span>
+                        <span class="field-optional">Optional (Standard: 50)</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p>Bestimmt die <strong>Reihenfolge</strong>, in der Patterns geprüft werden. <strong>Niedrigere Zahl = höhere Priorität</strong> (wird zuerst geprüft).</p>
+                        <p>Sobald ein Pattern auf einen Dateinamen passt, werden <strong>keine weiteren Patterns</strong> für diese Datei geprüft. Das erste passende Pattern gewinnt.</p>
+
+                        <div class="priority-bar">
+                            <div class="priority-segment" style="flex:1;background:#059669;">P10 – Prefix</div>
+                            <div class="priority-segment" style="flex:1;background:#2563eb;">P20 – Datum YYYY</div>
+                            <div class="priority-segment" style="flex:1;background:#7c3aed;">P30 – Datum YYYYMMDD</div>
+                            <div class="priority-segment" style="flex:1.5;background:#9ca3af;">P50 – Custom</div>
+                        </div>
+
+                        <p><strong>Built-in Prioritäten:</strong></p>
+                        <p>— <code>10</code> = Prefix-Pattern (z.B. p006, AB12) — prüft zuerst<br>
+                           — <code>20</code> = Datum mit Bindestrichen (2024-08-15)<br>
+                           — <code>30</code> = Datum kompakt (20240815)</p>
+                        <p><strong>Empfehlung für Custom Patterns:</strong></p>
+                        <p>— <code>5</code> = Vor allen Built-ins (wenn dein Pattern Vorrang haben soll)<br>
+                           — <code>15</code> = Zwischen Prefix und Datum<br>
+                           — <code>50</code> = Standard (nach allen Built-ins)<br>
+                           — <code>100</code> = Catch-All (als letzter Versuch)</p>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- FIELD: DESCRIPTION -->
+            <!-- ============================== -->
+            <section class="help-section" id="field-description">
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Beschreibung</span>
+                        <span class="field-type">Text</span>
+                        <span class="field-optional">Optional</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p>Ein <strong>kurzer Hilfetext</strong>, der im Pattern-Panel unter dem Regex angezeigt wird. Hilft dir (und anderen) zu verstehen, wofür das Pattern gedacht ist.</p>
+                        <p><strong>Gute Beispiele:</strong></p>
+                        <p>— <code>Dateinamen wie p006_0042, AB12_test</code><br>
+                           — <code>WhatsApp-Fotos mit Datums-Prefix</code><br>
+                           — <code>Fujifilm DSCF-Nummern</code></p>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- BUILT-IN PATTERNS -->
+            <!-- ============================== -->
+            <section class="help-section" id="builtin-patterns">
+                <h2>🔧 Built-in Patterns</h2>
+
+                <p>Der File Sorter kommt mit <strong>3 vordefinierten Patterns</strong>, die die häufigsten Dateinamen-Formate abdecken:</p>
+
+                <!-- Pattern 1: Prefix -->
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Prefix</span>
+                        <span class="field-type">Priorität 10</span>
+                        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#e0e7ff;color:#4338ca;font-weight:600;">Built-in</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p><strong>Regex:</strong> <code>^([a-zA-Z]{1,2}\d{2,3})</code></p>
+                        <p><strong>Erkennt:</strong> 1-2 Buchstaben gefolgt von 2-3 Ziffern am Anfang des Dateinamens.</p>
+                        <p><strong>Typisch für:</strong> Professionelle Fotografie-Software, die Serien-Codes vergibt (z.B. Capture One, Phase One).</p>
+                        <div class="example-card">
+                            <div class="example-card-title">Beispiel-Dateien</div>
+                            <div class="file-list">
+                                <span class="matched">p006</span>_0042.jpg <span class="arrow">→</span> Gruppe <span class="group-val">p006</span><br>
+                                <span class="matched">p006</span>_0043.jpg <span class="arrow">→</span> Gruppe <span class="group-val">p006</span><br>
+                                <span class="matched">AB12</span>_test.jpg <span class="arrow">→</span> Gruppe <span class="group-val">AB12</span><br>
+                                <span class="matched">x99</span>_landschaft.jpg <span class="arrow">→</span> Gruppe <span class="group-val">x99</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pattern 2: Datum YYYY-MM-DD -->
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Datum YYYY-MM-DD</span>
+                        <span class="field-type">Priorität 20</span>
+                        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#e0e7ff;color:#4338ca;font-weight:600;">Built-in</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p><strong>Regex:</strong> <code>^(\d{4}-\d{2}-\d{2})</code></p>
+                        <p><strong>Erkennt:</strong> ISO-Datumsformat am Anfang: Jahr-Monat-Tag mit Bindestrichen.</p>
+                        <p><strong>Typisch für:</strong> Manuell benannte Dateien, Screenshots, organisierte Foto-Sammlungen.</p>
+                        <div class="example-card">
+                            <div class="example-card-title">Beispiel-Dateien</div>
+                            <div class="file-list">
+                                <span class="matched">2024-08-15</span>_Urlaub_001.jpg <span class="arrow">→</span> Gruppe <span class="group-val">2024-08-15</span><br>
+                                <span class="matched">2024-08-15</span>_Strand.jpg <span class="arrow">→</span> Gruppe <span class="group-val">2024-08-15</span><br>
+                                <span class="matched">2023-12-24</span>_Weihnachten.jpg <span class="arrow">→</span> Gruppe <span class="group-val">2023-12-24</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pattern 3: Datum YYYYMMDD -->
+                <div class="field-card">
+                    <div class="field-card-header">
+                        <span class="field-name">Datum YYYYMMDD</span>
+                        <span class="field-type">Priorität 30</span>
+                        <span style="font-size:11px;padding:2px 8px;border-radius:10px;background:#e0e7ff;color:#4338ca;font-weight:600;">Built-in</span>
+                    </div>
+                    <div class="field-card-body">
+                        <p><strong>Regex:</strong> <code>^(\d{8})</code></p>
+                        <p><strong>Erkennt:</strong> 8 Ziffern am Anfang (YYYYMMDD-Format ohne Trennzeichen).</p>
+                        <p><strong>Typisch für:</strong> WhatsApp-Fotos, einige Kamera-Modelle, automatische Backups.</p>
+                        <div class="example-card">
+                            <div class="example-card-title">Beispiel-Dateien</div>
+                            <div class="file-list">
+                                <span class="matched">20240815</span>_WA001.jpg <span class="arrow">→</span> Gruppe <span class="group-val">20240815</span><br>
+                                <span class="matched">20240815</span>_134522.jpg <span class="arrow">→</span> Gruppe <span class="group-val">20240815</span><br>
+                                <span class="matched">20231224</span>_festessen.jpg <span class="arrow">→</span> Gruppe <span class="group-val">20231224</span>
+                            </div>
+                        </div>
+                        <div class="info-box warning">
+                            <strong>⚠️ Hinweis:</strong> Dieses Pattern hat niedrigere Priorität (30) als das Prefix-Pattern (10). Wenn ein Dateiname wie <code>p006_20240815.jpg</code> vorkommt, greift zuerst Prefix und die Datei landet in Gruppe „p006", nicht „20240815".
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- CUSTOM PATTERNS -->
+            <!-- ============================== -->
+            <section class="help-section" id="custom-patterns">
+                <h2>✨ Custom Patterns erstellen</h2>
+
+                <p>So erstellst du Schritt für Schritt ein eigenes Pattern:</p>
+
+                <div class="workflow-steps">
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Dateinamen anschauen</strong>
+                            <p>Nutze 📋 <strong>Dateinamen exportieren</strong> um eine Liste aller Dateien zu bekommen. Suche nach Gemeinsamkeiten.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Muster identifizieren</strong>
+                            <p>Was haben zusammengehörige Dateien gemeinsam? Gleicher Anfang? Gleiche Buchstaben-Zahlen-Kombination? Ein Datum?</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Regex schreiben</strong>
+                            <p>Übersetze das Muster in Regex. Klammere den Teil ein, der als Gruppenname dienen soll.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Testen</strong>
+                            <p>Pattern hinzufügen und 🔍 Analysieren klicken. Prüfe ob die Gruppen stimmen. Wenn nicht: Pattern bearbeiten oder löschen und neu anlegen.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Beispiel: WhatsApp-Fotos</h3>
+                <p>Du hast Dateien wie <code>IMG-20240815-WA0023.jpg</code> und willst nach Datum gruppieren:</p>
+
+                <div class="code-block">
+                    <span class="comment"># Schritt 1: Muster erkennen</span><br>
+                    IMG-<span class="highlight">20240815</span>-WA0023.jpg<br>
+                    IMG-<span class="highlight">20240815</span>-WA0024.jpg<br>
+                    IMG-<span class="highlight">20231224</span>-WA0001.jpg<br><br>
+                    <span class="comment"># Schritt 2: Regex schreiben</span><br>
+                    ^IMG-(<span class="group">\d{8}</span>)-WA<br><br>
+                    <span class="comment"># Bedeutung:</span><br>
+                    <span class="comment"># ^        Am Anfang</span><br>
+                    <span class="comment"># IMG-     Wörtlich "IMG-"</span><br>
+                    <span class="comment"># (\d{8}) 8 Ziffern als Capture-Gruppe 1</span><br>
+                    <span class="comment"># -WA      Wörtlich "-WA"</span>
+                </div>
+
+                <p><strong>Pattern-Einstellungen:</strong></p>
+                <p>— Name: <code>WhatsApp-Foto</code><br>
+                   — Regex: <code>^IMG-(\d{8})-WA</code><br>
+                   — Capture-Group: <code>1</code><br>
+                   — Priorität: <code>5</code> (vor Built-ins, damit IMG- nicht als Prefix erkannt wird)<br>
+                   — Beschreibung: <code>WhatsApp-Fotos nach Datum gruppieren</code></p>
+
+                <h3>Beispiel: Kamera-Typ gruppieren</h3>
+                <p>Du willst Fotos verschiedener Kameras trennen:</p>
+
+                <div class="code-block">
+                    <span class="comment"># Dateien:</span><br>
+                    <span class="highlight">IMG</span>_1234.jpg    <span class="comment"># Smartphone</span><br>
+                    <span class="highlight">DSC</span>_5678.jpg    <span class="comment"># Nikon</span><br>
+                    <span class="highlight">DSCF</span>0001.jpg    <span class="comment"># Fujifilm</span><br>
+                    <span class="highlight">VID</span>_20240815.mp4 <span class="comment"># Video</span><br><br>
+                    <span class="comment"># Regex: ^(IMG|DSC|DSCF|VID)[_-]?</span><br>
+                    <span class="comment"># Ergebnis: 4 Gruppen (IMG, DSC, DSCF, VID)</span>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- PRIORITY SYSTEM -->
+            <!-- ============================== -->
+            <section class="help-section" id="priority-system">
+                <h2>⚖️ Prioritäts-System</h2>
+
+                <p>Das Prioritäts-System bestimmt, welches Pattern bei einem Dateinamen „gewinnt". Die Engine arbeitet so:</p>
+
+                <div class="workflow-steps">
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Patterns sortieren</strong>
+                            <p>Alle aktiven Patterns werden nach Priorität sortiert (niedrigste Zahl = erste Position).</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Datei gegen Patterns prüfen</strong>
+                            <p>Für jede Datei wird das erste Pattern in der Liste geprüft. Passt es? → Treffer, Datei wird zugeordnet.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Kein Treffer? Nächstes Pattern</strong>
+                            <p>Passt das erste nicht, wird das nächste Pattern geprüft. So weiter bis ein Treffer kommt oder alle durch sind.</p>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="workflow-step-content">
+                            <strong>Kein Pattern passt?</strong>
+                            <p>Dateien ohne Treffer landen in der Gruppe <code>_unsorted</code>.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="example-card">
+                    <div class="example-card-title">📝 Beispiel: Priorität in Aktion</div>
+                    <div class="code-block">
+                        <span class="comment"># Aktive Patterns (sortiert):</span><br>
+                        <span class="comment"># P5   WhatsApp-Foto  ^IMG-(\d{8})-WA</span><br>
+                        <span class="comment"># P10  Prefix          ^([a-zA-Z]{1,2}\d{2,3})</span><br>
+                        <span class="comment"># P20  Datum YYYY      ^(\d{4}-\d{2}-\d{2})</span><br><br>
+                        <span class="comment"># Datei: IMG-20240815-WA0023.jpg</span><br>
+                        <span class="comment"># → P5 matcht! → Gruppe "20240815"</span><br>
+                        <span class="comment"># (P10 wird gar nicht mehr geprüft)</span><br><br>
+                        <span class="comment"># Datei: p006_0042.jpg</span><br>
+                        <span class="comment"># → P5 matcht nicht</span><br>
+                        <span class="comment"># → P10 matcht! → Gruppe "p006"</span>
+                    </div>
+                </div>
+
+                <div class="info-box tip">
+                    <strong>💡 Tipp:</strong> Wenn du ein sehr spezifisches Pattern hast (z.B. nur für WhatsApp), gib ihm eine niedrige Prioritätszahl (z.B. 5), damit es vor den allgemeineren Built-ins geprüft wird.
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- EXAMPLES -->
+            <!-- ============================== -->
+            <section class="help-section" id="examples">
+                <h2>📸 Praxis-Beispiele</h2>
+
+                <h3>Smartphone-Fotos (Samsung, Google Pixel, etc.)</h3>
+                <div class="example-card">
+                    <div class="example-card-title">Pattern: Smartphone-Prefix</div>
+                    <div class="file-list" style="margin-bottom:10px">
+                        Typische Dateinamen: <code>IMG_20240815_134522.jpg</code>, <code>PXL_20240815_134522.jpg</code>
+                    </div>
+                    <div class="code-block">
+                        Name: Smartphone-Datum<br>
+                        Regex: ^(IMG|PXL|MVIMG)_(<span class="group">\d{8}</span>)<br>
+                        Capture-Group: <span class="highlight">2</span><br>
+                        Priorität: 5<br>
+                        <span class="comment"># Ergebnis: Gruppen nach Datum (20240815, 20231224, ...)</span>
+                    </div>
+                </div>
+
+                <h3>Screenshots</h3>
+                <div class="example-card">
+                    <div class="example-card-title">Pattern: Windows Screenshots</div>
+                    <div class="file-list" style="margin-bottom:10px">
+                        Typische Dateinamen: <code>Screenshot 2024-08-15 143022.png</code>
+                    </div>
+                    <div class="code-block">
+                        Name: Screenshots<br>
+                        Regex: ^Screenshot (<span class="group">\d{4}-\d{2}-\d{2}</span>)<br>
+                        Capture-Group: 1<br>
+                        Priorität: 5<br>
+                        <span class="comment"># Ergebnis: Gruppen nach Datum (2024-08-15, ...)</span>
+                    </div>
+                </div>
+
+                <h3>GoPro-Videos</h3>
+                <div class="example-card">
+                    <div class="example-card-title">Pattern: GoPro-Nummern</div>
+                    <div class="file-list" style="margin-bottom:10px">
+                        Typische Dateinamen: <code>GH010042.mp4</code>, <code>GX010042.mp4</code>, <code>GL010042.LRV</code>
+                    </div>
+                    <div class="code-block">
+                        Name: GoPro-Session<br>
+                        Regex: ^(G[HXL])(<span class="group">\d{2}</span>)<br>
+                        Capture-Group: <span class="highlight">2</span><br>
+                        Priorität: 5<br>
+                        <span class="comment"># Ergebnis: Gruppen nach Session-Nr (01, 02, ...)</span><br>
+                        <span class="comment"># Oder Capture-Group = 0 für ganzen Match (GH01)</span>
+                    </div>
+                </div>
+
+                <h3>Scan-Dateien</h3>
+                <div class="example-card">
+                    <div class="example-card-title">Pattern: Scan-Prefix</div>
+                    <div class="file-list" style="margin-bottom:10px">
+                        Typische Dateinamen: <code>Scan_001.pdf</code>, <code>Scan_002.pdf</code>, <code>Scan_2024-08-15.pdf</code>
+                    </div>
+                    <div class="code-block">
+                        Name: Scans<br>
+                        Regex: ^(<span class="group">Scan</span>)[_ -]<br>
+                        Capture-Group: 1<br>
+                        Priorität: 5<br>
+                        <span class="comment"># Ergebnis: Alle Scans in einer Gruppe "Scan"</span>
+                    </div>
+                </div>
+
+                <h3>Alles in einen Ordner (Catch-All)</h3>
+                <div class="example-card">
+                    <div class="example-card-title">Pattern: Catch-All für Reste</div>
+                    <div class="code-block">
+                        Name: Sonstige<br>
+                        Regex: ^(<span class="group">.*</span>)<br>
+                        Capture-Group: 1<br>
+                        Priorität: <span class="highlight">100</span><br>
+                        <span class="comment"># Matcht ALLES, aber nur als letztes (P100)</span><br>
+                        <span class="comment"># ⚠️ Vorsicht: Jede Datei bekommt eigene Gruppe!</span><br>
+                        <span class="comment"># Besser: _unsorted prüfen und manuell zuordnen</span>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- ============================== -->
+            <!-- TIPS -->
+            <!-- ============================== -->
+            <section class="help-section" id="tips">
+                <h2>💡 Tipps &amp; Tricks</h2>
+
+                <div class="info-box success">
+                    <strong>✅ Exportiere zuerst die Dateinamen.</strong> Klicke 📋 <strong>Dateinamen exportieren</strong> — die Textdatei zeigt dir alle Dateinamen, damit du Muster erkennen kannst.
+                </div>
+
+                <div class="info-box success">
+                    <strong>✅ Teste mit Analysieren, nicht direkt sortieren.</strong> Die Analyse zeigt dir eine Vorschau der Gruppen. Erst wenn die Gruppen stimmen, klicke Sortieren.
+                </div>
+
+                <div class="info-box success">
+                    <strong>✅ Nutze die Ordnernamen-Eingabe.</strong> Der vorgeschlagene Ordnername ist der Gruppen-Prefix. Du kannst ihn aber frei ändern: statt <code>p006</code> z.B. <code>Shooting_München_p006</code>.
+                </div>
+
+                <div class="info-box success">
+                    <strong>✅ Undo ist dein Freund.</strong> Nach jeder Sortierung kannst du alles rückgängig machen. Experimentiere also ruhig!
+                </div>
+
+                <div class="info-box warning">
+                    <strong>⚠️ Deaktiviere nicht benötigte Patterns.</strong> Wenn ein Built-in Pattern „falsche" Gruppen erzeugt, deaktiviere es im Pattern-Panel (Checkbox entfernen), statt es zu löschen.
+                </div>
+
+                <div class="info-box warning">
+                    <strong>⚠️ Priorität bei ähnlichen Patterns.</strong> Wenn zwei Patterns auf die gleichen Dateien matchen könnten, bestimmt die Priorität, welches gewinnt. Spezifischere Patterns sollten niedrigere Prioritätszahlen haben.
+                </div>
+
+                <div class="info-box tip">
+                    <strong>💡 Regex testen:</strong> Nutze Seiten wie <a href="https://regex101.com" target="_blank" style="color:#1e40af">regex101.com</a> um deine Regex-Muster interaktiv zu testen, bevor du sie hier einträgst. Wähle dort „PCRE2" oder „.NET" als Engine.
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+    // Scroll-Spy: Active Nav Link
+    (function() {
+        var sections = document.querySelectorAll('.help-section');
+        var navLinks = document.querySelectorAll('.nav-link');
+
+        function updateActive() {
+            var scrollPos = window.scrollY + 60;
+            var current = '';
+            sections.forEach(function(s) {
+                if (s.offsetTop <= scrollPos) current = s.id;
+            });
+            navLinks.forEach(function(link) {
+                link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+            });
+        }
+
+        window.addEventListener('scroll', updateActive);
+        updateActive();
+
+        // Smooth scroll
+        navLinks.forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                var target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        // Jump to section from URL ?section=xxx
+        var params = new URLSearchParams(window.location.search);
+        var section = params.get('section');
+        if (section) {
+            var el = document.getElementById(section);
+            if (el) setTimeout(function() { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+        }
+    })();
+    </script>
+</body>
+</html>

@@ -91,6 +91,40 @@
         .panel.collapsed .panel-toggle { transform: rotate(-90deg); }
         .panel-body { padding: 16px 20px; }
 
+        /* Info Button (ℹ️) */
+        .info-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 20px; height: 20px; border-radius: 50%;
+            background: #e0e7ff; color: #4338ca; font-size: 12px; font-weight: 700;
+            text-decoration: none; cursor: pointer; transition: all 0.2s;
+            border: none; font-family: inherit; flex-shrink: 0;
+            position: relative;
+        }
+        .info-btn:hover {
+            background: #667eea; color: white;
+            transform: scale(1.15);
+        }
+        .info-btn-lg {
+            width: 24px; height: 24px; font-size: 13px;
+        }
+        /* Tooltip */
+        .info-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a202c;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 400;
+            white-space: nowrap;
+            z-index: 100;
+            pointer-events: none;
+        }
+
         /* Pattern List */
         .pattern-item {
             display: flex; align-items: center; gap: 12px;
@@ -118,12 +152,15 @@
             border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 12px;
         }
         .add-pattern-form.show { display: block; }
-        .form-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .form-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
         .form-row input {
             flex: 1; padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px;
             font-size: 13px; font-family: inherit;
         }
         .form-row input:focus { outline: none; border-color: #667eea; }
+        .form-field { display: flex; align-items: center; gap: 4px; flex: 1; }
+        .form-field input { flex: 1; }
+        .form-field-short { max-width: 140px; }
 
         /* Results / Status */
         .status-bar {
@@ -267,9 +304,12 @@
         <div class="header">
             <div class="header-left">
                 <h1>📂 File Sorter</h1>
-                <span class="badge">v0.2.0</span>
+                <span class="badge">v0.2.1</span>
             </div>
-            <a href="/" class="back-link">← Zurück zur Gallery</a>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <a href="/file-sorter-help" class="back-link" target="_blank" title="Hilfe & Referenz öffnen">📖 Hilfe</a>
+                <a href="/" class="back-link">← Zurück zur Gallery</a>
+            </div>
         </div>
 
         <div class="folder-select">
@@ -299,7 +339,11 @@
 
         <div class="panel collapsed" id="patternPanel">
             <div class="panel-header" onclick="togglePanel('patternPanel')">
-                <span class="panel-title">⚙️ Pattern-Engine <span id="patternCount" style="color:#718096;font-weight:400"></span></span>
+                <span class="panel-title">
+                    ⚙️ Pattern-Engine
+                    <span id="patternCount" style="color:#718096;font-weight:400"></span>
+                    <a href="/file-sorter-help#overview" target="_blank" class="info-btn info-btn-lg" data-tooltip="Was ist die Pattern-Engine?" onclick="event.stopPropagation()">ℹ</a>
+                </span>
                 <span class="panel-toggle">▼</span>
             </div>
             <div class="panel-body">
@@ -307,17 +351,33 @@
                 <button class="btn" onclick="toggleAddPattern()" style="margin-top:8px">+ Neues Pattern</button>
                 <div class="add-pattern-form" id="addPatternForm">
                     <div class="form-row">
-                        <input type="text" id="newPatternName" placeholder="Name (z.B. IMG_Datum)">
-                        <input type="text" id="newPatternRegex" placeholder="Regex (z.B. IMG_(\d{8}))">
+                        <div class="form-field">
+                            <input type="text" id="newPatternName" placeholder="Name (z.B. IMG_Datum)">
+                            <a href="/file-sorter-help?section=field-name" target="_blank" class="info-btn" data-tooltip="Was ist der Name?">ℹ</a>
+                        </div>
+                        <div class="form-field">
+                            <input type="text" id="newPatternRegex" placeholder="Regex (z.B. IMG_(\d{8}))">
+                            <a href="/file-sorter-help?section=field-regex" target="_blank" class="info-btn" data-tooltip="Regex-Hilfe">ℹ</a>
+                        </div>
                     </div>
                     <div class="form-row">
-                        <input type="number" id="newPatternCapture" placeholder="Capture-Group (1)" value="1" style="max-width:120px">
-                        <input type="number" id="newPatternPriority" placeholder="Priorität (50)" value="50" style="max-width:120px">
-                        <input type="text" id="newPatternDesc" placeholder="Beschreibung (optional)">
+                        <div class="form-field form-field-short">
+                            <input type="number" id="newPatternCapture" placeholder="Capture (1)" value="1">
+                            <a href="/file-sorter-help?section=field-capture" target="_blank" class="info-btn" data-tooltip="Was ist die Capture-Group?">ℹ</a>
+                        </div>
+                        <div class="form-field form-field-short">
+                            <input type="number" id="newPatternPriority" placeholder="Priorität (50)" value="50">
+                            <a href="/file-sorter-help?section=field-priority" target="_blank" class="info-btn" data-tooltip="Wie funktioniert die Priorität?">ℹ</a>
+                        </div>
+                        <div class="form-field">
+                            <input type="text" id="newPatternDesc" placeholder="Beschreibung (optional)">
+                            <a href="/file-sorter-help?section=field-description" target="_blank" class="info-btn" data-tooltip="Wofür ist die Beschreibung?">ℹ</a>
+                        </div>
                     </div>
                     <div class="form-row">
                         <button class="btn btn-primary" onclick="addPattern()">Hinzufügen</button>
                         <button class="btn" onclick="toggleAddPattern()">Abbrechen</button>
+                        <a href="/file-sorter-help?section=custom-patterns" target="_blank" style="font-size:12px;color:#667eea;margin-left:8px;">📖 Anleitung: Custom Pattern erstellen</a>
                     </div>
                 </div>
             </div>
