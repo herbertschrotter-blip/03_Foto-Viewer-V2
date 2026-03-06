@@ -299,7 +299,7 @@ try {
                 } else {
                     $folderRows = foreach ($folder in $script:State.Folders) {
                         $pathDisplay = if ($folder.RelativePath -eq ".") { "Root" } else { $folder.RelativePath }
-                        $filesJson = ($folder.Files | ConvertTo-Json -Compress).Replace('"', '&quot;')
+                        $filesJson = (ConvertTo-Json -InputObject @($folder.Files) -Compress).Replace('"', '&quot;')
                         $relativePath = $folder.RelativePath.Replace('\', '/').Replace('"', '&quot;')
                         
                         @"
