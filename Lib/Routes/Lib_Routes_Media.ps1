@@ -371,17 +371,19 @@ function Send-FullResponse {
         try {
             $fileStream.CopyTo($response.OutputStream)
         }
+        catch {
+            Write-Verbose "Client disconnected während Transfer"
+        }
         finally {
             $fileStream.Close()
         }
         
-        $response.Close()
+        try { $response.Close() } catch { }
         Write-Verbose "Vollständige Datei gesendet: $FileSize Bytes"
     }
     catch {
-        Write-Error "Fehler beim Senden: $_"
-        $response.StatusCode = 500
-        $response.Close()
+        Write-Verbose "Fehler beim Senden (oft normal bei Video): $_"
+        try { $response.Close() } catch { }
     }
 }
 
@@ -483,21 +485,27 @@ function Send-RangeResponse {
                 
                 if ($read -le 0) { break }
                 
-                $response.OutputStream.Write($buffer, 0, $read)
-                $remaining -= $read
+                try {
+                    $response.OutputStream.Write($buffer, 0, $read)
+                    $remaining -= $read
+                }
+                catch {
+                    # Client hat Verbindung geschlossen (normal bei Video-Seeking)
+                    Write-Verbose "Client disconnected während Range-Transfer"
+                    break
+                }
             }
         }
         finally {
             $fileStream.Close()
         }
         
-        $response.Close()
+        try { $response.Close() } catch { }
         Write-Verbose "Range-Response gesendet: $contentLength Bytes"
     }
     catch {
-        Write-Error "Fehler bei Range-Request: $_"
-        $response.StatusCode = 500
-        $response.Close()
+        Write-Verbose "Range-Request abgebrochen (normal bei Video-Seeking): $_"
+        try { $response.Close() } catch { }
     }
 }
 
