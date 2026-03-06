@@ -81,73 +81,23 @@ function Handle-SettingsRoute {
                 $body   = $reader.ReadToEnd()
                 $reader.Close()
 
-                $newSettings  = $body | ConvertFrom-Json
+                $newSettings  = $body | ConvertFrom-Json -AsHashtable
                 $configPath   = Join-Path $ScriptRoot "config.json"
-                $currentConfig = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+                $currentConfig = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -AsHashtable
 
-                # Server
-                $currentConfig.Server.Port            = $newSettings.Server.Port
-                $currentConfig.Server.Host            = $newSettings.Server.Host
-                $currentConfig.Server.AutoOpenBrowser = $newSettings.Server.AutoOpenBrowser
-
-                # Media
-                $currentConfig.Media.ImageExtensions = $newSettings.Media.ImageExtensions
-                $currentConfig.Media.VideoExtensions = $newSettings.Media.VideoExtensions
-
-                # Video
-                $currentConfig.Video.ThumbnailQuality      = $newSettings.Video.ThumbnailQuality
-                $currentConfig.Video.UseHLS                 = $newSettings.Video.UseHLS
-                $currentConfig.Video.HLSSegmentDuration     = $newSettings.Video.HLSSegmentDuration
-                $currentConfig.Video.HLSPreloadSeconds      = $newSettings.Video.HLSPreloadSeconds
-                $currentConfig.Video.ConversionPreset       = $newSettings.Video.ConversionPreset
-                $currentConfig.Video.ThumbnailCount         = $newSettings.Video.ThumbnailCount
-                $currentConfig.Video.ThumbnailFPS           = $newSettings.Video.ThumbnailFPS
-                $currentConfig.Video.PreviewAsGIF           = $newSettings.Video.PreviewAsGIF
-                $currentConfig.Video.GIFDuration            = $newSettings.Video.GIFDuration
-                $currentConfig.Video.GIFFrameRate           = $newSettings.Video.GIFFrameRate
-                $currentConfig.Video.GIFLoop                = $newSettings.Video.GIFLoop
-                $currentConfig.Video.ThumbnailStartPercent  = $newSettings.Video.ThumbnailStartPercent
-                $currentConfig.Video.ThumbnailEndPercent    = $newSettings.Video.ThumbnailEndPercent
-
-                # UI
-                $currentConfig.UI.Theme                    = $newSettings.UI.Theme
-                $currentConfig.UI.DefaultThumbSize         = $newSettings.UI.DefaultThumbSize
-                $currentConfig.UI.ThumbnailSize            = $newSettings.UI.ThumbnailSize
-                $currentConfig.UI.GridColumns              = $newSettings.UI.GridColumns
-                $currentConfig.UI.FolderPreviewCount       = $newSettings.UI.FolderPreviewCount
-                $currentConfig.UI.FolderPreviewMode        = $newSettings.UI.FolderPreviewMode
-                $currentConfig.UI.ShowVideoMetadata        = $newSettings.UI.ShowVideoMetadata
-                $currentConfig.UI.ShowVideoCodec           = $newSettings.UI.ShowVideoCodec
-                $currentConfig.UI.ShowVideoDuration        = $newSettings.UI.ShowVideoDuration
-                $currentConfig.UI.ShowBrowserCompatibility = $newSettings.UI.ShowBrowserCompatibility
-
-                # Performance
-                $currentConfig.Performance.UseParallelProcessing = $newSettings.Performance.UseParallelProcessing
-                $currentConfig.Performance.MaxParallelJobs       = $newSettings.Performance.MaxParallelJobs
-                $currentConfig.Performance.CacheThumbnails       = $newSettings.Performance.CacheThumbnails
-                $currentConfig.Performance.LazyLoading           = $newSettings.Performance.LazyLoading
-                $currentConfig.Performance.DeleteJobTimeout      = $newSettings.Performance.DeleteJobTimeout
-
-                # FileOperations
-                $currentConfig.FileOperations.UseRecycleBin        = $newSettings.FileOperations.UseRecycleBin
-                $currentConfig.FileOperations.ConfirmDelete        = $newSettings.FileOperations.ConfirmDelete
-                $currentConfig.FileOperations.EnableMove           = $newSettings.FileOperations.EnableMove
-                $currentConfig.FileOperations.EnableFlattenAndMove = $newSettings.FileOperations.EnableFlattenAndMove
-                $currentConfig.FileOperations.RangeRequestSupport  = $newSettings.FileOperations.RangeRequestSupport
-
-                # Cache
-                $currentConfig.Cache.UseScanCache      = $newSettings.Cache.UseScanCache
-                $currentConfig.Cache.CacheFolder       = $newSettings.Cache.CacheFolder
-                $currentConfig.Cache.VideoMetadataCache = $newSettings.Cache.VideoMetadataCache
-
-                # Features
-                $currentConfig.Features.ArchiveExtraction          = $newSettings.Features.ArchiveExtraction
-                $currentConfig.Features.ArchiveExtensions          = $newSettings.Features.ArchiveExtensions
-                $currentConfig.Features.VideoThumbnailPreGeneration = $newSettings.Features.VideoThumbnailPreGeneration
-                $currentConfig.Features.OpenInVLC                  = $newSettings.Features.OpenInVLC
-                $currentConfig.Features.CollapsibleFolders         = $newSettings.Features.CollapsibleFolders
-                $currentConfig.Features.LightboxViewer             = $newSettings.Features.LightboxViewer
-                $currentConfig.Features.KeyboardNavigation         = $newSettings.Features.KeyboardNavigation
+                # Deep-Merge: Frontend-Settings in bestehende Config
+                foreach ($section in $newSettings.Keys) {
+                    if (-not $currentConfig.ContainsKey($section)) {
+                        $currentConfig[$section] = @{}
+                    }
+                    if ($newSettings[$section] -is [hashtable] -and $currentConfig[$section] -is [hashtable]) {
+                        foreach ($key in $newSettings[$section].Keys) {
+                            $currentConfig[$section][$key] = $newSettings[$section][$key]
+                        }
+                    } else {
+                        $currentConfig[$section] = $newSettings[$section]
+                    }
+                }
 
                 # Speichern
                 $currentConfig | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding UTF8
