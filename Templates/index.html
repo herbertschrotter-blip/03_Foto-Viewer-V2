@@ -71,7 +71,11 @@
     <div class="container">
         <div class="header">
             <h1>Foto Viewer V2</h1>
-            <span class="phase-badge">Phase 4.1: Tools-Menü</span>
+            <div class="search-wrapper">
+                <input type="text" id="searchInput" class="search-input" placeholder="Ordner oder Dateien suchen..." oninput="filterFolders(this.value)">
+                <span class="search-icon">🔍</span>
+                <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
+            </div>
         </div>
         
         <div class="folder-list">

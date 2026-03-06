@@ -1184,3 +1184,71 @@ lightboxObserver.observe(document.body, {
 document.addEventListener('DOMContentLoaded', function() {
     attachLightboxHandlers();
 });
+
+// ============================================
+// Suche / Filter
+// ============================================
+
+function filterFolders(query) {
+    var clearBtn = document.getElementById('searchClear');
+    clearBtn.classList.toggle('show', query.length > 0);
+
+    var cards = document.querySelectorAll('.folder-card');
+    var q = query.toLowerCase().trim();
+
+    if (!q) {
+        cards.forEach(function(card) {
+            card.classList.remove('search-hidden');
+            removeHighlights(card);
+        });
+        return;
+    }
+
+    cards.forEach(function(card) {
+        var folderPath = (card.dataset.path || '').toLowerCase();
+        var files = [];
+        try { files = JSON.parse(card.dataset.files || '[]'); } catch(e) {}
+        var filesStr = files.join(' ').toLowerCase();
+
+        var matchFolder = folderPath.indexOf(q) !== -1;
+        var matchFiles = filesStr.indexOf(q) !== -1;
+
+        if (matchFolder || matchFiles) {
+            card.classList.remove('search-hidden');
+            highlightMatch(card, q);
+        } else {
+            card.classList.add('search-hidden');
+            removeHighlights(card);
+        }
+    });
+}
+
+function highlightMatch(card, query) {
+    removeHighlights(card);
+    var nameEl = card.querySelector('.folder-name');
+    if (!nameEl) return;
+    var text = nameEl.textContent;
+    var lower = text.toLowerCase();
+    var idx = lower.indexOf(query);
+    if (idx !== -1) {
+        nameEl.innerHTML = text.substring(0, idx) +
+            '<span class="search-highlight">' + text.substring(idx, idx + query.length) + '</span>' +
+            text.substring(idx + query.length);
+    }
+}
+
+function removeHighlights(card) {
+    var nameEl = card.querySelector('.folder-name');
+    if (!nameEl) return;
+    var highlights = nameEl.querySelectorAll('.search-highlight');
+    highlights.forEach(function(span) {
+        span.replaceWith(span.textContent);
+    });
+}
+
+function clearSearch() {
+    var input = document.getElementById('searchInput');
+    input.value = '';
+    filterFolders('');
+    input.focus();
+}
