@@ -4,14 +4,16 @@ ManifestHint:
                        "Get-SorterPatterns", "Save-SorterPatterns",
                        "Add-SorterPattern", "Remove-SorterPattern",
                        "Move-FileBetweenGroups", "Merge-FileGroups", "Split-FileGroup",
-                       "Undo-FileSorting")
-  Description     = "Dateinamen-Analyse, Multi-Pattern-Gruppierung und Auto-Sortierung"
+                       "Undo-FileSorting",
+                       "Get-MultiLevelGroups", "Invoke-MultiLevelSorting")
+  Description     = "Dateinamen-Analyse, Multi-Pattern-Gruppierung, N-stufige Sortierung"
   Category        = "Utils"
-  Tags            = @("FileSorter", "Grouping", "Organize", "Pattern", "Undo")
+  Tags            = @("FileSorter", "Grouping", "Organize", "Pattern", "Undo", "MultiLevel")
   Dependencies    = @()
 
 Zweck:
   - Multi-Pattern-Engine: Prefix, Datum, Custom-Regex (erweiterbar)
+  - N-stufige Sortierung: Verschachtelte Ordner-Strukturen (Prefix/Variante/...)
   - Pattern-Profile als JSON gespeichert (file-sorter-patterns.json)
   - Dateinamen-Export in _filenames.log (manuelle Analyse)
   - Preview-Gruppierung VOR dem Sortieren
@@ -19,24 +21,38 @@ Zweck:
   - Sortierung mit Undo-Log (_undo-sort.json)
 
 Funktionen:
-  - Get-SorterPatterns:     Pattern-Profile laden (JSON oder Defaults)
-  - Save-SorterPatterns:    Pattern-Profile speichern
-  - Add-SorterPattern:      Neues Custom-Pattern hinzufügen
-  - Remove-SorterPattern:   Pattern entfernen / deaktivieren
-  - Export-FileNames:       Dateinamen + Statistik in Log-Datei
-  - Get-FileGroups:         Multi-Pattern Analyse + Gruppierung
-  - Move-FileBetweenGroups: Datei zwischen Gruppen verschieben (in-memory)
-  - Merge-FileGroups:       Zwei Gruppen zusammenführen (in-memory)
-  - Split-FileGroup:        Gruppe aufteilen (in-memory)
-  - Invoke-FileSorting:     Dateien verschieben mit Undo-Log
-  - Undo-FileSorting:       Letzte Sortierung rückgängig machen
+  - Get-SorterPatterns:       Pattern-Profile laden (JSON oder Defaults)
+  - Save-SorterPatterns:      Pattern-Profile speichern
+  - Add-SorterPattern:        Neues Custom-Pattern hinzufuegen
+  - Remove-SorterPattern:     Pattern entfernen / deaktivieren
+  - Export-FileNames:         Dateinamen + Statistik in Log-Datei
+  - Get-FileGroups:           Multi-Pattern Analyse + Gruppierung (Stufe 1)
+  - Move-FileBetweenGroups:   Datei zwischen Gruppen verschieben (in-memory)
+  - Merge-FileGroups:         Zwei Gruppen zusammenfuehren (in-memory)
+  - Split-FileGroup:          Gruppe aufteilen (in-memory)
+  - Invoke-FileSorting:       Dateien einstufig verschieben mit Undo-Log
+  - Undo-FileSorting:         Letzte Sortierung rueckgaengig machen
+  - Get-MultiLevelGroups:     Sub-Gruppierung (Stufe 2..N) auf bestehende Gruppen
+  - Invoke-MultiLevelSorting: N-stufig verschachtelte Ordner erstellen + verschieben
 
-Abhängigkeiten:
-  - Keine (eigenständig)
+Interne Helper:
+  - Format-FileSize:          Bytes in menschenlesbare Groesse
+  - Move-SingleFile:          Einzeldatei verschieben mit Thumbnail-Kopie
+  - Split-IntoSubGroups:      Rekursive Sub-Gruppierung pro Ebene
+  - Invoke-SubGroupSorting:   Rekursive Ordner-Erstellung + Verschiebung
+
+Abhaengigkeiten:
+  - Keine (eigenstaendig)
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
+
+    AENDERUNGEN v0.2.0:
+    - N-stufige Sortierung (Get-MultiLevelGroups, Invoke-MultiLevelSorting)
+    - Move-SingleFile als gemeinsamer Helper (refactored aus Invoke-FileSorting)
+    - Rekursive Sub-Gruppierung mit beliebig vielen Ebenen
+    - Undo-Log unterstuetzt verschachtelte Pfade
 #>
 
 #Requires -Version 7.0
@@ -49,7 +65,7 @@ $ErrorActionPreference = 'Stop'
 # ============================================================================
 
 function Format-FileSize {
-    <# Interner Helper: Bytes in menschenlesbare Größe #>
+    <# Interner Helper: Bytes in menschenlesbare Groesse #>
     [CmdletBinding()]
     [OutputType([string])]
     param([Parameter(Mandatory)][long]$Bytes)
@@ -61,6 +77,139 @@ function Format-FileSize {
 }
 
 
+function Move-SingleFile {
+    <#
+    .SYNOPSIS
+        Interner Helper: Einzelne Datei verschieben mit Thumbnail-Kopie
+
+    .DESCRIPTION
+        Verschiebt eine Datei von FolderPath in TargetFolder.
+        Kopiert den zugehoerigen Thumbnail (Hash-basiert) mit.
+        Gibt Ergebnis-Objekt zurueck fuer Statistik und Undo.
+
+    .PARAMETER FolderPath
+        Root-Ordner (Quelle der Datei)
+
+    .PARAMETER FileName
+        Dateiname (nur Name, kein Pfad)
+
+    .PARAMETER TargetFolder
+        Absoluter Ziel-Ordner
+
+    .PARAMETER Prefix
+        Gruppen-Prefix (fuer Logging/Details)
+
+    .PARAMETER TargetName
+        Relativer Ordner-Name (fuer Logging/Details)
+
+    .EXAMPLE
+        $r = Move-SingleFile -FolderPath "D:\Fotos" -FileName "p006_001.jpg" `
+            -TargetFolder "D:\Fotos\p006" -Prefix "p006" -TargetName "p006"
+
+    .OUTPUTS
+        [PSCustomObject] Moved (0/1), Failed (0/1), Detail, UndoEntry
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)][string]$FolderPath,
+        [Parameter(Mandatory)][string]$FileName,
+        [Parameter(Mandatory)][string]$TargetFolder,
+        [Parameter(Mandatory)][string]$Prefix,
+        [Parameter(Mandatory)][string]$TargetName
+    )
+
+    $sourcePath = Join-Path $FolderPath $FileName
+    $targetPath = Join-Path $TargetFolder $FileName
+
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+        return [PSCustomObject]@{
+            Moved = 0; Failed = 1
+            Detail = [PSCustomObject]@{
+                File = $FileName; Prefix = $Prefix; Target = $TargetName
+                Status = "Error"; Message = "Quelldatei nicht gefunden"
+            }
+            UndoEntry = $null
+        }
+    }
+
+    if (Test-Path -LiteralPath $targetPath) {
+        return [PSCustomObject]@{
+            Moved = 0; Failed = 1
+            Detail = [PSCustomObject]@{
+                File = $FileName; Prefix = $Prefix; Target = $TargetName
+                Status = "Error"; Message = "Existiert bereits im Ziel"
+            }
+            UndoEntry = $null
+        }
+    }
+
+    try {
+        # Thumbnail-Hash VOR dem Move berechnen (alter Pfad)
+        $oldThumbsDir = Join-Path $FolderPath ".thumbs"
+        $oldThumbHash = $null
+        if (Test-Path -LiteralPath $oldThumbsDir -PathType Container) {
+            try {
+                $fi = [System.IO.FileInfo]::new($sourcePath)
+                $hashInput = "$($fi.FullName)-$($fi.LastWriteTimeUtc.Ticks)"
+                $oldThumbHash = [System.BitConverter]::ToString(
+                    [System.Security.Cryptography.MD5]::Create().ComputeHash(
+                        [System.Text.Encoding]::UTF8.GetBytes($hashInput)
+                    )
+                ).Replace('-', '').ToLowerInvariant()
+            }
+            catch { }
+        }
+
+        Move-Item -LiteralPath $sourcePath -Destination $targetPath -ErrorAction Stop
+
+        # Thumbnail in neuen .thumbs/ kopieren
+        if ($oldThumbHash) {
+            $oldThumbPath = Join-Path $oldThumbsDir "$oldThumbHash.jpg"
+            if (Test-Path -LiteralPath $oldThumbPath -PathType Leaf) {
+                $newThumbsDir = Join-Path $TargetFolder ".thumbs"
+                if (-not (Test-Path -LiteralPath $newThumbsDir -PathType Container)) {
+                    New-Item -ItemType Directory -Path $newThumbsDir -Force | Out-Null
+                    # Hidden + System Attribute (OneDrive-Schutz)
+                    $tf = Get-Item -LiteralPath $newThumbsDir -Force
+                    $tf.Attributes = [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System
+                }
+                try {
+                    $newFi = [System.IO.FileInfo]::new($targetPath)
+                    $newHashInput = "$($newFi.FullName)-$($newFi.LastWriteTimeUtc.Ticks)"
+                    $newThumbHash = [System.BitConverter]::ToString(
+                        [System.Security.Cryptography.MD5]::Create().ComputeHash(
+                            [System.Text.Encoding]::UTF8.GetBytes($newHashInput)
+                        )
+                    ).Replace('-', '').ToLowerInvariant()
+                    Copy-Item -LiteralPath $oldThumbPath -Destination (Join-Path $newThumbsDir "$newThumbHash.jpg") -Force
+                }
+                catch { }
+            }
+        }
+
+        return [PSCustomObject]@{
+            Moved = 1; Failed = 0
+            Detail = [PSCustomObject]@{
+                File = $FileName; Prefix = $Prefix; Target = $TargetName
+                Status = "Moved"; Message = "OK"
+            }
+            UndoEntry = @{ File = $FileName; From = $sourcePath; To = $targetPath }
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            Moved = 0; Failed = 1
+            Detail = [PSCustomObject]@{
+                File = $FileName; Prefix = $Prefix; Target = $TargetName
+                Status = "Error"; Message = $_.Exception.Message
+            }
+            UndoEntry = $null
+        }
+    }
+}
+
+
 # ============================================================================
 # PATTERN PROFILE MANAGEMENT
 # ============================================================================
@@ -68,11 +217,11 @@ function Format-FileSize {
 function Get-SorterPatterns {
     <#
     .SYNOPSIS
-        Lädt Pattern-Profile aus file-sorter-patterns.json
+        Laedt Pattern-Profile aus file-sorter-patterns.json
 
     .DESCRIPTION
         Liest gespeicherte Pattern-Definitionen. Falls Datei nicht existiert,
-        werden Built-in Defaults zurückgegeben. Jedes Pattern hat: Name,
+        werden Built-in Defaults zurueckgegeben. Jedes Pattern hat: Name,
         Regex, GroupCapture, Priority, Enabled, BuiltIn, Description.
 
     .PARAMETER ScriptRoot
@@ -188,7 +337,7 @@ function Save-SorterPatterns {
         $Patterns | ConvertTo-Json -Depth 5 |
             Out-File -FilePath $jsonPath -Encoding UTF8 -Force
 
-        Write-Verbose "Pattern gespeichert: $($Patterns.Count) Einträge"
+        Write-Verbose "Pattern gespeichert: $($Patterns.Count) Eintraege"
     }
     catch {
         Write-Error "Fehler beim Speichern: $($_.Exception.Message)"
@@ -200,22 +349,22 @@ function Save-SorterPatterns {
 function Add-SorterPattern {
     <#
     .SYNOPSIS
-        Fügt ein neues Custom-Pattern hinzu
+        Fuegt ein neues Custom-Pattern hinzu
 
     .DESCRIPTION
-        Validiert Regex, prüft auf Name-Duplikate, speichert.
+        Validiert Regex, prueft auf Name-Duplikate, speichert.
 
     .PARAMETER Name
         Eindeutiger Name
 
     .PARAMETER Regex
-        Regulärer Ausdruck mit Capture-Group(s)
+        Regulaerer Ausdruck mit Capture-Group(s)
 
     .PARAMETER GroupCapture
         Welche Capture-Group als Key (0 = gesamter Match, Default: 1)
 
     .PARAMETER Priority
-        Reihenfolge (niedriger = früher, Default: 50)
+        Reihenfolge (niedriger = frueher, Default: 50)
 
     .PARAMETER Description
         Optionale Beschreibung
@@ -244,7 +393,7 @@ function Add-SorterPattern {
     )
 
     try { [void][regex]::new($Regex) }
-    catch { throw "Ungültiger Regex '$Regex': $($_.Exception.Message)" }
+    catch { throw "Ungueltiger Regex '$Regex': $($_.Exception.Message)" }
 
     $patterns = @(Get-SorterPatterns -ScriptRoot $ScriptRoot)
 
@@ -259,7 +408,7 @@ function Add-SorterPattern {
     }
 
     Save-SorterPatterns -Patterns (@($patterns) + @($newPattern)) -ScriptRoot $ScriptRoot
-    Write-Verbose "Pattern '$Name' hinzugefügt"
+    Write-Verbose "Pattern '$Name' hinzugefuegt"
     return $newPattern
 }
 
@@ -270,7 +419,7 @@ function Remove-SorterPattern {
         Entfernt Custom-Pattern oder deaktiviert Built-in Pattern
 
     .DESCRIPTION
-        Custom = gelöscht. Built-in = Enabled auf false gesetzt.
+        Custom = geloescht. Built-in = Enabled auf false gesetzt.
 
     .PARAMETER Name
         Name des Patterns
@@ -332,7 +481,7 @@ function Export-FileNames {
         Absoluter Pfad zum Ordner
 
     .PARAMETER Extensions
-        Optionale Einschränkung auf bestimmte Extensions
+        Optionale Einschraenkung auf bestimmte Extensions
 
     .EXAMPLE
         $log = Export-FileNames -FolderPath "D:\Fotos\Unsortiert"
@@ -408,7 +557,7 @@ function Export-FileNames {
 
 
 # ============================================================================
-# MULTI-PATTERN ANALYSE
+# MULTI-PATTERN ANALYSE (STUFE 1)
 # ============================================================================
 
 function Get-FileGroups {
@@ -418,17 +567,17 @@ function Get-FileGroups {
 
     .DESCRIPTION
         Scannt Dateien (nicht rekursiv), wendet aktivierte Pattern in
-        Prioritäts-Reihenfolge an. Erstes Match bestimmt die Gruppe.
+        Prioritaets-Reihenfolge an. Erstes Match bestimmt die Gruppe.
         Nicht gematchte Dateien landen in "_unsorted".
 
     .PARAMETER FolderPath
         Absoluter Pfad zum Ordner
 
     .PARAMETER ScriptRoot
-        Projekt-Root (für Pattern-Profile JSON)
+        Projekt-Root (fuer Pattern-Profile JSON)
 
     .PARAMETER Extensions
-        Optionale Einschränkung auf bestimmte Extensions
+        Optionale Einschraenkung auf bestimmte Extensions
 
     .EXAMPLE
         $groups = Get-FileGroups -FolderPath "D:\Fotos\Unsortiert" -ScriptRoot $ScriptRoot
@@ -483,7 +632,7 @@ function Get-FileGroups {
                 GroupCapture = $p.GroupCapture
             }
         }
-        catch { Write-Warning "Pattern '$($p.Name)': ungültiger Regex — übersprungen" }
+        catch { Write-Warning "Pattern '$($p.Name)': ungueltiger Regex — uebersprungen" }
     }
 
     # Gruppierung
@@ -559,7 +708,197 @@ function Get-FileGroups {
 
 
 # ============================================================================
-# GRUPPEN-MANIPULATION (in-memory, vor Invoke-FileSorting)
+# N-STUFIGE GRUPPIERUNG (STUFE 2..N)
+# ============================================================================
+
+function Get-MultiLevelGroups {
+    <#
+    .SYNOPSIS
+        Unterteilt bestehende Gruppen in Sub-Gruppen (N-stufig)
+
+    .DESCRIPTION
+        Nimmt ein Groups-Array (von Get-FileGroups, Stufe 1) und wendet
+        zusaetzliche Pattern-Ebenen an, um verschachtelte Gruppen zu bilden.
+        Jede Ebene erzeugt eine weitere Ordner-Tiefe.
+
+        Ebene 1 (Stufe 1): p105, pa200, DSCF        (von Get-FileGroups)
+        Ebene 2 (Stufe 2): result, result_1, result_2 (von SubLevels[0])
+        Ebene 3 (Stufe 3): beliebig                   (von SubLevels[1])
+
+        Dateien die auf einer Sub-Ebene nicht matchen landen in "_other".
+
+    .PARAMETER Groups
+        Array von Gruppen-Objekten (Output von Get-FileGroups)
+
+    .PARAMETER SubLevels
+        Array von Hashtables, jeweils mit:
+        - Regex:        [string] Regulaerer Ausdruck
+        - GroupCapture: [int]    Welche Capture-Group (Standard: 1)
+        - Name:         [string] Bezeichnung der Ebene (optional)
+
+    .EXAMPLE
+        $subLevels = @(
+            @{ Regex = '_1_(result(?:_\d+)?)\.'; GroupCapture = 1; Name = "Variante" }
+        )
+        $multi = Get-MultiLevelGroups -Groups $groups -SubLevels $subLevels
+
+    .EXAMPLE
+        # 3-stufig
+        $subLevels = @(
+            @{ Regex = '_1_(result(?:_\d+)?)\.'; GroupCapture = 1; Name = "Variante" }
+            @{ Regex = '(\d{4})_1_result';       GroupCapture = 1; Name = "BildNr" }
+        )
+        $multi = Get-MultiLevelGroups -Groups $groups -SubLevels $subLevels
+
+    .OUTPUTS
+        [PSCustomObject[]]
+        Jede Gruppe bekommt zusaetzlich:
+        - SubGroups:    Array von Sub-Gruppen
+        - IsMultiLevel: $true
+        - LevelCount:   Anzahl der Ebenen
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject[]])]
+    param(
+        [Parameter(Mandatory)]
+        [PSCustomObject[]]$Groups,
+
+        [Parameter(Mandatory)]
+        [hashtable[]]$SubLevels
+    )
+
+    Write-Verbose "Multi-Level: $($Groups.Count) Gruppen, $($SubLevels.Count) Sub-Ebenen"
+
+    # Sub-Level Regex kompilieren
+    $compiledLevels = [System.Collections.ArrayList]::new()
+    foreach ($level in $SubLevels) {
+        $regexStr = $level.Regex
+        $capture = if ($null -ne $level.GroupCapture) { [int]$level.GroupCapture } else { 1 }
+        $levelName = if ($level.Name) { $level.Name } else { "Ebene" }
+
+        try {
+            [void]$compiledLevels.Add(@{
+                Name         = $levelName
+                Regex        = [regex]::new($regexStr, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+                GroupCapture = $capture
+            })
+        }
+        catch {
+            Write-Warning "Sub-Level '$levelName': ungueltiger Regex '$regexStr' — uebersprungen"
+        }
+    }
+
+    if ($compiledLevels.Count -eq 0) {
+        Write-Warning "Keine gueltigen Sub-Levels — gebe Original-Gruppen zurueck"
+        foreach ($g in $Groups) {
+            $g | Add-Member -NotePropertyName 'SubGroups' -NotePropertyValue @() -Force
+            $g | Add-Member -NotePropertyName 'IsMultiLevel' -NotePropertyValue $false -Force
+            $g | Add-Member -NotePropertyName 'LevelCount' -NotePropertyValue 1 -Force
+        }
+        return $Groups
+    }
+
+    # Sub-Gruppierung pro Top-Level-Gruppe
+    $result = foreach ($group in $Groups) {
+        $subGroups = Split-IntoSubGroups -Files $group.Files -Levels @($compiledLevels) -LevelIndex 0
+
+        $group | Add-Member -NotePropertyName 'SubGroups' -NotePropertyValue @($subGroups) -Force
+        $group | Add-Member -NotePropertyName 'IsMultiLevel' -NotePropertyValue $true -Force
+        $group | Add-Member -NotePropertyName 'LevelCount' -NotePropertyValue ($compiledLevels.Count + 1) -Force
+
+        $group
+    }
+
+    Write-Verbose "Multi-Level fertig: $($result.Count) Gruppen mit $($compiledLevels.Count) Sub-Ebenen"
+    return @($result)
+}
+
+
+function Split-IntoSubGroups {
+    <#
+    .SYNOPSIS
+        Interner Helper: Rekursive Sub-Gruppierung fuer eine Dateiliste
+
+    .DESCRIPTION
+        Wendet das Pattern der aktuellen Ebene auf die Dateinamen an und
+        gruppiert. Fuer jede Sub-Gruppe wird rekursiv die naechste Ebene
+        angewendet. Dateien ohne Match landen in "_other".
+
+    .PARAMETER Files
+        Array von Dateinamen (strings)
+
+    .PARAMETER Levels
+        Kompilierte Pattern-Ebenen (Array von Hashtables)
+
+    .PARAMETER LevelIndex
+        Aktuelle Ebene (0-basiert)
+
+    .EXAMPLE
+        $subs = Split-IntoSubGroups -Files $fileNames -Levels $compiled -LevelIndex 0
+
+    .OUTPUTS
+        [PSCustomObject[]] Sub-Gruppen mit SubKey, LevelName, Files, FileCount, SubGroups
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject[]])]
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Files,
+
+        [Parameter(Mandatory)]
+        [hashtable[]]$Levels,
+
+        [Parameter(Mandatory)]
+        [int]$LevelIndex
+    )
+
+    if ($LevelIndex -ge $Levels.Count -or $Files.Count -eq 0) {
+        return @()
+    }
+
+    $currentLevel = $Levels[$LevelIndex]
+    $regex = $currentLevel.Regex
+    $capture = $currentLevel.GroupCapture
+
+    # Dateien nach aktuellem Pattern gruppieren
+    $subGroupMap = @{}
+
+    foreach ($fileName in $Files) {
+        $m = $regex.Match($fileName)
+        $subKey = if ($m.Success) {
+            if ($capture -eq 0) { $m.Value.ToLowerInvariant() }
+            else { $m.Groups[$capture].Value.ToLowerInvariant() }
+        }
+        else {
+            "_other"
+        }
+
+        if (-not $subGroupMap.ContainsKey($subKey)) {
+            $subGroupMap[$subKey] = [System.Collections.ArrayList]::new()
+        }
+        [void]$subGroupMap[$subKey].Add($fileName)
+    }
+
+    # Sub-Gruppen erstellen + rekursiv naechste Ebene
+    $subGroups = foreach ($key in ($subGroupMap.Keys | Sort-Object)) {
+        $subFiles = @($subGroupMap[$key] | Sort-Object)
+        $childSubGroups = Split-IntoSubGroups -Files $subFiles -Levels $Levels -LevelIndex ($LevelIndex + 1)
+
+        [PSCustomObject]@{
+            SubKey     = $key
+            LevelName  = $currentLevel.Name
+            Files      = $subFiles
+            FileCount  = $subFiles.Count
+            SubGroups  = @($childSubGroups)
+        }
+    }
+
+    return @($subGroups)
+}
+
+
+# ============================================================================
+# GRUPPEN-MANIPULATION (in-memory, vor Sortierung)
 # ============================================================================
 
 function Move-FileBetweenGroups {
@@ -568,7 +907,7 @@ function Move-FileBetweenGroups {
         Verschiebt eine Datei von einer Gruppe in eine andere (in-memory)
 
     .DESCRIPTION
-        Ändert nur die Gruppen-Zuordnung. Keine Dateisystem-Operation.
+        Aendert nur die Gruppen-Zuordnung. Keine Dateisystem-Operation.
 
     .PARAMETER Groups
         Array von Gruppen-Objekten (von Get-FileGroups)
@@ -603,7 +942,7 @@ function Move-FileBetweenGroups {
     $sourceGroup.FileCount = $sourceGroup.Files.Count
     $sourceGroup.PreviewFiles = @($sourceGroup.Files | Select-Object -First 5)
 
-    # In Ziel einfügen oder neue Gruppe
+    # In Ziel einfuegen oder neue Gruppe
     if ($targetGroup) {
         $targetGroup.Files = @(@($targetGroup.Files) + @($FileName) | Sort-Object)
         $targetGroup.FileCount = $targetGroup.Files.Count
@@ -626,16 +965,16 @@ function Move-FileBetweenGroups {
 function Merge-FileGroups {
     <#
     .SYNOPSIS
-        Führt zwei Gruppen zusammen (in-memory)
+        Fuehrt zwei Gruppen zusammen (in-memory)
 
     .DESCRIPTION
-        Alle Dateien aus SourcePrefix → TargetPrefix. Quelle wird entfernt.
+        Alle Dateien aus SourcePrefix -> TargetPrefix. Quelle wird entfernt.
 
     .PARAMETER Groups
         Array von Gruppen-Objekten
 
     .PARAMETER SourcePrefix
-        Prefix der aufzulösenden Gruppe
+        Prefix der aufzuloesenden Gruppe
 
     .PARAMETER TargetPrefix
         Prefix der Ziel-Gruppe
@@ -692,7 +1031,7 @@ function Split-FileGroup {
         Dateinamen die in die neue Gruppe sollen
 
     .PARAMETER NewPrefix
-        Prefix für die neue Gruppe
+        Prefix fuer die neue Gruppe
 
     .EXAMPLE
         $groups = Split-FileGroup -Groups $groups -SourcePrefix "p006" `
@@ -738,7 +1077,7 @@ function Split-FileGroup {
 
 
 # ============================================================================
-# SORTIERUNG + UNDO
+# EINSTUFIGE SORTIERUNG + UNDO
 # ============================================================================
 
 function Invoke-FileSorting {
@@ -747,8 +1086,9 @@ function Invoke-FileSorting {
         Verschiebt Dateien in Unterordner und erstellt Undo-Log
 
     .DESCRIPTION
-        Nimmt Gruppen + Mapping (Prefix → Ordnername), verschiebt Dateien.
-        Erstellt _undo-sort.json für Rückgängig. Path-Traversal-Schutz.
+        Nimmt Gruppen + Mapping (Prefix -> Ordnername), verschiebt Dateien.
+        Erstellt _undo-sort.json fuer Rueckgaengig. Path-Traversal-Schutz.
+        Nutzt Move-SingleFile fuer Thumbnail-Kopie.
 
     .PARAMETER FolderPath
         Absoluter Pfad zum Quell-Ordner
@@ -805,7 +1145,7 @@ function Invoke-FileSorting {
                 $failed++
                 [void]$details.Add([PSCustomObject]@{
                     File = $fn; Prefix = $prefix; Target = $targetName
-                    Status = "Error"; Message = "Ungültiger Ordnername (Path-Traversal)"
+                    Status = "Error"; Message = "Ungueltiger Ordnername (Path-Traversal)"
                 })
             }
             continue
@@ -831,89 +1171,16 @@ function Invoke-FileSorting {
             }
         }
 
-        # Dateien verschieben
+        # Dateien verschieben (via gemeinsamen Helper)
         foreach ($fileName in $group.Files) {
-            $sourcePath = Join-Path $FolderPath $fileName
-            $targetPath = Join-Path $targetFolder $fileName
+            $moveResult = Move-SingleFile -FolderPath $FolderPath `
+                -FileName $fileName -TargetFolder $targetFolder `
+                -Prefix $prefix -TargetName $targetName
 
-            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
-                $failed++
-                [void]$details.Add([PSCustomObject]@{
-                    File = $fileName; Prefix = $prefix; Target = $targetName
-                    Status = "Error"; Message = "Quelldatei nicht gefunden"
-                })
-                continue
-            }
-
-            if (Test-Path -LiteralPath $targetPath) {
-                $failed++
-                [void]$details.Add([PSCustomObject]@{
-                    File = $fileName; Prefix = $prefix; Target = $targetName
-                    Status = "Error"; Message = "Existiert bereits im Ziel"
-                })
-                continue
-            }
-
-            try {
-                # Thumbnail-Hash VOR dem Move berechnen (alter Pfad)
-                $oldThumbsDir = Join-Path $FolderPath ".thumbs"
-                $oldThumbHash = $null
-                if (Test-Path -LiteralPath $oldThumbsDir -PathType Container) {
-                    try {
-                        $fi = [System.IO.FileInfo]::new($sourcePath)
-                        $hashInput = "$($fi.FullName)-$($fi.LastWriteTimeUtc.Ticks)"
-                        $oldThumbHash = [System.BitConverter]::ToString(
-                            [System.Security.Cryptography.MD5]::Create().ComputeHash(
-                                [System.Text.Encoding]::UTF8.GetBytes($hashInput)
-                            )
-                        ).Replace('-', '').ToLowerInvariant()
-                    }
-                    catch { }
-                }
-
-                Move-Item -LiteralPath $sourcePath -Destination $targetPath -ErrorAction Stop
-                $moved++
-
-                # Thumbnail in neuen .thumbs/ kopieren
-                if ($oldThumbHash) {
-                    $oldThumbPath = Join-Path $oldThumbsDir "$oldThumbHash.jpg"
-                    if (Test-Path -LiteralPath $oldThumbPath -PathType Leaf) {
-                        $newThumbsDir = Join-Path $targetFolder ".thumbs"
-                        if (-not (Test-Path -LiteralPath $newThumbsDir -PathType Container)) {
-                            New-Item -ItemType Directory -Path $newThumbsDir -Force | Out-Null
-                            # Hidden + System Attribute (OneDrive-Schutz)
-                            $tf = Get-Item -LiteralPath $newThumbsDir -Force
-                            $tf.Attributes = [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System
-                        }
-                        # Neuen Hash berechnen (neuer Pfad, gleiche LastWriteTime)
-                        try {
-                            $newFi = [System.IO.FileInfo]::new($targetPath)
-                            $newHashInput = "$($newFi.FullName)-$($newFi.LastWriteTimeUtc.Ticks)"
-                            $newThumbHash = [System.BitConverter]::ToString(
-                                [System.Security.Cryptography.MD5]::Create().ComputeHash(
-                                    [System.Text.Encoding]::UTF8.GetBytes($newHashInput)
-                                )
-                            ).Replace('-', '').ToLowerInvariant()
-                            $newThumbPath = Join-Path $newThumbsDir "$newThumbHash.jpg"
-                            Copy-Item -LiteralPath $oldThumbPath -Destination $newThumbPath -Force
-                        }
-                        catch { }
-                    }
-                }
-
-                [void]$undoEntries.Add(@{ File = $fileName; From = $sourcePath; To = $targetPath })
-                [void]$details.Add([PSCustomObject]@{
-                    File = $fileName; Prefix = $prefix; Target = $targetName
-                    Status = "Moved"; Message = "OK"
-                })
-            }
-            catch {
-                $failed++
-                [void]$details.Add([PSCustomObject]@{
-                    File = $fileName; Prefix = $prefix; Target = $targetName
-                    Status = "Error"; Message = $_.Exception.Message
-                })
-            }
+            $moved += $moveResult.Moved
+            $failed += $moveResult.Failed
+            if ($moveResult.Detail) { [void]$details.Add($moveResult.Detail) }
+            if ($moveResult.UndoEntry) { [void]$undoEntries.Add($moveResult.UndoEntry) }
         }
     }
 
@@ -931,7 +1198,7 @@ function Invoke-FileSorting {
         Write-Verbose "Undo-Log: $undoLogPath"
     }
 
-    Write-Verbose "Fertig: $moved verschoben, $failed fehlgeschlagen, $skipped übersprungen"
+    Write-Verbose "Fertig: $moved verschoben, $failed fehlgeschlagen, $skipped uebersprungen"
 
     return [PSCustomObject]@{
         Moved          = $moved
@@ -944,20 +1211,283 @@ function Invoke-FileSorting {
 }
 
 
+# ============================================================================
+# N-STUFIGE SORTIERUNG
+# ============================================================================
+
+function Invoke-MultiLevelSorting {
+    <#
+    .SYNOPSIS
+        Verschiebt Dateien in verschachtelte Unterordner (N-stufig)
+
+    .DESCRIPTION
+        Nimmt Multi-Level-Gruppen (von Get-MultiLevelGroups) und erstellt
+        verschachtelte Ordner-Strukturen. Undo-Log fuer komplette
+        Rueckgaengig-Machung.
+
+        Ergebnis bei 2 Ebenen:
+          FolderPath/
+          +-- p105/
+          |   +-- result/
+          |   |   +-- p1050001_1_result.jpg
+          |   +-- result_1/
+          |       +-- p1050001_1_result_1.jpg
+          +-- DSCF/
+              +-- result/
+                  +-- DSCF0001_1_result.JPG
+
+    .PARAMETER FolderPath
+        Absoluter Pfad zum Quell-Ordner
+
+    .PARAMETER Groups
+        Multi-Level-Gruppen (von Get-MultiLevelGroups, mit SubGroups)
+
+    .PARAMETER GroupMappings
+        Hashtable: Key = Prefix, Value = Ziel-Ordnername (Stufe 1)
+        Sub-Ordnernamen werden automatisch aus SubKey abgeleitet.
+
+    .EXAMPLE
+        $map = @{ "p105" = "Set_105"; "DSCF" = "DSCF_Fotos" }
+        $result = Invoke-MultiLevelSorting -FolderPath $path -Groups $multiGroups -GroupMappings $map
+
+    .EXAMPLE
+        if ($result.Moved -gt 0) { Write-Host "$($result.Moved) Dateien verschoben" }
+
+    .OUTPUTS
+        [PSCustomObject] Moved, Failed, Skipped, CreatedFolders, UndoLogPath, Details
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [ValidateScript({ Test-Path -LiteralPath $_ -PathType Container })]
+        [string]$FolderPath,
+
+        [Parameter(Mandatory)]
+        [PSCustomObject[]]$Groups,
+
+        [Parameter(Mandatory)]
+        [hashtable]$GroupMappings
+    )
+
+    Write-Verbose "Multi-Level Sortierung: $FolderPath ($($GroupMappings.Count) Mappings)"
+
+    $moved = 0; $failed = 0; $skipped = 0
+    $createdFolders = [System.Collections.ArrayList]::new()
+    $details = [System.Collections.ArrayList]::new()
+    $undoEntries = [System.Collections.ArrayList]::new()
+
+    foreach ($group in $Groups) {
+        $prefix = $group.Prefix
+
+        if (-not $GroupMappings.ContainsKey($prefix)) {
+            $skipped += $group.FileCount
+            continue
+        }
+
+        $topFolderName = $GroupMappings[$prefix]
+        if ([string]::IsNullOrWhiteSpace($topFolderName)) {
+            $skipped += $group.FileCount
+            continue
+        }
+
+        # Path-Traversal Schutz
+        if ($topFolderName -match '[/\\]' -or $topFolderName.Contains('..')) {
+            $failed += $group.FileCount
+            continue
+        }
+
+        # Hat Sub-Gruppen? -> Verschachtelt sortieren
+        if ($group.IsMultiLevel -and $group.SubGroups.Count -gt 0) {
+            $sortResult = Invoke-SubGroupSorting `
+                -FolderPath $FolderPath `
+                -BasePath $topFolderName `
+                -SubGroups $group.SubGroups `
+                -Prefix $prefix
+
+            $moved += $sortResult.Moved
+            $failed += $sortResult.Failed
+            foreach ($f in $sortResult.CreatedFolders) { [void]$createdFolders.Add($f) }
+            foreach ($d in $sortResult.Details) { [void]$details.Add($d) }
+            foreach ($u in $sortResult.UndoEntries) { [void]$undoEntries.Add($u) }
+        }
+        else {
+            # Fallback: Einstufig (keine Sub-Gruppen)
+            $targetFolder = Join-Path $FolderPath $topFolderName
+
+            if (-not (Test-Path -LiteralPath $targetFolder -PathType Container)) {
+                try {
+                    New-Item -ItemType Directory -Path $targetFolder -Force | Out-Null
+                    [void]$createdFolders.Add($topFolderName)
+                }
+                catch {
+                    $failed += $group.FileCount
+                    continue
+                }
+            }
+
+            foreach ($fileName in $group.Files) {
+                $moveResult = Move-SingleFile -FolderPath $FolderPath `
+                    -FileName $fileName -TargetFolder $targetFolder `
+                    -Prefix $prefix -TargetName $topFolderName
+                $moved += $moveResult.Moved; $failed += $moveResult.Failed
+                if ($moveResult.Detail) { [void]$details.Add($moveResult.Detail) }
+                if ($moveResult.UndoEntry) { [void]$undoEntries.Add($moveResult.UndoEntry) }
+            }
+        }
+    }
+
+    # Undo-Log
+    $undoLogPath = $null
+    if ($undoEntries.Count -gt 0) {
+        $undoLogPath = Join-Path $FolderPath "_undo-sort.json"
+        @{
+            Timestamp      = (Get-Date).ToString('o')
+            FolderPath     = $FolderPath
+            MovedCount     = $moved
+            MultiLevel     = $true
+            CreatedFolders = @($createdFolders)
+            Entries        = @($undoEntries)
+        } | ConvertTo-Json -Depth 10 | Out-File -FilePath $undoLogPath -Encoding UTF8 -Force
+        Write-Verbose "Undo-Log: $undoLogPath"
+    }
+
+    Write-Verbose "Multi-Level fertig: $moved verschoben, $failed fehlgeschlagen, $skipped uebersprungen"
+
+    return [PSCustomObject]@{
+        Moved          = $moved
+        Failed         = $failed
+        Skipped        = $skipped
+        CreatedFolders = @($createdFolders)
+        UndoLogPath    = $undoLogPath
+        Details        = @($details)
+    }
+}
+
+
+function Invoke-SubGroupSorting {
+    <#
+    .SYNOPSIS
+        Interner Helper: Rekursive Sortierung von Sub-Gruppen
+
+    .DESCRIPTION
+        Erstellt verschachtelte Ordner und verschiebt Dateien.
+        Wird rekursiv fuer jede weitere Ebene aufgerufen.
+        Blatt-Ebene (keine weiteren SubGroups) = Dateien verschieben.
+
+    .PARAMETER FolderPath
+        Root-Ordner (wo die Dateien aktuell liegen)
+
+    .PARAMETER BasePath
+        Relativer Pfad ab FolderPath (z.B. "p105" oder "p105\result")
+
+    .PARAMETER SubGroups
+        Sub-Gruppen mit SubKey, Files, SubGroups
+
+    .PARAMETER Prefix
+        Prefix der Top-Level Gruppe (fuer Details/Logging)
+
+    .EXAMPLE
+        $r = Invoke-SubGroupSorting -FolderPath $root -BasePath "p105" `
+            -SubGroups $group.SubGroups -Prefix "p105"
+
+    .OUTPUTS
+        [PSCustomObject] Moved, Failed, CreatedFolders, Details, UndoEntries
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)][string]$FolderPath,
+        [Parameter(Mandatory)][string]$BasePath,
+        [Parameter(Mandatory)][PSCustomObject[]]$SubGroups,
+        [Parameter(Mandatory)][string]$Prefix
+    )
+
+    $moved = 0; $failed = 0
+    $createdFolders = [System.Collections.ArrayList]::new()
+    $details = [System.Collections.ArrayList]::new()
+    $undoEntries = [System.Collections.ArrayList]::new()
+
+    foreach ($sub in $SubGroups) {
+        $subFolderName = $sub.SubKey
+        $relPath = Join-Path $BasePath $subFolderName
+        $fullPath = Join-Path $FolderPath $relPath
+
+        # Path-Traversal Schutz
+        if ($subFolderName -match '[/\\]' -or $subFolderName.Contains('..')) {
+            $failed += $sub.FileCount
+            continue
+        }
+
+        # Ordner erstellen
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Container)) {
+            try {
+                New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
+                [void]$createdFolders.Add($relPath)
+            }
+            catch {
+                $failed += $sub.FileCount
+                continue
+            }
+        }
+
+        # Hat weitere Sub-Gruppen? -> Rekursiv
+        if ($sub.SubGroups -and $sub.SubGroups.Count -gt 0) {
+            $childResult = Invoke-SubGroupSorting `
+                -FolderPath $FolderPath `
+                -BasePath $relPath `
+                -SubGroups $sub.SubGroups `
+                -Prefix $Prefix
+
+            $moved += $childResult.Moved
+            $failed += $childResult.Failed
+            foreach ($f in $childResult.CreatedFolders) { [void]$createdFolders.Add($f) }
+            foreach ($d in $childResult.Details) { [void]$details.Add($d) }
+            foreach ($u in $childResult.UndoEntries) { [void]$undoEntries.Add($u) }
+        }
+        else {
+            # Blatt-Ebene: Dateien verschieben
+            foreach ($fileName in $sub.Files) {
+                $moveResult = Move-SingleFile -FolderPath $FolderPath `
+                    -FileName $fileName -TargetFolder $fullPath `
+                    -Prefix $Prefix -TargetName $relPath
+                $moved += $moveResult.Moved; $failed += $moveResult.Failed
+                if ($moveResult.Detail) { [void]$details.Add($moveResult.Detail) }
+                if ($moveResult.UndoEntry) { [void]$undoEntries.Add($moveResult.UndoEntry) }
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        Moved          = $moved
+        Failed         = $failed
+        CreatedFolders = @($createdFolders)
+        Details        = @($details)
+        UndoEntries    = @($undoEntries)
+    }
+}
+
+
+# ============================================================================
+# UNDO (funktioniert fuer einstufig UND mehrstufig)
+# ============================================================================
+
 function Undo-FileSorting {
     <#
     .SYNOPSIS
-        Macht die letzte Sortierung rückgängig
+        Macht die letzte Sortierung rueckgaengig
 
     .DESCRIPTION
-        Liest _undo-sort.json, verschiebt Dateien zurück, entfernt leere Ordner.
+        Liest _undo-sort.json, verschiebt Dateien zurueck, entfernt leere
+        Ordner. Funktioniert fuer einstufige und mehrstufige Sortierungen.
 
     .PARAMETER FolderPath
         Ordner mit _undo-sort.json
 
     .EXAMPLE
         $result = Undo-FileSorting -FolderPath "D:\Fotos\Unsortiert"
-        Write-Host "$($result.Restored) zurück verschoben"
+        Write-Host "$($result.Restored) zurueck verschoben"
 
     .EXAMPLE
         $r = Undo-FileSorting -FolderPath $path
@@ -1012,20 +1542,30 @@ function Undo-FileSorting {
             $restored++
         }
         catch {
-            Write-Warning "Zurückverschieben: $($entry.File) — $($_.Exception.Message)"
+            Write-Warning "Zurueckverschieben: $($entry.File) — $($_.Exception.Message)"
             $failed++
         }
     }
 
-    # Leere erstellte Ordner entfernen
+    # Leere erstellte Ordner entfernen (tiefste zuerst fuer verschachtelte)
     $removedFolders = [System.Collections.ArrayList]::new()
     if ($undoData.CreatedFolders) {
-        foreach ($folderName in $undoData.CreatedFolders) {
+        # Sortiere nach Tiefe absteigend (tiefste Unterordner zuerst)
+        $sortedFolders = @($undoData.CreatedFolders | Sort-Object { ($_ -split '[/\\]').Count } -Descending)
+
+        foreach ($folderName in $sortedFolders) {
             $folderFull = Join-Path $FolderPath $folderName
             if ((Test-Path -LiteralPath $folderFull -PathType Container)) {
-                $remaining = @(Get-ChildItem -LiteralPath $folderFull -ErrorAction SilentlyContinue)
+                # Prüfe ob leer (ignoriere .thumbs)
+                $remaining = @(Get-ChildItem -LiteralPath $folderFull -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -ne '.thumbs' })
                 if ($remaining.Count -eq 0) {
                     try {
+                        # .thumbs Ordner auch entfernen
+                        $thumbsDir = Join-Path $folderFull ".thumbs"
+                        if (Test-Path -LiteralPath $thumbsDir -PathType Container) {
+                            Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction SilentlyContinue
+                        }
                         Remove-Item -LiteralPath $folderFull -Force
                         [void]$removedFolders.Add($folderName)
                     }
@@ -1036,9 +1576,9 @@ function Undo-FileSorting {
     }
 
     try { Remove-Item -LiteralPath $undoPath -Force }
-    catch { Write-Warning "Undo-Log nicht löschbar" }
+    catch { Write-Warning "Undo-Log nicht loeschbar" }
 
-    Write-Verbose "Undo: $restored zurück, $failed fehlgeschlagen, $($removedFolders.Count) Ordner entfernt"
+    Write-Verbose "Undo: $restored zurueck, $failed fehlgeschlagen, $($removedFolders.Count) Ordner entfernt"
 
     return [PSCustomObject]@{
         Success        = ($failed -eq 0)
