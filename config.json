@@ -24,7 +24,7 @@
     "EnableMove": false
   },
   "Features": {
-    "LightboxViewer": true,
+    "LightboxViewer": false,
     "OpenInVLC": false,
     "ArchiveExtensions": [
       ".zip",
