@@ -245,6 +245,8 @@ function Get-DefaultConfig {
                 ".mpg"  = "video/mpeg"
                 ".mpeg" = "video/mpeg"
                 ".3gp"  = "video/3gpp"
+                ".m3u8" = "application/vnd.apple.mpegurl"
+                ".ts"   = "video/mp2t"
             }
         }
     }
