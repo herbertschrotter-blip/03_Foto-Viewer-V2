@@ -71,11 +71,11 @@
     <div class="container">
         <div class="header">
             <h1>Foto Viewer V2</h1>
-            <div class="search-wrapper">
-                <input type="text" id="searchInput" class="search-input" placeholder="Ordner oder Dateien suchen..." oninput="filterFolders(this.value)">
-                <span class="search-icon">🔍</span>
-                <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
-            </div>
+        </div>
+        <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" class="search-input" placeholder="Suchen..." oninput="filterFolders(this.value)">
+            <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
         </div>
         
         <div class="folder-list">
