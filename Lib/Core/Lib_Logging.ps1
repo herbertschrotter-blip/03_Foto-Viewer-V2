@@ -199,3 +199,72 @@ function Get-AnonymizedLogPath {
 
     return $result.ToString()
 }
+
+function Invoke-AnonymizeLogFile {
+    <#
+    .SYNOPSIS
+        Anonymisiert alle absoluten Pfade in debug.log (Post-Processing)
+
+    .DESCRIPTION
+        Liest debug.log, ersetzt alle absoluten Pfade durch anonymisierte Versionen.
+        Wird im finally-Block von start.ps1 nach Stop-Transcript aufgerufen.
+        Laeuft auch bei Crash (finally garantiert Ausfuehrung).
+
+    .PARAMETER LogPath
+        Pfad zur debug.log Datei
+
+    .PARAMETER ProjectRoot
+        Projekt-Root fuer char-map.json
+
+    .PARAMETER RootPath
+        Aktueller Foto-Root-Pfad (fuer gezielte Ersetzung)
+
+    .EXAMPLE
+        Invoke-AnonymizeLogFile -LogPath "C:\PhotoFolder\debug.log" -ProjectRoot $ScriptRoot -RootPath $script:State.RootPath
+
+    .EXAMPLE
+        Invoke-AnonymizeLogFile -LogPath $logPath -ProjectRoot $ScriptRoot -RootPath ""
+
+    .NOTES
+        Version: 0.2.0
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$LogPath,
+
+        [Parameter(Mandatory)]
+        [string]$ProjectRoot,
+
+        [Parameter()]
+        [string]$RootPath = ""
+    )
+
+    if (-not (Test-Path -LiteralPath $LogPath)) {
+        return
+    }
+
+    try {
+        Initialize-CharMap -ProjectRoot $ProjectRoot
+
+        $lines = Get-Content -LiteralPath $LogPath -Encoding UTF8 -ErrorAction Stop
+
+        $anonymized = foreach ($line in $lines) {
+            # Alle absoluten Pfade ersetzen: Laufwerksbuchstabe:\ oder \\Server\
+            $result = [System.Text.RegularExpressions.Regex]::Replace(
+                $line,
+                '([A-Za-z]:\\[^"''<>|*?]+|\\\\[^"''<>|*?]+)',
+                {
+                    param($match)
+                    Get-AnonymizedLogPath -FullPath $match.Value -ProjectRoot $ProjectRoot
+                }
+            )
+            $result
+        }
+
+        $anonymized | Out-File -FilePath $LogPath -Encoding UTF8 -Force
+    }
+    catch {
+        # Fehler beim Anonymisieren soll Server-Stop nicht blockieren
+    }
+}
