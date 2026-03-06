@@ -1345,6 +1345,7 @@ function renderFolderPreview(videoExts) {
         body.innerHTML = '<div class="overlay-result">Keine Ordner mit Medien gefunden</div>';
     } else {
         body.innerHTML = html;
+        trackPreviewLoading();
     }
 }
 
@@ -1467,6 +1468,41 @@ function renderGridPreview(videoExts) {
 
     html += '</div>';
     body.innerHTML = html;
+    trackPreviewLoading();
+}
+
+function trackPreviewLoading() {
+    var imgs = document.querySelectorAll('#folderPreviewBody img');
+    var total = imgs.length;
+    var loaded = 0;
+    var header = document.querySelector('.folder-preview-content .overlay-title');
+    var statusEl = document.getElementById('previewLoadStatus');
+    if (!statusEl) {
+        statusEl = document.createElement('span');
+        statusEl.id = 'previewLoadStatus';
+        statusEl.className = 'preview-load-status';
+        header.appendChild(statusEl);
+    }
+    statusEl.textContent = '0 / ' + total;
+
+    imgs.forEach(function(img) {
+        if (img.complete) {
+            loaded++;
+            statusEl.textContent = loaded + ' / ' + total;
+            if (loaded >= total) statusEl.textContent = '✓ ' + total;
+        } else {
+            img.addEventListener('load', function() {
+                loaded++;
+                statusEl.textContent = loaded + ' / ' + total;
+                if (loaded >= total) statusEl.textContent = '✓ ' + total;
+            }, { once: true });
+            img.addEventListener('error', function() {
+                loaded++;
+                statusEl.textContent = loaded + ' / ' + total;
+                if (loaded >= total) statusEl.textContent = '✓ ' + total;
+            }, { once: true });
+        }
+    });
 }
 
 function filterPreview(query) {
