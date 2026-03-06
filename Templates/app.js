@@ -27,7 +27,7 @@ function toggleSelect(event, checkbox) {
 }
 
 function updateSelectedCount() {
-    var folderCount = document.querySelectorAll('.folder-checkbox:checked').length;
+    var folderCount = 0;
     var fileCount = 0;
     
     document.querySelectorAll('.folder-card').forEach(function(card) {
@@ -36,10 +36,15 @@ function updateSelectedCount() {
         
         if (folderCheckbox.checked) {
             if (mediaGrid.children.length > 0) {
-                fileCount += mediaGrid.querySelectorAll('.media-checkbox:checked').length;
+                var checkedItems = mediaGrid.querySelectorAll('.media-checkbox:checked');
+                var totalItems = mediaGrid.querySelectorAll('.media-checkbox');
+                if (checkedItems.length === totalItems.length) {
+                    folderCount++;
+                } else {
+                    fileCount += checkedItems.length;
+                }
             } else {
-                var files = JSON.parse(card.dataset.files);
-                fileCount += files.length;
+                folderCount++;
             }
         } else {
             fileCount += mediaGrid.querySelectorAll('.media-checkbox:checked').length;
@@ -71,7 +76,7 @@ function updateActionBarVisibility() {
 }
 
 function getSelectedItems() {
-    var paths = [];
+    var items = { files: [], folders: [] };
     
     document.querySelectorAll('.folder-card').forEach(function(card) {
         var folderCheckbox = card.querySelector('.folder-checkbox');
@@ -80,24 +85,26 @@ function getSelectedItems() {
         
         if (folderCheckbox.checked) {
             if (mediaGrid.children.length > 0) {
-                mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
-                    paths.push(cb.closest('.media-item').dataset.filepath);
-                });
+                var checkedItems = mediaGrid.querySelectorAll('.media-checkbox:checked');
+                var totalItems = mediaGrid.querySelectorAll('.media-checkbox');
+                if (checkedItems.length === totalItems.length) {
+                    items.folders.push(folderPath);
+                } else {
+                    checkedItems.forEach(function(cb) {
+                        items.files.push(cb.closest('.media-item').dataset.filepath);
+                    });
+                }
             } else {
-                var files = JSON.parse(card.dataset.files);
-                files.forEach(function(file) {
-                    var filePath = folderPath === '.' ? file : folderPath + '/' + file;
-                    paths.push(filePath);
-                });
+                items.folders.push(folderPath);
             }
         } else {
             mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
-                paths.push(cb.closest('.media-item').dataset.filepath);
+                items.files.push(cb.closest('.media-item').dataset.filepath);
             });
         }
     });
     
-    return paths;
+    return items;
 }
 
 function toggleFolderSelection(checkbox) {
@@ -177,14 +184,24 @@ function invertSelection() {
 }
 
 async function deleteSelected() {
-    var paths = getSelectedItems();
+    var items = getSelectedItems();
+    var totalCount = items.files.length + items.folders.length;
     
-    if (paths.length === 0) {
+    if (totalCount === 0) {
         alert('Keine Dateien ausgewählt!');
         return;
     }
     
-    if (!confirm(paths.length + ' Datei(en) wirklich löschen?')) {
+    var msg = '';
+    if (items.folders.length > 0 && items.files.length > 0) {
+        msg = items.folders.length + ' Ordner und ' + items.files.length + ' Datei(en) wirklich löschen?';
+    } else if (items.folders.length > 0) {
+        msg = items.folders.length + ' Ordner (mit allen Inhalten) wirklich löschen?';
+    } else {
+        msg = items.files.length + ' Datei(en) wirklich löschen?';
+    }
+    
+    if (!confirm(msg)) {
         return;
     }
     
@@ -192,17 +209,21 @@ async function deleteSelected() {
         var response = await fetch('/delete-files', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paths: paths })
+            body: JSON.stringify({ files: items.files, folders: items.folders })
         });
         
         var result = await response.json();
         
         if (result.success) {
-            var deletedPaths = paths;
-            
             document.querySelectorAll('.folder-card').forEach(function(card) {
                 var folderCheckbox = card.querySelector('.folder-checkbox');
                 var mediaGrid = card.querySelector('.media-grid');
+                var folderPath = card.dataset.path;
+                
+                if (items.folders.indexOf(folderPath) !== -1) {
+                    card.remove();
+                    return;
+                }
                 
                 mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
                     cb.closest('.media-item').remove();
@@ -210,10 +231,9 @@ async function deleteSelected() {
                 
                 var oldFiles = [];
                 try { oldFiles = JSON.parse(card.dataset.files || '[]'); } catch(e) {}
-                var folderPath = card.dataset.path;
                 var remainingFiles = oldFiles.filter(function(file) {
                     var filePath = folderPath === '.' ? file : folderPath + '/' + file;
-                    return deletedPaths.indexOf(filePath) === -1;
+                    return items.files.indexOf(filePath) === -1;
                 });
                 
                 card.dataset.files = JSON.stringify(remainingFiles);

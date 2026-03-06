@@ -4,12 +4,12 @@
 
 .DESCRIPTION
     Behandelt alle Datei-Operations-Routes:
-    - /delete-files - Dateien loeschen (Papierkorb oder permanent)
+    - /delete-files - Dateien und Ordner loeschen (Papierkorb oder permanent)
     Geplant: /move-files, /flatten-and-move, /sort-by-name
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.1.0
+    Version: 0.2.0
 #>
 
 #Requires -Version 7.0
@@ -23,7 +23,7 @@ function Handle-FileOperationsRoute {
 
     .DESCRIPTION
         Router fuer alle Datei-Operationen:
-        - /delete-files: Loescht Dateien (Papierkorb oder permanent)
+        - /delete-files: Loescht Dateien und Ordner (Papierkorb oder permanent)
         Geplant: /move-files, /flatten-and-move, /sort-by-name
 
     .PARAMETER Context
@@ -70,10 +70,14 @@ function Handle-FileOperationsRoute {
                 $body = $reader.ReadToEnd()
                 $reader.Close()
                 $data = $body | ConvertFrom-Json
-                $paths = @($data.paths)
 
-                if ($paths.Count -eq 0) {
-                    $json = @{ success = $false; error = "Keine Dateien angegeben" } | ConvertTo-Json -Compress
+                $files = @()
+                if ($data.PSObject.Properties['files']) { $files = @($data.files) }
+                $folders = @()
+                if ($data.PSObject.Properties['folders']) { $folders = @($data.folders) }
+
+                if ($files.Count -eq 0 -and $folders.Count -eq 0) {
+                    $json = @{ success = $false; error = "Keine Dateien oder Ordner angegeben" } | ConvertTo-Json -Compress
                     Send-ResponseText -Response $res -Text $json -StatusCode 400 -ContentType "application/json; charset=utf-8"
                     return $true
                 }
@@ -82,7 +86,8 @@ function Handle-FileOperationsRoute {
                 $errors = @()
                 $useRecycleBin = $Config.FileOperations.UseRecycleBin
 
-                foreach ($relativePath in $paths) {
+                # Einzelne Dateien loeschen
+                foreach ($relativePath in $files) {
                     $fullPath = Resolve-SafePath -RootPath $RootPath -RelativePath $relativePath
                     if (-not $fullPath -or -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
                         $errors += "Nicht gefunden: $relativePath"
@@ -103,6 +108,31 @@ function Handle-FileOperationsRoute {
                         $deletedCount++
                     } catch {
                         $errors += "Fehler bei $relativePath : $($_.Exception.Message)"
+                    }
+                }
+
+                # Ganze Ordner loeschen
+                foreach ($relativeFolderPath in $folders) {
+                    $fullFolderPath = Resolve-SafePath -RootPath $RootPath -RelativePath $relativeFolderPath
+                    if (-not $fullFolderPath -or -not (Test-Path -LiteralPath $fullFolderPath -PathType Container)) {
+                        $errors += "Ordner nicht gefunden: $relativeFolderPath"
+                        continue
+                    }
+
+                    try {
+                        if ($useRecycleBin) {
+                            Add-Type -AssemblyName Microsoft.VisualBasic -ErrorAction SilentlyContinue
+                            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
+                                $fullFolderPath,
+                                [Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,
+                                [Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin
+                            )
+                        } else {
+                            Remove-Item -LiteralPath $fullFolderPath -Recurse -Force
+                        }
+                        $deletedCount++
+                    } catch {
+                        $errors += "Fehler bei Ordner $relativeFolderPath : $($_.Exception.Message)"
                     }
                 }
 
