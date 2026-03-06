@@ -198,18 +198,36 @@ async function deleteSelected() {
         var result = await response.json();
         
         if (result.success) {
+            var deletedPaths = paths;
+            
             document.querySelectorAll('.folder-card').forEach(function(card) {
                 var folderCheckbox = card.querySelector('.folder-checkbox');
                 var mediaGrid = card.querySelector('.media-grid');
                 
-                if (folderCheckbox.checked && mediaGrid.children.length === 0) {
-                    card.remove();
-                } else {
-                    mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
-                        cb.closest('.media-item').remove();
-                    });
-                    folderCheckbox.checked = false;
+                mediaGrid.querySelectorAll('.media-checkbox:checked').forEach(function(cb) {
+                    cb.closest('.media-item').remove();
+                });
+                
+                var oldFiles = [];
+                try { oldFiles = JSON.parse(card.dataset.files || '[]'); } catch(e) {}
+                var folderPath = card.dataset.path;
+                var remainingFiles = oldFiles.filter(function(file) {
+                    var filePath = folderPath === '.' ? file : folderPath + '/' + file;
+                    return deletedPaths.indexOf(filePath) === -1;
+                });
+                
+                card.dataset.files = JSON.stringify(remainingFiles);
+                
+                var countEl = card.querySelector('.folder-count');
+                if (countEl) {
+                    countEl.textContent = remainingFiles.length + ' Medien';
                 }
+                
+                if (remainingFiles.length === 0) {
+                    card.remove();
+                }
+                
+                folderCheckbox.checked = false;
             });
             
             updateSelectedCount();
