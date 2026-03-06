@@ -167,7 +167,8 @@ function Get-DefaultConfig {
             ThumbnailEndPercent = 90
             UseHLS = $true
             ThumbnailCount = 5
-            HLSSegmentDuration = 10
+            HLSSegmentDuration = 2
+            HLSPreloadSeconds = 3
             GIFFrameRate = 10
             ThumbnailFPS = 1
         }
