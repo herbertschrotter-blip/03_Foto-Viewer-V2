@@ -4,7 +4,7 @@ ManifestHint:
   Description     = "Thumbnail-Generierung für Videos mit FFmpeg - Multi-Thumbnail Support"
   Category        = "Media"
   Tags            = @("Thumbnails", "Videos", "FFmpeg", "Cache", "Multi-Thumbnail", "Parallel")
-  Dependencies    = @("FFmpeg", "Lib_ImageThumbnails.ps1", "Lib_Config.ps1")
+  Dependencies    = @("FFmpeg", "Lib_ImageThumbnails.ps1", "Lib_Config.ps1", "Lib_Logging.ps1")
 
 Zweck:
   - Thumbnail-Generierung für Videos (FFmpeg)
@@ -17,6 +17,13 @@ Funktionen:
   - Get-VideoThumbnail: Einzelnes Thumbnail (Legacy-Kompatibilität)
   - Get-VideoThumbnails: Mehrere Thumbnails (mit Parallel-Support)
   - Test-IsVideoFile: Prüft ob Datei ein Video ist
+
+ÄNDERUNGEN v0.4.0:
+  - Lib_Logging.ps1 geladen (Get-AnonymizedLogPath)
+  - Write-Warning "Video nicht gefunden" zeigt anonymisierten Pfad (Privacy)
+
+ÄNDERUNGEN v0.3.0:
+  - Parallel-Processing Support (PowerShell 7)
 
 ÄNDERUNGEN v0.2.0:
   - Parallel-Processing Support (PowerShell 7)
@@ -32,7 +39,7 @@ Funktionen:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.0
+    Version: 0.4.0
     
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
@@ -56,6 +63,13 @@ if (Test-Path -LiteralPath $libConfigPath) {
     $script:config = Get-Config
 } else {
     throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_VideoThumbnails benötigt Config."
+}
+
+$libLoggingPath = Join-Path $ProjectRoot "Lib\Core\Lib_Logging.ps1"
+if (Test-Path -LiteralPath $libLoggingPath) {
+    . $libLoggingPath
+} else {
+    throw "FEHLER: Lib_Logging.ps1 nicht gefunden! Lib_VideoThumbnails benötigt Logging."
 }
 
 #region Helper Functions
@@ -327,7 +341,7 @@ function Get-VideoThumbnails {
     try {
         # Datei existiert?
         if (-not (Test-Path -LiteralPath $VideoPath -PathType Leaf)) {
-            Write-Warning "Video nicht gefunden: $VideoPath"
+            Write-Warning "Video nicht gefunden: $(Get-AnonymizedLogPath -FullPath $VideoPath -ProjectRoot $ProjectRoot)"
             return @()
         }
         

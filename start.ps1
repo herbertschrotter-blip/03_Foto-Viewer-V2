@@ -507,4 +507,5 @@ finally {
     Write-Host ""
     Write-Host "=== PHOTO VIEWER ENDE ===" -ForegroundColor Cyan
     Stop-Transcript
+    Invoke-AnonymizeLogFile -LogPath $logPath -ProjectRoot $ScriptRoot -RootPath $script:State.RootPath
 }
