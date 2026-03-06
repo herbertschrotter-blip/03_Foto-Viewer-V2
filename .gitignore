@@ -47,4 +47,4 @@ ffprobe.exe
 debug.log
 
 # Logging
-Lib/Core/char-map.json
+Lib/Core/char-map.jsonfile-sorter-patterns.json.backup

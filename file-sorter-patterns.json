@@ -1,0 +1,29 @@
+[
+  {
+    "Name": "Prefix",
+    "Regex": "^([a-zA-Z]\\d{3})",
+    "GroupCapture": 1,
+    "Priority": 10,
+    "Enabled": true,
+    "BuiltIn": true,
+    "Description": "Buchstabe + 3 Ziffern am Anfang (z.B. p006, w001)"
+  },
+  {
+    "Name": "Datum_YYYY-MM-DD",
+    "Regex": "(\\d{4}-\\d{2}-\\d{2})",
+    "GroupCapture": 1,
+    "Priority": 20,
+    "Enabled": false,
+    "BuiltIn": true,
+    "Description": "Datum im Format YYYY-MM-DD (z.B. 2024-01-15)"
+  },
+  {
+    "Name": "Datum_YYYYMMDD",
+    "Regex": "(\\d{4}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01]))",
+    "GroupCapture": 1,
+    "Priority": 30,
+    "Enabled": false,
+    "BuiltIn": true,
+    "Description": "Datum im Format YYYYMMDD (z.B. 20240115)"
+  }
+]
