@@ -201,7 +201,7 @@ function Get-DefaultConfig {
             LightboxViewer = $true
             ArchiveExtensions = @(".zip", ".rar", ".7z", ".tar", ".gz")
             VideoThumbnailPreGeneration = $false
-            ArchiveExtraction = $false
+            ArchiveExtraction = $true
             ArchiveAfterExtract = "recycle"            
         }
         Paths = @{

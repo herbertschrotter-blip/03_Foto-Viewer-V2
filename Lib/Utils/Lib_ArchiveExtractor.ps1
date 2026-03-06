@@ -378,8 +378,8 @@ function Invoke-ArchiveExtraction {
     Write-Verbose "Extractor: $($extractor.Tool) ($($extractor.Formats -join ', '))"
 
     # Welche konfigurierten Extensions kann der Extractor?
-    $supportedExts = $extensions | Where-Object { $_ -in $extractor.Formats }
-    $unsupportedExts = $extensions | Where-Object { $_ -notin $extractor.Formats }
+    $supportedExts = @($extensions | Where-Object { $_ -in $extractor.Formats })
+    $unsupportedExts = @($extensions | Where-Object { $_ -notin $extractor.Formats })
 
     if ($unsupportedExts.Count -gt 0) {
         Write-Warning "Extractor '$($extractor.Tool)' unterstützt nicht: $($unsupportedExts -join ', '). Installiere 7-Zip für alle Formate."
