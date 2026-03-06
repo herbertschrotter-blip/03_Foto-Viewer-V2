@@ -58,7 +58,6 @@
   "Paths": {
     "ThumbsFolder": ".thumbs",
     "TempFolder": ".temp",
-    "ConvertedFolder": ".converted",
     "RootFolder": ""
   },
   "Server": {

@@ -24,7 +24,7 @@ Abhängigkeiten:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.3.0
+    Version: 0.3.1
 #>
 
 #Requires -Version 7.0
@@ -208,7 +208,6 @@ function Get-DefaultConfig {
         Paths = @{
             ThumbsFolder = ".thumbs"
             TempFolder = ".temp"
-            ConvertedFolder = ".converted"
             RootFolder = ""
         }
         Server = @{
