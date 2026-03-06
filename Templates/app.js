@@ -963,7 +963,7 @@ function showLightboxImage() {
         fetch(videoUrl)
             .then(function(resp) { return resp.json(); })
             .then(function(data) {
-                if (data.status === 'ready' && data.url) {
+                if ((data.status === 'ready' || data.status === 'converting') && data.url) {
                     var hlsUrl = data.url;
                     var preloadSec = data.preloadSeconds || 15;
                     

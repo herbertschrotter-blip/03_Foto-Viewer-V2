@@ -121,6 +121,104 @@ function Get-HLSPlaylistPath {
     return (Join-Path $hlsDir "playlist.m3u8")
 }
 
+function Start-HLSConversion {
+    <#
+    .SYNOPSIS
+        Startet HLS-Konvertierung im Hintergrund (non-blocking)
+    
+    .DESCRIPTION
+        Startet FFmpeg als separaten Prozess und gibt sofort zurück.
+        FFmpeg schreibt Chunks progressiv — Browser kann schon abspielen
+        während Konvertierung noch läuft.
+    
+    .PARAMETER VideoPath
+        Vollständiger Pfad zum Video
+    
+    .PARAMETER RootFull
+        Root-Ordner der Mediathek
+    
+    .PARAMETER ScriptRoot
+        Projekt-Root (für FFmpeg-Pfad)
+    
+    .OUTPUTS
+        [string] Pfad zur .m3u8 Playlist (wird von FFmpeg erstellt)
+        $null bei Fehler
+    
+    .NOTES
+        Autor: Herbert
+        Version: 0.2.0
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$VideoPath,
+        
+        [Parameter(Mandatory)]
+        [string]$RootFull,
+        
+        [Parameter(Mandatory)]
+        [string]$ScriptRoot
+    )
+    
+    try {
+        $config = Get-Config
+        
+        # FFmpeg-Pfad
+        $ffmpegPath = Join-Path $ScriptRoot "ffmpeg\ffmpeg.exe"
+        
+        if (-not (Test-Path -LiteralPath $ffmpegPath -PathType Leaf)) {
+            Write-Error "FFmpeg nicht gefunden: $ffmpegPath"
+            return $null
+        }
+        
+        # Playlist-Pfad berechnen
+        $playlistPath = Get-HLSPlaylistPath -VideoPath $VideoPath -RootFull $RootFull
+        $hlsDir = Split-Path -Parent $playlistPath
+        
+        # Bereits konvertiert?
+        if (Test-Path -LiteralPath $playlistPath -PathType Leaf) {
+            Write-Verbose "HLS bereits vorhanden: $playlistPath"
+            return $playlistPath
+        }
+        
+        # HLS-Ordner erstellen (mit verstecktem .temp)
+        $tempRoot = Join-Path (Split-Path -Parent $VideoPath) $config.Paths.TempFolder
+        if (-not (Test-Path -LiteralPath $hlsDir)) {
+            New-Item -ItemType Directory -Path $hlsDir -Force | Out-Null
+            Write-Verbose "HLS-Ordner erstellt: $hlsDir"
+        }
+        if (Test-Path -LiteralPath $tempRoot) {
+            $tempDirInfo = Get-Item -LiteralPath $tempRoot -Force
+            if (-not ($tempDirInfo.Attributes -band [System.IO.FileAttributes]::Hidden)) {
+                $tempDirInfo.Attributes = $tempDirInfo.Attributes -bor [System.IO.FileAttributes]::Hidden
+                Write-Verbose ".temp versteckt: $tempRoot"
+            }
+        }
+        
+        # Config-Werte
+        $segmentDuration = $config.Video.HLSSegmentDuration
+        $preset = $config.Video.ConversionPreset
+        $segmentPattern = Join-Path $hlsDir "chunk_%03d.ts"
+        
+        Write-Verbose "HLS-Konvertierung (Background): $VideoPath"
+        Write-Verbose "  Segment: ${segmentDuration}s, Preset: $preset"
+        
+        # FFmpeg als separaten Prozess starten (NICHT warten!)
+        # ArgumentList als einzelner String mit korrektem Quoting
+        $argString = "-i `"$VideoPath`" -c:v libx264 -preset $preset -c:a aac -b:a 128k -f hls -hls_time $segmentDuration -hls_list_size 0 -hls_segment_filename `"$segmentPattern`" -y `"$playlistPath`""
+        
+        Start-Process -FilePath $ffmpegPath -ArgumentList $argString -WindowStyle Hidden -PassThru | Out-Null
+        
+        Write-Host "  → HLS-Konvertierung gestartet (Background)" -ForegroundColor Yellow
+        
+        return $playlistPath
+    }
+    catch {
+        Write-Error "Fehler bei Start-HLSConversion: $_"
+        return $null
+    }
+}
 function Convert-VideoToHLS {
     <#
     .SYNOPSIS

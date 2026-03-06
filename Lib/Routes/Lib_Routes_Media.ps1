@@ -298,22 +298,23 @@ function Send-VideoHLS {
         Write-Verbose "HLS angefordert: $relPath"
         
         # HLS bereits vorhanden?
-        if (-not (Test-HLSExists -VideoPath $fullPath -RootFull $RootFull)) {
-            Write-Verbose "HLS-Konvertierung starten..."
-            $playlistPath = Convert-VideoToHLS -VideoPath $fullPath -RootFull $RootFull -ScriptRoot $ScriptRoot
+        $hlsReady = Test-HLSExists -VideoPath $fullPath -RootFull $RootFull
+        
+        if (-not $hlsReady) {
+            Write-Verbose "HLS-Konvertierung starten (Background)..."
+            $playlistPath = Start-HLSConversion -VideoPath $fullPath -RootFull $RootFull -ScriptRoot $ProjectRoot
             
             if (-not $playlistPath) {
                 Write-Warning "HLS-Konvertierung fehlgeschlagen: $relPath"
-                # Fallback: Direct-Streaming
                 Send-MediaFile -Context $Context -RootFull $RootFull -Config $Config -MediaType 'video'
                 return
             }
         }
         
-        # Playlist-URL als JSON zurückgeben
+        # Sofort antworten — Frontend pollt /hls bis Playlist + Chunks da sind
         $hlsUrl = "/hls?path=" + [System.Web.HttpUtility]::UrlEncode($relPath)
         $json = @{ 
-            status = "ready"
+            status = if ($hlsReady) { "ready" } else { "converting" }
             url = $hlsUrl
             preloadSeconds = $config.Video.HLSPreloadSeconds
         } | ConvertTo-Json -Compress
