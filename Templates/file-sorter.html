@@ -182,18 +182,41 @@
             background: #e0e7ff; color: #4338ca; font-weight: 600;
         }
 
-        /* Group Body (file list) */
+        /* Group Body (thumbnail grid) */
         .group-body {
-            display: none; padding: 0 16px 12px; max-height: 300px; overflow-y: auto;
+            display: none; padding: 12px 16px; max-height: 400px; overflow-y: auto;
         }
         .group-card.expanded .group-body { display: block; }
-        .group-file {
-            display: flex; align-items: center; gap: 8px;
-            padding: 4px 8px; font-size: 12px; color: #4a5568;
-            border-radius: 4px; transition: background 0.1s;
+        .group-thumb-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
         }
-        .group-file:hover { background: #f7fafc; }
-        .group-file-name { flex: 1; font-family: monospace; }
+        .group-thumb {
+            position: relative; aspect-ratio: 1; border-radius: 6px;
+            overflow: hidden; background: #edf2f7; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .group-thumb:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .group-thumb img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .group-thumb-name {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            color: white; font-size: 9px; padding: 12px 4px 3px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .group-thumb:hover .group-thumb-name { opacity: 1; }
+        .group-more {
+            display: flex; align-items: center; justify-content: center;
+            aspect-ratio: 1; background: #edf2f7; border-radius: 6px;
+            color: #718096; font-size: 13px; font-weight: 600;
+        }
 
         /* Group Actions */
         .group-actions {
@@ -458,7 +481,30 @@ function renderGroups(groups) {
         return;
     }
     
-    container.innerHTML = groups.map((g, i) => `
+    // Ordner-Pfad für Thumbnail-URLs bestimmen
+    const folderPath = document.getElementById('folderSelect').value;
+    const pathPrefix = (folderPath === '.') ? '' : folderPath.replace(/\\/g, '/') + '/';
+    
+    // Max Thumbnails pro Gruppe in der Vorschau
+    const maxThumbs = 20;
+    
+    container.innerHTML = groups.map((g, i) => {
+        const thumbFiles = g.files.slice(0, maxThumbs);
+        const remaining = g.files.length - maxThumbs;
+        
+        const thumbsHtml = thumbFiles.map(f => {
+            const imgPath = encodeURIComponent(pathPrefix + f);
+            return `<div class="group-thumb" title="${f}">
+                <img src="/img?path=${imgPath}" loading="lazy" alt="${f}">
+                <span class="group-thumb-name">${f}</span>
+            </div>`;
+        }).join('');
+        
+        const moreHtml = remaining > 0 
+            ? `<div class="group-more">+${remaining}</div>` 
+            : '';
+        
+        return `
         <div class="group-card" id="group-${i}">
             <div class="group-header" onclick="toggleGroup(${i})">
                 <input type="checkbox" class="group-checkbox" checked 
@@ -475,18 +521,17 @@ function renderGroups(groups) {
                 <span class="group-stats">${g.fileCount} Dateien · ${g.totalSizeFormatted}</span>
             </div>
             <div class="group-body">
-                ${g.files.map(f => `
-                    <div class="group-file">
-                        <span class="group-file-name">${f}</span>
-                    </div>
-                `).join('')}
+                <div class="group-thumb-grid">
+                    ${thumbsHtml}
+                    ${moreHtml}
+                </div>
             </div>
             <div class="group-actions">
                 <button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup('${g.prefix}')">🔗 Merge mit...</button>
                 <button class="group-action-btn" onclick="event.stopPropagation(); splitGroup('${g.prefix}')">✂️ Split</button>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
 }
 
 function toggleGroup(index) {
