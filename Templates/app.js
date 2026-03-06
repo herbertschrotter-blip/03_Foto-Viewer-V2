@@ -844,9 +844,11 @@ function openLightbox(mediaPath, allMedia) {
             var imageExtensions = config.Media.ImageExtensions.map(function(ext) { 
                 return ext.toLowerCase(); 
             });
-            var videoExtensions = config.Media.VideoExtensions.map(function(ext) { 
+                        var videoExtensions = config.Media.VideoExtensions.map(function(ext) { 
                 return ext.toLowerCase(); 
             });
+            // Für showLightboxImage() zugänglich machen
+            window._lightboxVideoExts = videoExtensions;
             
             lightboxImages = allMedia.filter(function(file) {
                 var ext = file.substring(file.lastIndexOf('.')).toLowerCase();
@@ -950,10 +952,9 @@ function showLightboxImage() {
         nextBtn.style.display = 'flex';
     }
     
-    // Prüfe: Bild oder Video?
+    // Prüfe: Bild oder Video? (Extensions aus Config via openLightbox geladen)
     var ext = mediaPath.substring(mediaPath.lastIndexOf('.')).toLowerCase();
-    var videoExts = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.wmv', '.flv', '.mpg', '.mpeg', '.3gp'];
-    var isVideo = videoExts.indexOf(ext) !== -1;
+    var isVideo = window._lightboxVideoExts ? window._lightboxVideoExts.indexOf(ext) !== -1 : false;
     
     if (isVideo) {
         // VIDEO — HLS-Konvertierung anfragen
