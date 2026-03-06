@@ -628,7 +628,6 @@ async function loadSettings() {
         document.getElementById('setting-ui-defaultsize').value = config.UI.DefaultThumbSize || 'medium';
         document.getElementById('setting-ui-thumbsize').value = config.UI.ThumbnailSize;
         document.getElementById('setting-ui-columns').value = config.UI.GridColumns;
-        document.getElementById('setting-ui-previewcount').value = config.UI.PreviewThumbnailCount;
         document.getElementById('setting-ui-folderpreview').value = config.UI.FolderPreviewCount || 5;
         document.getElementById('setting-ui-showmetadata').checked = config.UI.ShowVideoMetadata;
         document.getElementById('setting-ui-showcodec').checked = config.UI.ShowVideoCodec;

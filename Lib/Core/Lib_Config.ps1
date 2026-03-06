@@ -184,8 +184,7 @@ function Get-DefaultConfig {
         }
         UI = @{
             GridColumns = 3
-            ShowVideoDuration = $true
-            PreviewThumbnailCount = 10
+            ShowVideoDuration = $true            
             Theme = "light"
             ShowVideoMetadata = $true
             ShowVideoCodec = $true
