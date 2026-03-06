@@ -1,30 +1,35 @@
 <#
 ManifestHint:
   ExportFunctions = @("Get-ImageThumbnail", "Test-IsImageFile", "Get-ThumbnailCachePath")
-  Description     = "Thumbnail-Generierung für Bilder mit System.Drawing"
+  Description     = "Thumbnail-Generierung fuer Bilder mit System.Drawing"
   Category        = "Media"
   Tags            = @("Thumbnails", "Images", "Cache")
-  Dependencies    = @("System.Drawing", "Lib_Config.ps1")
+  Dependencies    = @("System.Drawing", "Lib_Config.ps1", "Lib_Logging.ps1")
 
 Zweck:
-  - Thumbnail-Generierung für Bilder (System.Drawing)
+  - Thumbnail-Generierung fuer Bilder (System.Drawing)
   - Hash-basierter Cache-Pfad
   - High-Quality JPEG Encoding
   - Config-gesteuerte Image-Extension Erkennung
 
 Funktionen:
-  - Get-ImageThumbnail: Generiert Thumbnail für Foto
-  - Test-IsImageFile: Prüft ob Datei ein Bild ist (nutzt Config)
+  - Get-ImageThumbnail: Generiert Thumbnail fuer Foto
+  - Test-IsImageFile: Prueft ob Datei ein Bild ist (nutzt Config)
   - Get-ThumbnailCachePath: Hash-basierter Cache-Pfad
 
-Abhängigkeiten:
+Abhaengigkeiten:
   - System.Drawing (Thumbnail-Generierung)
   - Lib_Config.ps1 (Settings: ImageExtensions, ThumbnailSize, Quality)
+  - Lib_Logging.ps1 (Get-RelativeLogPath)
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.3.0
     
+    AENDERUNGEN v0.3.0:
+    - Lib_Logging.ps1 geladen (Get-RelativeLogPath)
+    - Write-Warning "Bild nicht gefunden" zeigt relativen Pfad (Privacy)
+
 .LINK
     https://github.com/herbertschrotter-blip/03_Foto-Viewer-V2
 #>
@@ -33,7 +38,7 @@ Abhängigkeiten:
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Config laden (über Lib_Config.ps1)
+# Config laden (ueber Lib_Config.ps1)
 $ScriptDir = if ($PSScriptRoot) { 
     $PSScriptRoot 
 } else { 
@@ -41,12 +46,19 @@ $ScriptDir = if ($PSScriptRoot) {
 }
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 $libConfigPath = Join-Path $ProjectRoot "Lib\Core\Lib_Config.ps1"
+$libLoggingPath = Join-Path $ProjectRoot "Lib\Core\Lib_Logging.ps1"
 
 if (Test-Path -LiteralPath $libConfigPath) {
     . $libConfigPath
     $script:config = Get-Config
 } else {
-    throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_ImageThumbnails benötigt Config."
+    throw "FEHLER: Lib_Config.ps1 nicht gefunden! Lib_ImageThumbnails benoetigt Config."
+}
+
+if (Test-Path -LiteralPath $libLoggingPath) {
+    . $libLoggingPath
+} else {
+    throw "FEHLER: Lib_Logging.ps1 nicht gefunden! Lib_ImageThumbnails benoetigt Logging."
 }
 
 #region Helper Functions
@@ -54,10 +66,10 @@ if (Test-Path -LiteralPath $libConfigPath) {
 function Test-IsImageFile {
     <#
     .SYNOPSIS
-        Prüft ob Datei ein Bild ist
+        Prueft ob Datei ein Bild ist
     
     .DESCRIPTION
-        Prüft Extension gegen Config.Media.ImageExtensions.
+        Prueft Extension gegen Config.Media.ImageExtensions.
         Config wird von Lib_Config.ps1 bereitgestellt (automatisch geladen).
     
     .PARAMETER Path
@@ -80,7 +92,7 @@ function Test-IsImageFile {
     
     # Image-Extensions aus Config (PFLICHT!)
     if (-not $script:config -or -not $script:config.Media.ImageExtensions) {
-        throw "Config nicht verfügbar oder Media.ImageExtensions fehlt!"
+        throw "Config nicht verfuegbar oder Media.ImageExtensions fehlt!"
     }
     
     return $ext -in $script:config.Media.ImageExtensions
@@ -89,7 +101,7 @@ function Test-IsImageFile {
 function Get-ThumbnailCachePath {
     <#
     .SYNOPSIS
-        Generiert Cache-Pfad für Thumbnail (Hash-basiert)
+        Generiert Cache-Pfad fuer Thumbnail (Hash-basiert)
     
     .DESCRIPTION
         Erstellt MD5-Hash aus: FullPath + LastWriteTimeUtc
@@ -102,7 +114,7 @@ function Get-ThumbnailCachePath {
         Cache-Verzeichnis
     
     .PARAMETER Index
-        Optional: Index für Multi-Thumbnails (z.B. Video)
+        Optional: Index fuer Multi-Thumbnails (z.B. Video)
     
     .EXAMPLE
         $cachePath = Get-ThumbnailCachePath -MediaPath "C:\foto.jpg" -CacheDir "C:\cache"
@@ -167,29 +179,32 @@ function Get-ThumbnailCachePath {
 function Get-ImageThumbnail {
     <#
     .SYNOPSIS
-        Generiert Thumbnail für Foto (System.Drawing)
+        Generiert Thumbnail fuer Foto (System.Drawing)
     
     .DESCRIPTION
         Erstellt optimiertes JPEG-Thumbnail mit High-Quality Settings.
-        Verwendet Hash-basierten Cache für Performance.
+        Verwendet Hash-basierten Cache fuer Performance.
     
     .PARAMETER ImagePath
-        Vollständiger Pfad zum Bild
+        Vollstaendiger Pfad zum Bild
     
     .PARAMETER CacheDir
-        Cache-Verzeichnis für Thumbnails
+        Cache-Verzeichnis fuer Thumbnails
+    
+    .PARAMETER RootFull
+        Root-Ordner der Mediathek (fuer relative Log-Ausgaben)
     
     .PARAMETER MaxSize
-        Maximale Breite/Höhe in Pixel (Default: 300)
+        Maximale Breite/Hoehe in Pixel (Default: 300)
     
     .PARAMETER Quality
         JPEG Quality 0-100 (Default: 85)
     
     .EXAMPLE
-        $thumb = Get-ImageThumbnail -ImagePath "C:\foto.jpg" -CacheDir "C:\cache"
+        $thumb = Get-ImageThumbnail -ImagePath "C:\foto.jpg" -CacheDir "C:\cache" -RootFull "C:\"
     
     .EXAMPLE
-        $thumb = Get-ImageThumbnail -ImagePath "C:\foto.jpg" -CacheDir "C:\cache" -MaxSize 400 -Quality 90
+        $thumb = Get-ImageThumbnail -ImagePath "C:\foto.jpg" -CacheDir "C:\cache" -RootFull "C:\" -MaxSize 400 -Quality 90
     
     .OUTPUTS
         String - Pfad zum Thumbnail oder $null bei Fehler
@@ -202,6 +217,9 @@ function Get-ImageThumbnail {
         
         [Parameter(Mandatory)]
         [string]$CacheDir,
+
+        [Parameter()]
+        [string]$RootFull = "",
         
         [Parameter()]
         [int]$MaxSize,
@@ -213,14 +231,14 @@ function Get-ImageThumbnail {
     # Defaults aus Config (PFLICHT!)
     if ($MaxSize -eq 0) {
         if (-not $script:config -or -not $script:config.UI.ThumbnailSize) {
-            throw "Config nicht verfügbar oder UI.ThumbnailSize fehlt!"
+            throw "Config nicht verfuegbar oder UI.ThumbnailSize fehlt!"
         }
         $MaxSize = $script:config.UI.ThumbnailSize
     }
     
     if ($Quality -eq 0) {
         if (-not $script:config -or -not $script:config.Video.ThumbnailQuality) {
-            throw "Config nicht verfügbar oder Video.ThumbnailQuality fehlt!"
+            throw "Config nicht verfuegbar oder Video.ThumbnailQuality fehlt!"
         }
         $Quality = $script:config.Video.ThumbnailQuality
     }
@@ -228,7 +246,8 @@ function Get-ImageThumbnail {
     try {
         # Datei existiert?
         if (-not (Test-Path -LiteralPath $ImagePath -PathType Leaf)) {
-            Write-Warning "Bild nicht gefunden: $ImagePath"
+            $logPath = if ($RootFull) { Get-RelativeLogPath -FullPath $ImagePath -RootFull $RootFull } else { $ImagePath }
+            Write-Warning "Bild nicht gefunden: $logPath"
             return $null
         }
         
@@ -251,9 +270,9 @@ function Get-ImageThumbnail {
         # System.Drawing laden
         Add-Type -AssemblyName System.Drawing
         
-        Write-Verbose "Generiere Thumbnail für: $ImagePath"
+        Write-Verbose "Generiere Thumbnail fuer: $ImagePath"
         
-        # Original-Bild laden (mit FileStream für sauberes Dispose)
+        # Original-Bild laden (mit FileStream fuer sauberes Dispose)
         $fileStream = $null
         $originalImage = $null
         $thumbnail = $null
@@ -261,7 +280,7 @@ function Get-ImageThumbnail {
         $memoryStream = $null
         
         try {
-            # FileStream öffnen (bessere Handle-Kontrolle)
+            # FileStream oeffnen (bessere Handle-Kontrolle)
             $fileStream = [System.IO.File]::OpenRead($ImagePath)
             $originalImage = [System.Drawing.Image]::FromStream($fileStream)
             
@@ -274,7 +293,7 @@ function Get-ImageThumbnail {
             $newWidth = [int]($originalImage.Width * $ratio)
             $newHeight = [int]($originalImage.Height * $ratio)
             
-            Write-Verbose "Original: $($originalImage.Width)x$($originalImage.Height) → Thumbnail: ${newWidth}x${newHeight}"
+            Write-Verbose "Original: $($originalImage.Width)x$($originalImage.Height) -> Thumbnail: ${newWidth}x${newHeight}"
             
             # Thumbnail erstellen (High Quality)
             $thumbnail = [System.Drawing.Bitmap]::new($newWidth, $newHeight)
