@@ -146,7 +146,7 @@ if (Test-Path -LiteralPath $libSystemCheckPath) {
 # Libs laden - Routes
 . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Tools.ps1")
 . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Settings.ps1")
-# . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Files.ps1")  # LEER - Deaktiviert
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Files.ps1")
 . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Media.ps1")  # NEU - Lightbox Original-Bilder
 
 # Libs laden - Utils

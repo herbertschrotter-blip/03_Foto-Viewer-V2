@@ -5,9 +5,7 @@
 .DESCRIPTION
     Behandelt alle Datei-Operations-Routes:
     - /delete-files - Dateien loeschen (Papierkorb oder permanent)
-    - /move-files - Dateien verschieben (geplant)
-    - /flatten-and-move - Flatten & Move (geplant)
-    - /sort-by-name - Nach Dateiname sortieren (geplant)
+    Geplant: /move-files, /flatten-and-move, /sort-by-name
 
 .NOTES
     Autor: Herbert Schrotter
@@ -42,6 +40,9 @@ function Handle-FileOperationsRoute {
 
     .EXAMPLE
         if (Handle-FileOperationsRoute -Context $ctx -RootPath $root -Config $config) { continue }
+
+    .OUTPUTS
+        [bool] - $true wenn Route behandelt, $false wenn nicht zustaendig
     #>
 
     [CmdletBinding()]
