@@ -406,7 +406,7 @@ try {
             }
             
             # Routes: /tools/sorter (analyze, sort, export, undo, patterns, groups, folder-list)
-            if ($path -match "^/tools/(analyze-|sort-|export-|undo-|check-|sorter-|move-file|merge-|split-|folder-list)") {
+            if ($path -match "^/tools/(analyze-|sort-|export-|undo-|check-|sorter-|move-file|merge-|split-|folder-list|delete-empty)") {
                 if (Handle-SorterRoute -Context $ctx -RootPath $script:State.RootPath -ScriptRoot $ScriptRoot -Config $config) {
                     continue
                 }
