@@ -792,6 +792,89 @@ function sidebarToggleHideDone() {
     updateSidebar();
 }
 
+// === CHIRURGISCHE DOM-UPDATES ===
+function buildGroupCardHTML(i) {
+    var g = currentGroups[i];
+    var fp = document.getElementById('folderSelect').value;
+    var pp = (fp === '.') ? '' : fp.replace(/\\/g, '/') + '/';
+    var defMax = 20;
+    var showAll = expandedGroups[i] === true;
+    var max = showAll ? g.files.length : defMax;
+    var thumbs = g.files.slice(0, max);
+    var rem = g.files.length - max;
+    var pc = g.prefix === '_unsorted' ? ' _unsorted' : '';
+    var fe = g.folderExists ? 'true' : 'false';
+
+    var th = thumbs.map(function(f) {
+        var ip = encodeURIComponent(pp + f);
+        return '<div class="group-thumb" data-file="' + f + '" data-group="' + i + '" title="' + f + '">' +
+            '<input type="checkbox" class="group-thumb-cb" data-file="' + f + '" data-group="' + i + '" onclick="event.stopPropagation(); updateSelectionBar(' + i + ')">' +
+            '<img src="/img?path=' + ip + '" loading="lazy" alt="' + f + '">' +
+            '<span class="group-thumb-name">' + f + '</span></div>';
+    }).join('');
+
+    var more = rem > 0 ? '<div class="group-more" onclick="event.stopPropagation(); showAllThumbs(' + i + ')">+' + rem + '</div>' : '';
+
+    return '<div class="group-card" id="group-' + i + '" data-folder-exists="' + fe + '">' +
+        '<div class="group-header" onclick="toggleGroup(' + i + ')">' +
+            '<input type="checkbox" class="group-checkbox" checked onclick="event.stopPropagation()" onchange="updateSidebar()" data-prefix="' + g.prefix + '">' +
+            '<span class="group-arrow">▶</span>' +
+            '<span class="group-prefix' + pc + '">' + g.prefix + '</span>' +
+            '<span>→</span>' +
+            '<input type="text" class="group-folder-input" value="' + g.suggestedFolder + '" data-prefix="' + g.prefix + '" onclick="event.stopPropagation()" placeholder="Ordnername">' +
+            '<span class="group-pattern-badge">' + g.patternName + '</span>' +
+            '<span class="group-stats">' + g.fileCount + ' Dateien · ' + g.totalSizeFormatted + '</span>' +
+        '</div>' +
+        '<div class="group-body"><div class="group-thumb-grid">' + th + more + '</div></div>' +
+        '<div class="group-selection-bar" id="selbar-' + i + '">' +
+            '<span class="sel-count" id="selcount-' + i + '">0</span> ausgewählt ' +
+            '<button class="group-sel-btn" onclick="selectAllInGroup(' + i + ')">Alle</button> ' +
+            '<button class="group-sel-btn" onclick="selectNoneInGroup(' + i + ')">Keine</button> ' +
+            '<button class="group-sel-btn" onclick="splitSelected(' + i + ')">✂️ Split</button> ' +
+            '<button class="group-sel-btn" onclick="moveSelectedToGroup(' + i + ')">📦 Verschieben</button>' +
+        '</div>' +
+        '<div class="group-actions">' +
+            '<button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup(\'' + g.prefix + '\')">🔗 Merge ganze Gruppe</button>' +
+        '</div></div>';
+}
+
+function updateGroupCard(i) {
+    var old = document.getElementById('group-' + i);
+    if (!old) return;
+    var wasExpanded = old.classList.contains('expanded');
+    var tmp = document.createElement('div');
+    tmp.innerHTML = buildGroupCardHTML(i);
+    var newCard = tmp.firstChild;
+    if (wasExpanded) newCard.classList.add('expanded');
+    old.replaceWith(newCard);
+}
+
+function appendGroupCard(i) {
+    var container = document.getElementById('groupsContainer');
+    var tmp = document.createElement('div');
+    tmp.innerHTML = buildGroupCardHTML(i);
+    container.appendChild(tmp.firstChild);
+}
+
+function removeGroupCard(gi) {
+    var card = document.getElementById('group-' + gi);
+    if (card) card.remove();
+    // Gruppe aus Array entfernen
+    currentGroups.splice(gi, 1);
+    // Alle Cards nach gi neu rendern (IDs stimmen nicht mehr)
+    reindexGroupCards();
+}
+
+function reindexGroupCards() {
+    var container = document.getElementById('groupsContainer');
+    container.innerHTML = '';
+    for (var i = 0; i < currentGroups.length; i++) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = buildGroupCardHTML(i);
+        container.appendChild(tmp.firstChild);
+    }
+}
+
 function showAllThumbs(i) {
     expandedGroups[i] = true;
     var was = document.getElementById('group-' + i).classList.contains('expanded');
@@ -827,36 +910,92 @@ function selectNoneInGroup(gi) {
 }
 
 // === SPLIT / MOVE SELECTED ===
-async function splitSelected(gi) {
+function splitSelected(gi) {
     var sel = getSelectedFiles(gi);
     if (sel.length === 0) { showStatus('Keine Dateien ausgewählt', 'warning'); return; }
     var g = currentGroups[gi];
     if (sel.length >= g.files.length) { showStatus('Mindestens eine Datei muss bleiben', 'warning'); return; }
     var np = prompt('Name für neue Gruppe (' + sel.length + ' Dateien):');
     if (!np) return;
-    try {
-        var data = await api('/tools/split-group', 'POST', { sourcePrefix: g.prefix, fileNames: sel, newPrefix: np });
-        if (data.success) { showStatus('✅ ' + sel.length + ' Dateien → "' + np + '"', 'success'); await analyzeFiles(); }
-        else { showStatus('❌ ' + data.error, 'error'); }
-    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+
+    // Aus Quelle entfernen
+    var selSet = new Set(sel);
+    g.files = g.files.filter(function(f) { return !selSet.has(f); });
+    g.fileCount = g.files.length;
+
+    // Neue Gruppe anlegen
+    currentGroups.push({
+        prefix: np, patternName: 'manual_split', suggestedFolder: np,
+        fileCount: sel.length, totalSize: 0, totalSizeFormatted: '?',
+        previewFiles: sel.slice(0, 5), files: sel.sort(),
+        folderExists: false, folderFileCount: 0
+    });
+
+    // Nur betroffene Cards updaten
+    updateGroupCard(gi);
+    var newIndex = currentGroups.length - 1;
+    appendGroupCard(newIndex);
+    updateSidebar();
+    showStatus('✅ ' + sel.length + ' Dateien → "' + np + '"', 'success');
 }
 
-async function moveSelectedToGroup(gi) {
+var sessionCustomGroups = [];
+
+function moveSelectedToGroup(gi) {
     var sel = getSelectedFiles(gi);
     if (sel.length === 0) { showStatus('Keine Dateien ausgewählt', 'warning'); return; }
     var src = currentGroups[gi];
+
+    // Dropdown-Dialog bauen
     var prefixes = currentGroups.map(function(g) { return g.prefix; }).filter(function(p) { return p !== src.prefix; });
+    // Session-Custom-Gruppen hinzufügen (falls nicht schon in prefixes)
+    sessionCustomGroups.forEach(function(c) { if (prefixes.indexOf(c) === -1) prefixes.push(c); });
+
+    var options = prefixes.map(function(p) { return '  • ' + p; }).join('\n');
     var target = prompt(sel.length + ' Dateien verschieben nach:\n\n' +
-        (prefixes.length > 0 ? 'Bestehend: ' + prefixes.join(', ') + '\n\n' : '') + 'Oder neuen Namen eingeben:');
-    if (!target) return;
-    showStatus('Verschiebe ' + sel.length + ' Dateien...', 'info', true);
-    try {
-        for (var x = 0; x < sel.length; x++) {
-            await api('/tools/move-file-group', 'POST', { fileName: sel[x], targetPrefix: target });
-        }
-        showStatus('✅ ' + sel.length + ' Dateien → "' + target + '"', 'success');
-        await analyzeFiles();
-    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+        (options ? 'Bestehende Gruppen:\n' + options + '\n\n' : '') +
+        'Gruppenname eingeben (bestehend oder neu):');
+    if (!target || !target.trim()) return;
+    target = target.trim();
+
+    // Session-Custom merken
+    if (prefixes.indexOf(target) === -1) { sessionCustomGroups.push(target); }
+
+    // Clientseitig verschieben
+    var selSet = new Set(sel);
+    src.files = src.files.filter(function(f) { return !selSet.has(f); });
+    src.fileCount = src.files.length;
+
+    // Ziel suchen oder neu erstellen
+    var targetGroup = null;
+    var targetIndex = -1;
+    for (var t = 0; t < currentGroups.length; t++) {
+        if (currentGroups[t].prefix === target) { targetGroup = currentGroups[t]; targetIndex = t; break; }
+    }
+
+    if (targetGroup) {
+        targetGroup.files = targetGroup.files.concat(sel).sort();
+        targetGroup.fileCount = targetGroup.files.length;
+        updateGroupCard(targetIndex);
+    } else {
+        currentGroups.push({
+            prefix: target, patternName: 'manual', suggestedFolder: target,
+            fileCount: sel.length, totalSize: 0, totalSizeFormatted: '?',
+            previewFiles: sel.slice(0, 5), files: sel.sort(),
+            folderExists: false, folderFileCount: 0
+        });
+        appendGroupCard(currentGroups.length - 1);
+    }
+
+    // Quelle updaten oder entfernen
+    if (src.fileCount === 0) {
+        removeGroupCard(gi);
+    } else {
+        updateGroupCard(gi);
+    }
+
+    updateSidebar();
+    showStatus('✅ ' + sel.length + ' Dateien → "' + target + '"', 'success');
 }
 
 // === MERGE ===
