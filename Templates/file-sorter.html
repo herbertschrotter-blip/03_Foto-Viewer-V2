@@ -51,6 +51,8 @@
         .sidebar-btn:hover { background: #f7fafc; border-color: #a0aec0; }
         .sidebar-btn.active { background: #667eea; color: white; border-color: #667eea; }
         .sidebar-divider { border-top: 1px solid #e2e8f0; }
+        .sidebar-info { font-size: 11px; color: #718096; text-align: center; }
+        .group-card.hidden-done { display: none; }
 
         /* Header */
         .header {
@@ -408,6 +410,9 @@
         <button class="sidebar-btn" onclick="sidebarSelectNone()">☐ Alle abwählen</button>
         <div class="sidebar-divider"></div>
         <button class="sidebar-btn" onclick="sidebarInvert()">⇅ Invertieren</button>
+        <div class="sidebar-divider"></div>
+        <button class="sidebar-btn" id="sidebarHideBtn" onclick="sidebarToggleHideDone()">👁 Erledigte ausblenden</button>
+        <div class="sidebar-info" id="sidebarHideInfo" style="display:none"></div>
     </div>
 
     <div class="container">
@@ -702,7 +707,8 @@ function renderGroups(groups) {
 
         var more = rem > 0 ? '<div class="group-more" onclick="event.stopPropagation(); showAllThumbs(' + i + ')">+' + rem + '</div>' : '';
 
-        return '<div class="group-card" id="group-' + i + '">' +
+        var fe = g.folderExists ? 'true' : 'false';
+        return '<div class="group-card" id="group-' + i + '" data-folder-exists="' + fe + '">' +
             '<div class="group-header" onclick="toggleGroup(' + i + ')">' +
                 '<input type="checkbox" class="group-checkbox" checked onclick="event.stopPropagation()" onchange="updateSidebar()" data-prefix="' + g.prefix + '">' +
                 '<span class="group-arrow">▶</span>' +
@@ -739,23 +745,50 @@ function updateSidebar() {
     }
     document.getElementById('groupSidebar').classList.add('show');
     document.body.classList.add('has-sidebar');
-    var total = cbs.length;
-    var checked = Array.from(cbs).filter(function(cb) { return cb.checked; }).length;
+    var visibleCbs = Array.from(cbs).filter(function(cb) {
+        return !cb.closest('.group-card').classList.contains('hidden-done');
+    });
+    var total = visibleCbs.length;
+    var checked = visibleCbs.filter(function(cb) { return cb.checked; }).length;
     document.getElementById('sidebarCount').textContent = checked + ' / ' + total;
 }
 
 function sidebarSelectAll() {
-    document.querySelectorAll('.group-checkbox').forEach(function(cb) { cb.checked = true; });
+    document.querySelectorAll('.group-card:not(.hidden-done) .group-checkbox').forEach(function(cb) { cb.checked = true; });
     updateSidebar();
 }
 
 function sidebarSelectNone() {
-    document.querySelectorAll('.group-checkbox').forEach(function(cb) { cb.checked = false; });
+    document.querySelectorAll('.group-card:not(.hidden-done) .group-checkbox').forEach(function(cb) { cb.checked = false; });
     updateSidebar();
 }
 
 function sidebarInvert() {
     document.querySelectorAll('.group-checkbox').forEach(function(cb) { cb.checked = !cb.checked; });
+    updateSidebar();
+}
+
+var hideDoneActive = false;
+
+function sidebarToggleHideDone() {
+    hideDoneActive = !hideDoneActive;
+    var btn = document.getElementById('sidebarHideBtn');
+    btn.classList.toggle('active', hideDoneActive);
+    btn.textContent = hideDoneActive ? '👁 Erledigte zeigen' : '👁 Erledigte ausblenden';
+
+    var hidden = 0;
+    document.querySelectorAll('.group-card[data-folder-exists="true"]').forEach(function(card) {
+        card.classList.toggle('hidden-done', hideDoneActive);
+        if (hideDoneActive) hidden++;
+    });
+
+    var info = document.getElementById('sidebarHideInfo');
+    if (hideDoneActive && hidden > 0) {
+        info.textContent = hidden + ' Gruppe' + (hidden > 1 ? 'n' : '') + ' ausgeblendet';
+        info.style.display = 'block';
+    } else {
+        info.style.display = 'none';
+    }
     updateSidebar();
 }
 
