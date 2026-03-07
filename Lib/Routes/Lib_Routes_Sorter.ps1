@@ -128,17 +128,25 @@ function Handle-SorterRoute {
                     })
                     $multiGroups = Get-MultiLevelGroups -Groups $groups -SubLevels $subLevels
 
+```
+                    # Dateigroessen-Lookup einmal aufbauen (Performance!)
+                    $fileSizeLookup = @{}
+                    foreach ($f in (Get-ChildItem -LiteralPath $absolutePath -File -ErrorAction SilentlyContinue)) {
+                        $fileSizeLookup[$f.Name] = $f.Length
+                    }
+
                     # Zu flachen Gruppen aufloesen (p105-r0, p105-r1, etc.)
                     $flatGroups = [System.Collections.ArrayList]::new()
                     foreach ($mg in $multiGroups) {
                         if ($mg.IsMultiLevel -and $mg.SubGroups.Count -gt 0) {
                             $flatList = Resolve-FlatSubGroups -SubGroups $mg.SubGroups -BaseName $mg.Prefix -Separator "-"
                             foreach ($flat in $flatList) {
-                                # Dateien aus Original-Gruppe fuer Groesse holen
-                                $flatFiles = @($mg.Files | Where-Object { $_ -in $flat.Files })
-                                $flatFileObjs = @(Get-ChildItem -LiteralPath $absolutePath -File -ErrorAction SilentlyContinue |
-                                    Where-Object { $_.Name -in $flat.Files })
-                                $flatSize = if ($flatFileObjs.Count -gt 0) { ($flatFileObjs | Measure-Object -Property Length -Sum).Sum } else { 0 }
+                                $flatSize = [long]0
+                                foreach ($fn in $flat.Files) {
+                                    if ($fileSizeLookup.ContainsKey($fn)) {
+                                        $flatSize += $fileSizeLookup[$fn]
+                                    }
+                                }
 
                                 [void]$flatGroups.Add([PSCustomObject]@{
                                     Prefix             = $flat.FolderName
