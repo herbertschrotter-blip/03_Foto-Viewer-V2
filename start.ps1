@@ -137,7 +137,6 @@ if (Test-Path -LiteralPath $libSystemCheckPath) {
 . (Join-Path $ScriptRoot "Lib\Media\Lib_Scanner.ps1")
 . (Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1")
 . (Join-Path $ScriptRoot "Lib\Media\Lib_FileSystem.ps1")
-. (Join-Path $ScriptRoot "Lib\Media\Lib_VideoThumbnails.ps1")
 
 # Libs laden - UI
 . (Join-Path $ScriptRoot "Lib\UI\Lib_Dialogs.ps1")
@@ -526,10 +525,8 @@ try {
                     try {
                         # Libs laden im Runspace
                         . (Join-Path $ScriptRoot "Lib\Core\Lib_Config.ps1")
-                        . (Join-Path $ScriptRoot "Lib\Core\Lib_Logging.ps1")
+                                                . (Join-Path $ScriptRoot "Lib\Core\Lib_Logging.ps1")
                         . (Join-Path $ScriptRoot "Lib\Core\Lib_Http.ps1")
-                        . (Join-Path $ScriptRoot "Lib\Media\Lib_ImageThumbnails.ps1")
-                        . (Join-Path $ScriptRoot "Lib\Media\Lib_VideoThumbnails.ps1")
                         . (Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1")
                         . (Join-Path $ScriptRoot "Lib\Media\Lib_FileSystem.ps1")
                         
