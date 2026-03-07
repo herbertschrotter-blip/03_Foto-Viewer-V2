@@ -422,6 +422,11 @@ async function chooseTarget() {
             el.classList.remove('empty');
             el.title = targetPath;
             updateFlattenButton();
+            // Target-Prefix in allen Ordner-Zeilen aktualisieren
+            var shortTarget = targetPath.split('\\').pop().split('/').pop();
+            document.querySelectorAll('.target-prefix').forEach(function(sp) {
+                sp.textContent = shortTarget + '/';
+            });
         }
     } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
 }
@@ -524,7 +529,7 @@ function renderTree() {
                 '<span class="folder-arrow">' + (hasFiles ? '▶' : '') + '</span>' +
                 '<span class="folder-icon">' + (hasFiles ? '📁' : '📂') + '</span>' +
                 '<span class="folder-name">' + displayName + '</span>' +
-                (hasFiles ? '<span style="color:#a0aec0;">→</span> <input type="text" class="folder-name-input" data-index="' + i + '" value="' + f.suggestedName + '" onclick="event.stopPropagation()" placeholder="Zielname">' : '') +
+                (hasFiles ? '<span style="color:#a0aec0;">→</span> <span style="font-size:11px;color:#a0aec0;font-family:monospace;" class="target-prefix">' + (targetPath ? targetPath.split('\\').pop().split('/').pop() + '/' : 'Ziel/') + '</span><input type="text" class="folder-name-input" data-index="' + i + '" value="' + f.suggestedName + '" onclick="event.stopPropagation()" placeholder="Zielname">' : '') +
                 '<div class="folder-stats">' +
                     (hasFiles ? '<span class="file-count">' + f.fileCount + ' Dateien</span>' : '') +
                     '<span>' + f.totalSizeFormatted + '</span>' +
