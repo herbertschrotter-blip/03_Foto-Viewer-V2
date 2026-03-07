@@ -388,6 +388,42 @@
         .sort-stat .value.success { color: #059669; }
         .sort-stat .value.error { color: #dc2626; }
 
+        /* Move Modal */
+        .move-modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4); z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .move-modal-overlay.show { display: flex; }
+        .move-modal {
+            background: white; border-radius: 12px; padding: 24px;
+            width: 380px; max-height: 80vh; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .move-modal h3 { font-size: 15px; color: #2d3748; }
+        .move-modal-info { font-size: 12px; color: #718096; }
+        .move-modal-list {
+            max-height: 240px; overflow-y: auto;
+            border: 1px solid #e2e8f0; border-radius: 8px;
+        }
+        .move-modal-item {
+            padding: 9px 14px; font-size: 13px; cursor: pointer;
+            border-bottom: 1px solid #f0f0f0; transition: all 0.1s;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .move-modal-item:last-child { border-bottom: none; }
+        .move-modal-item:hover { background: #f0f4ff; }
+        .move-modal-item.selected { background: #e0e7ff; color: #4338ca; font-weight: 600; }
+        .move-modal-item .item-count { font-size: 11px; color: #a0aec0; font-weight: 400; }
+        .move-modal-divider { font-size: 11px; color: #a0aec0; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .move-modal-input {
+            width: 100%; padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 8px;
+            font-size: 13px; font-family: inherit;
+        }
+        .move-modal-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.15); }
+        .move-modal-buttons { display: flex; gap: 8px; justify-content: flex-end; }
+        .move-modal-buttons .btn { min-width: 90px; justify-content: center; }
+
         .empty-state { text-align: center; padding: 60px 20px; color: #a0aec0; }
         .empty-state .icon { font-size: 3em; margin-bottom: 12px; }
         .empty-state p { font-size: 14px; }
@@ -559,6 +595,21 @@
             <div class="empty-state"><div class="icon">📁</div><p>Wähle einen Ordner und klicke <strong>Analysieren</strong></p></div>
         </div>
         <div id="sortSummary" style="display:none"></div>
+    </div>
+
+    <!-- Move Modal -->
+    <div class="move-modal-overlay" id="moveModal" onclick="if(event.target===this)closeMoveModal()">
+        <div class="move-modal">
+            <h3 id="moveModalTitle">Dateien verschieben</h3>
+            <div class="move-modal-info" id="moveModalInfo"></div>
+            <div class="move-modal-list" id="moveModalList"></div>
+            <div class="move-modal-divider">oder neue Gruppe erstellen</div>
+            <input type="text" class="move-modal-input" id="moveModalInput" placeholder="Neuen Gruppennamen eingeben..." onkeydown="if(event.key==='Enter')confirmMoveModal()">
+            <div class="move-modal-buttons">
+                <button class="btn" onclick="closeMoveModal()">Abbrechen</button>
+                <button class="btn btn-primary" id="moveModalOk" onclick="confirmMoveModal()">Verschieben</button>
+            </div>
+        </div>
     </div>
 
 <script>
@@ -981,26 +1032,72 @@ function splitSelected(gi) {
 }
 
 var sessionCustomGroups = [];
+var moveModalState = { gi: -1, files: [] };
 
 function moveSelectedToGroup(gi) {
     var sel = getSelectedFiles(gi);
     if (sel.length === 0) { showStatus('Keine Dateien ausgewählt', 'warning'); return; }
     var src = currentGroups[gi];
 
-    // Dropdown-Dialog bauen
-    var prefixes = currentGroups.map(function(g) { return g.prefix; }).filter(function(p) { return p !== src.prefix; });
-    // Session-Custom-Gruppen hinzufügen (falls nicht schon in prefixes)
-    sessionCustomGroups.forEach(function(c) { if (prefixes.indexOf(c) === -1) prefixes.push(c); });
+    moveModalState = { gi: gi, files: sel };
 
-    var options = prefixes.map(function(p) { return '  • ' + p; }).join('\n');
-    var target = prompt(sel.length + ' Dateien verschieben nach:\n\n' +
-        (options ? 'Bestehende Gruppen:\n' + options + '\n\n' : '') +
-        'Gruppenname eingeben (bestehend oder neu):');
-    if (!target || !target.trim()) return;
-    target = target.trim();
+    // Liste der Ziel-Gruppen bauen
+    var items = [];
+    currentGroups.forEach(function(g, idx) {
+        if (idx !== gi) items.push({ prefix: g.prefix, count: g.fileCount, isCustom: false });
+    });
+    sessionCustomGroups.forEach(function(c) {
+        if (!items.some(function(it) { return it.prefix === c; })) {
+            items.push({ prefix: c, count: 0, isCustom: true });
+        }
+    });
+
+    // Modal befüllen
+    document.getElementById('moveModalTitle').textContent = sel.length + ' Datei' + (sel.length > 1 ? 'en' : '') + ' verschieben';
+    document.getElementById('moveModalInfo').textContent = 'Aus Gruppe "' + src.prefix + '" — Ziel wählen oder neue Gruppe erstellen:';
+
+    var list = document.getElementById('moveModalList');
+    if (items.length === 0) {
+        list.innerHTML = '<div style="padding:12px;color:#a0aec0;font-size:12px;text-align:center;">Keine anderen Gruppen vorhanden</div>';
+    } else {
+        list.innerHTML = items.map(function(it) {
+            return '<div class="move-modal-item" data-prefix="' + it.prefix + '" onclick="selectMoveTarget(this)">' +
+                '<span>' + it.prefix + (it.isCustom ? ' <span style="font-size:10px;color:#a0aec0;">neu</span>' : '') + '</span>' +
+                '<span class="item-count">' + it.count + ' Dateien</span></div>';
+        }).join('');
+    }
+
+    document.getElementById('moveModalInput').value = '';
+    document.getElementById('moveModal').classList.add('show');
+    setTimeout(function() { document.getElementById('moveModalInput').focus(); }, 100);
+}
+
+function selectMoveTarget(el) {
+    document.querySelectorAll('.move-modal-item').forEach(function(it) { it.classList.remove('selected'); });
+    el.classList.add('selected');
+    document.getElementById('moveModalInput').value = el.dataset.prefix;
+}
+
+function closeMoveModal() {
+    document.getElementById('moveModal').classList.remove('show');
+    moveModalState = { gi: -1, files: [] };
+}
+
+function confirmMoveModal() {
+    var target = document.getElementById('moveModalInput').value.trim();
+    if (!target) { showStatus('Bitte Gruppe wählen oder Namen eingeben', 'warning'); return; }
+
+    var gi = moveModalState.gi;
+    var sel = moveModalState.files;
+    var src = currentGroups[gi];
+
+    closeMoveModal();
 
     // Session-Custom merken
-    if (prefixes.indexOf(target) === -1) { sessionCustomGroups.push(target); }
+    var allPrefixes = currentGroups.map(function(g) { return g.prefix; });
+    if (allPrefixes.indexOf(target) === -1 && sessionCustomGroups.indexOf(target) === -1) {
+        sessionCustomGroups.push(target);
+    }
 
     // Clientseitig verschieben
     var selSet = new Set(sel);
