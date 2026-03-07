@@ -566,7 +566,7 @@ var currentGroups = [];
 var currentFolder = '.';
 var expandedGroups = {};
 var subLevels = [
-    { name: "Variante", regex: "_1_(result(?:_\\d+)?)\\.", groupCapture: 1 }
+    { name: "Variante", regex: "_1_(result(?:_\\d+)?)\\.", groupCapture: 1, enabled: true }
 ];
 
 function showStatus(text, type, showSpinner) {
@@ -599,7 +599,9 @@ function renderSubLevels() {
         return;
     }
     list.innerHTML = subLevels.map(function(sl, i) {
-        return '<div class="sublevel-item">' +
+        return '<div class="sublevel-item' + (sl.enabled ? '' : ' disabled') + '">' +
+            '<input type="checkbox" ' + (sl.enabled ? 'checked ' : '') +
+                'onchange="toggleSubLevel(' + i + ', this.checked)" style="width:16px;height:16px;accent-color:#667eea;cursor:pointer;">' +
             '<span class="sl-name">' + sl.name + '</span>' +
             '<span class="sl-regex">' + sl.regex + '</span>' +
             '<span style="font-size:11px;color:#a0aec0;">Capture: ' + sl.groupCapture + '</span>' +
@@ -609,6 +611,11 @@ function renderSubLevels() {
 
 function removeSubLevel(i) {
     subLevels.splice(i, 1);
+    renderSubLevels();
+}
+
+function toggleSubLevel(i, enabled) {
+    subLevels[i].enabled = enabled;
     renderSubLevels();
 }
 
@@ -622,7 +629,7 @@ function addSubLevel() {
     var capture = parseInt(document.getElementById('newSubLevelCapture').value) || 1;
     if (!name || !regex) { showStatus('Name und Regex sind Pflicht', 'warning'); return; }
     try { new RegExp(regex); } catch(e) { showStatus('Ungültiger Regex: ' + e.message, 'error'); return; }
-    subLevels.push({ name: name, regex: regex, groupCapture: capture });
+    subLevels.push({ name: name, regex: regex, groupCapture: capture, enabled: true });
     document.getElementById('newSubLevelName').value = '';
     document.getElementById('newSubLevelRegex').value = '';
     toggleSubLevelForm();
@@ -666,7 +673,7 @@ async function analyzeFiles() {
         var body = { folderPath: folder };
         var isMulti = document.getElementById('multiLevelEnabled').checked;
         if (isMulti && subLevels.length > 0) {
-            body.subLevels = subLevels;
+            body.subLevels = subLevels.filter(function(sl) { return sl.enabled; });
         }
         var data = await api('/tools/analyze-files', 'POST', body);
         if (!data.success) { showStatus('❌ ' + data.error, 'error'); return; }
