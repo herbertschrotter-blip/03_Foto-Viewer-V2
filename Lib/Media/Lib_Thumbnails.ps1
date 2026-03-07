@@ -248,6 +248,145 @@ function Enable-OneDriveProtection {
 
 #endregion
 
+#region Quick Cache Check
+
+function Test-ThumbnailExists {
+    <#
+    .SYNOPSIS
+        Schnelle Prüfung ob Thumbnail im Cache existiert (<1ms)
+
+    .DESCRIPTION
+        Prüft NUR ob der hash-basierte Cache-Pfad existiert.
+        Keine Thumbnail-Generierung, kein FFmpeg, kein System.Drawing.
+        Für Lazy-Loading: Cache-Hit → Thumbnail liefern, Cache-Miss → Original liefern.
+
+    .PARAMETER Path
+        Pfad zur Medien-Datei
+
+    .EXAMPLE
+        $result = Test-ThumbnailExists -Path "C:\Photos\foto.jpg"
+        if ($result.Exists) { # Thumbnail aus $result.ThumbnailPath liefern }
+
+    .EXAMPLE
+        $result = Test-ThumbnailExists -Path "C:\Videos\clip.mp4"
+        # Videos: Prüft nur den ersten Thumbnail (Index 0)
+
+    .OUTPUTS
+        PSCustomObject mit Exists (bool) und ThumbnailPath (string oder $null)
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    try {
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            return [PSCustomObject]@{
+                Exists        = $false
+                ThumbnailPath = $null
+            }
+        }
+
+        # Cache-Dir bestimmen (gleiche Logik wie Get-MediaThumbnail)
+        $parentFolder = Split-Path -Parent $Path
+        $cacheDir = Join-Path $parentFolder ".thumbs"
+
+        # Wenn .thumbs Ordner nicht existiert → kein Cache
+        if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) {
+            return [PSCustomObject]@{
+                Exists        = $false
+                ThumbnailPath = $null
+            }
+        }
+
+        # Hash-basierten Cache-Pfad berechnen (nutzt Get-ThumbnailCachePath aus Lib_ImageThumbnails)
+        $thumbPath = Get-ThumbnailCachePath -MediaPath $Path -CacheDir $cacheDir
+
+        if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
+            return [PSCustomObject]@{
+                Exists        = $true
+                ThumbnailPath = $thumbPath
+            }
+        }
+
+        return [PSCustomObject]@{
+            Exists        = $false
+            ThumbnailPath = $null
+        }
+    }
+    catch {
+        Write-Verbose "Test-ThumbnailExists Fehler: $($_.Exception.Message)"
+        return [PSCustomObject]@{
+            Exists        = $false
+            ThumbnailPath = $null
+        }
+    }
+}
+
+#endregion
+
+#region Quick Cache Check
+
+function Test-ThumbnailExists {
+    <#
+    .SYNOPSIS
+        Schnelle Prüfung ob Thumbnail im Cache existiert (<1ms)
+
+    .DESCRIPTION
+        Prüft NUR ob der hash-basierte Cache-Pfad existiert.
+        Keine Thumbnail-Generierung, kein FFmpeg, kein System.Drawing.
+        Für Lazy-Loading: Cache-Hit = Thumbnail liefern, Cache-Miss = Original liefern.
+
+    .PARAMETER Path
+        Pfad zur Medien-Datei
+
+    .EXAMPLE
+        $result = Test-ThumbnailExists -Path "C:\Photos\foto.jpg"
+        if ($result.Exists) { # Thumbnail aus $result.ThumbnailPath liefern }
+
+    .OUTPUTS
+        PSCustomObject mit Exists (bool) und ThumbnailPath (string oder $null)
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    try {
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            return [PSCustomObject]@{ Exists = $false; ThumbnailPath = $null }
+        }
+
+        # Cache-Dir bestimmen (gleiche Logik wie Get-MediaThumbnail)
+        $parentFolder = Split-Path -Parent $Path
+        $cacheDir = Join-Path $parentFolder ".thumbs"
+
+        # Kein .thumbs Ordner = kein Cache
+        if (-not (Test-Path -LiteralPath $cacheDir -PathType Container)) {
+            return [PSCustomObject]@{ Exists = $false; ThumbnailPath = $null }
+        }
+
+        # Hash-basierten Cache-Pfad berechnen (nutzt Get-ThumbnailCachePath aus Lib_ImageThumbnails)
+        $thumbPath = Get-ThumbnailCachePath -MediaPath $Path -CacheDir $cacheDir
+
+        if (Test-Path -LiteralPath $thumbPath -PathType Leaf) {
+            return [PSCustomObject]@{ Exists = $true; ThumbnailPath = $thumbPath }
+        }
+
+        return [PSCustomObject]@{ Exists = $false; ThumbnailPath = $null }
+    }
+    catch {
+        Write-Verbose "Test-ThumbnailExists Fehler: $($_.Exception.Message)"
+        return [PSCustomObject]@{ Exists = $false; ThumbnailPath = $null }
+    }
+}
+
+#endregion
+
 #region Universal Thumbnail Functions
 
 function Get-MediaThumbnail {
