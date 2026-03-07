@@ -388,6 +388,41 @@
         .sort-stat .value.success { color: #059669; }
         .sort-stat .value.error { color: #dc2626; }
 
+        /* Lightbox */
+        .lightbox-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.92); z-index: 200;
+            align-items: center; justify-content: center; flex-direction: column;
+        }
+        .lightbox-overlay.show { display: flex; }
+        .lightbox-close {
+            position: absolute; top: 16px; right: 20px;
+            color: white; font-size: 28px; cursor: pointer; z-index: 210;
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: background 0.2s;
+        }
+        .lightbox-close:hover { background: rgba(255,255,255,0.15); }
+        .lightbox-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            color: white; font-size: 32px; cursor: pointer; z-index: 210;
+            width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: background 0.2s; user-select: none;
+        }
+        .lightbox-nav:hover { background: rgba(255,255,255,0.15); }
+        .lightbox-nav.prev { left: 16px; }
+        .lightbox-nav.next { right: 16px; }
+        .lightbox-img {
+            max-width: 90vw; max-height: 80vh; object-fit: contain;
+            border-radius: 4px; box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+        }
+        .lightbox-info {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            color: white; text-align: center; z-index: 210;
+        }
+        .lightbox-filename { font-size: 13px; font-weight: 500; }
+        .lightbox-group { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+        .lightbox-counter { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
         /* Move Modal */
         .move-modal-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -597,6 +632,19 @@
         <div id="sortSummary" style="display:none"></div>
     </div>
 
+    <!-- Lightbox -->
+    <div class="lightbox-overlay" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+        <div class="lightbox-close" onclick="closeLightbox()">✕</div>
+        <div class="lightbox-nav prev" onclick="lightboxPrev()">‹</div>
+        <div class="lightbox-nav next" onclick="lightboxNext()">›</div>
+        <img class="lightbox-img" id="lightboxImg" src="" alt="">
+        <div class="lightbox-info">
+            <div class="lightbox-filename" id="lightboxFilename"></div>
+            <div class="lightbox-group" id="lightboxGroup"></div>
+            <div class="lightbox-counter" id="lightboxCounter"></div>
+        </div>
+    </div>
+
     <!-- Move Modal -->
     <div class="move-modal-overlay" id="moveModal" onclick="if(event.target===this)closeMoveModal()">
         <div class="move-modal">
@@ -785,7 +833,7 @@ function renderGroups(groups) {
 
         var th = thumbs.map(function(f) {
             var ip = encodeURIComponent(pp + f);
-            return '<div class="group-thumb" data-file="' + f + '" data-group="' + i + '" title="' + f + '">' +
+            return '<div class="group-thumb" data-file="' + f + '" data-group="' + i + '" title="' + f + '" onclick="openLightbox(' + i + ',\'' + f.replace(/'/g, "\\'") + '\')">' +
                 '<input type="checkbox" class="group-thumb-cb" data-file="' + f + '" data-group="' + i + '" onclick="event.stopPropagation(); updateSelectionBar(' + i + ')">' +
                 '<img src="/img?path=' + ip + '" loading="lazy" alt="' + f + '">' +
                 '<span class="group-thumb-name">' + f + '</span></div>';
@@ -899,7 +947,7 @@ function buildGroupCardHTML(i) {
 
     var th = thumbs.map(function(f) {
         var ip = encodeURIComponent(pp + f);
-        return '<div class="group-thumb" data-file="' + f + '" data-group="' + i + '" title="' + f + '">' +
+        return '<div class="group-thumb" data-file="' + f + '" data-group="' + i + '" title="' + f + '" onclick="openLightbox(' + i + ',\'' + f.replace(/'/g, "\\'") + '\')">' +
             '<input type="checkbox" class="group-thumb-cb" data-file="' + f + '" data-group="' + i + '" onclick="event.stopPropagation(); updateSelectionBar(' + i + ')">' +
             '<img src="/img?path=' + ip + '" loading="lazy" alt="' + f + '">' +
             '<span class="group-thumb-name">' + f + '</span></div>';
@@ -1135,6 +1183,64 @@ function confirmMoveModal() {
     updateSidebar();
     showStatus('✅ ' + sel.length + ' Dateien → "' + target + '"', 'success');
 }
+
+// === LIGHTBOX ===
+var lbState = { groupIndex: -1, fileIndex: -1 };
+
+function getLightboxPath(fileName) {
+    var fp = document.getElementById('folderSelect').value;
+    var pp = (fp === '.') ? '' : fp.replace(/\\/g, '/') + '/';
+    return '/original?path=' + encodeURIComponent(pp + fileName);
+}
+
+function openLightbox(groupIndex, fileName) {
+    var g = currentGroups[groupIndex];
+    if (!g) return;
+    var fi = g.files.indexOf(fileName);
+    if (fi === -1) fi = 0;
+    lbState.groupIndex = groupIndex;
+    lbState.fileIndex = fi;
+    showLightboxImage();
+    document.getElementById('lightbox').classList.add('show');
+}
+
+function showLightboxImage() {
+    var g = currentGroups[lbState.groupIndex];
+    if (!g) return;
+    var f = g.files[lbState.fileIndex];
+    document.getElementById('lightboxImg').src = getLightboxPath(f);
+    document.getElementById('lightboxFilename').textContent = f;
+    document.getElementById('lightboxGroup').textContent = 'Gruppe: ' + g.prefix + ' (' + g.patternName + ')';
+    document.getElementById('lightboxCounter').textContent = (lbState.fileIndex + 1) + ' / ' + g.files.length;
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('show');
+    document.getElementById('lightboxImg').src = '';
+    lbState.groupIndex = -1;
+    lbState.fileIndex = -1;
+}
+
+function lightboxPrev() {
+    var g = currentGroups[lbState.groupIndex];
+    if (!g) return;
+    lbState.fileIndex = (lbState.fileIndex - 1 + g.files.length) % g.files.length;
+    showLightboxImage();
+}
+
+function lightboxNext() {
+    var g = currentGroups[lbState.groupIndex];
+    if (!g) return;
+    lbState.fileIndex = (lbState.fileIndex + 1) % g.files.length;
+    showLightboxImage();
+}
+
+document.addEventListener('keydown', function(e) {
+    if (lbState.groupIndex === -1) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') lightboxPrev();
+    if (e.key === 'ArrowRight') lightboxNext();
+});
 
 // === MERGE ===
 async function mergeGroup(sp) {
