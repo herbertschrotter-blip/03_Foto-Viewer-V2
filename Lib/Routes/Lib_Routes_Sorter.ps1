@@ -412,6 +412,36 @@ function Handle-SorterRoute {
 
 
         # ================================================================
+        # GET /tools/undo-history
+        # ================================================================
+        if ($path -eq "/tools/undo-history" -and $req.HttpMethod -eq "GET") {
+            try {
+                $history = Get-UndoHistory -ScriptRoot $ScriptRoot
+
+                Send-JsonResponse -Response $res -Data @{
+                    success = $true
+                    entries = @($history | ForEach-Object {
+                        @{
+                            id             = $_.Id
+                            timestamp      = $_.Timestamp
+                            folderPath     = $_.FolderPath
+                            targetPath     = $_.TargetPath
+                            movedCount     = $_.MovedCount
+                            createdFolders = @($_.CreatedFolders)
+                            undone         = [bool]$_.Undone
+                        }
+                    })
+                } -StatusCode 200
+                return $true
+            }
+            catch {
+                Send-JsonResponse -Response $res -Data @{ success = $false; error = $_.Exception.Message } -StatusCode 500
+                return $true
+            }
+        }
+
+
+        # ================================================================
         # POST /tools/undo-sort
         # Body: { "folderPath": "relative/path" }
         # ================================================================
