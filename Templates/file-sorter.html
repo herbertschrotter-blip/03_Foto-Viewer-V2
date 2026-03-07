@@ -1277,7 +1277,11 @@ async function sortFiles() {
                 (data.createdFolders.length > 0 ? '<div class="sort-stat"><span class="label">Neue Ordner:</span><span class="value">' + data.createdFolders.join(', ') + '</span></div>' : '') +
                 (data.undoAvailable ? '<p style="margin-top:12px;color:#059669;font-size:13px">↩️ Rückgängig verfügbar</p>' : '') + '</div>';
             s.style.display = 'block';
-            showStatus('✅ ' + data.moved + ' Dateien verschoben', 'success');
+            var msg = '✅ ' + data.moved + ' Dateien verschoben';
+            if (data.deletedEmptyFolders && data.deletedEmptyFolders.length > 0) {
+                msg += ' · 🗑 ' + data.deletedEmptyFolders.length + ' leere Ordner gelöscht (' + data.deletedEmptyFolders.join(', ') + ')';
+            }
+            showStatus(msg, 'success');
             document.getElementById('btnSort').disabled = true;
             document.getElementById('groupsContainer').innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>Fertig. Klicke <strong>Analysieren</strong> für neuen Stand.</p></div>';
             await checkUndo();
