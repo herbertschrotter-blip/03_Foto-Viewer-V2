@@ -691,6 +691,15 @@ function Get-FileGroups {
         $files = $g.Files
         $totalSize = ($files | Measure-Object -Property Length -Sum).Sum
 
+        # Prüfe ob Ziel-Ordner bereits existiert und Dateien enthält
+        $folderExists = $false
+        $folderFileCount = 0
+        $suggestedPath = Join-Path $FolderPath $g.Prefix
+        if (Test-Path -LiteralPath $suggestedPath -PathType Container) {
+            $folderFileCount = @(Get-ChildItem -LiteralPath $suggestedPath -File -ErrorAction SilentlyContinue).Count
+            $folderExists = ($folderFileCount -gt 0)
+        }
+
         [void]$result.Add([PSCustomObject]@{
             Prefix             = $g.Prefix
             PatternName        = $g.PatternName
@@ -700,6 +709,8 @@ function Get-FileGroups {
             TotalSizeFormatted = Format-FileSize -Bytes $totalSize
             PreviewFiles       = @($files | Sort-Object Name | Select-Object -First 5 | ForEach-Object { $_.Name })
             Files              = @($files | Sort-Object Name | ForEach-Object { $_.Name })
+            FolderExists       = $folderExists
+            FolderFileCount    = $folderFileCount
         })
     }
 
