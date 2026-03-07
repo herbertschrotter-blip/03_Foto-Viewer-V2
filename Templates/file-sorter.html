@@ -318,7 +318,7 @@
         }
 
         /* Thumb Grid */
-        .group-body { display: none; padding: 12px 16px; max-height: 500px; overflow-y: auto; }
+        .group-body { display: none; padding: 12px 16px; }
         .group-card.expanded .group-body { display: block; }
         .group-thumb-grid {
             display: grid;
@@ -768,7 +768,13 @@ function renderGroups(groups) {
     }).join('');
 }
 
-function toggleGroup(i) { document.getElementById('group-' + i).classList.toggle('expanded'); }
+function toggleGroup(i) {
+    var card = document.getElementById('group-' + i);
+    card.classList.toggle('expanded');
+    if (card.classList.contains('expanded')) {
+        setTimeout(function() { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
+    }
+}
 
 // === SIDEBAR ===
 function updateSidebar() {
@@ -1160,8 +1166,8 @@ async function addPattern() {
 document.addEventListener('DOMContentLoaded', async function() {
     await loadFolders();
     await loadPatterns();
+    await loadSubLevels();
     await checkUndo();
-    renderSubLevels();
 });
 </script>
 </body>
