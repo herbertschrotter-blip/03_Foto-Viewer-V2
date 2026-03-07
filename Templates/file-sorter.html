@@ -487,6 +487,9 @@
         <div class="sidebar-divider"></div>
         <div class="sidebar-title">Aktionen</div>
         <button class="sidebar-btn sidebar-btn-success" onclick="sortFiles()" id="btnSort" disabled>✅ Sortieren</button>
+        <label style="font-size:11px;color:#718096;display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="sortToRoot" style="width:14px;height:14px;accent-color:#667eea;"> In Root sortieren
+        </label>
         <button class="sidebar-btn sidebar-btn-small" onclick="undoSort()" id="btnUndo" disabled>↩️ Rückgängig</button>
     </div>
 
@@ -1263,7 +1266,8 @@ async function sortFiles() {
     if (!confirm(n + ' Gruppen sortieren?\n\nOrdner werden erstellt und Dateien verschoben.')) return;
     showStatus('Sortiere...', 'info', true);
     try {
-        var data = await api('/tools/sort-files', 'POST', { mappings: mappings, groups: currentGroups });
+        var sortToRoot = document.getElementById('sortToRoot').checked;
+        var data = await api('/tools/sort-files', 'POST', { mappings: mappings, groups: currentGroups, sortToRoot: sortToRoot });
         if (data.success !== undefined) {
             var s = document.getElementById('sortSummary');
             s.innerHTML = '<div class="sort-summary"><h3>✅ Sortierung abgeschlossen</h3>' +
