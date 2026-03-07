@@ -16,6 +16,41 @@
         }
 
         .container { max-width: 1100px; margin: 0 auto; }
+        body.has-sidebar .container { margin-left: 200px; }
+
+        /* === SIDEBAR === */
+        .group-sidebar {
+            display: none;
+            position: fixed;
+            left: 0; top: 0;
+            width: 180px; height: 100vh;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            box-shadow: 2px 0 12px rgba(0,0,0,0.06);
+            z-index: 50;
+            padding: 20px 14px;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .group-sidebar.show { display: flex; }
+        .sidebar-title {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            color: #718096; letter-spacing: 0.5px;
+        }
+        .sidebar-counter {
+            font-size: 13px; font-weight: 600; color: #2d3748;
+            padding: 8px 10px; background: #f7fafc; border-radius: 6px;
+            border: 1px solid #e2e8f0; text-align: center;
+        }
+        .sidebar-counter .num { font-size: 20px; color: #667eea; display: block; line-height: 1.2; }
+        .sidebar-btn {
+            padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 6px;
+            background: white; color: #2d3748; font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: all 0.2s; text-align: center;
+        }
+        .sidebar-btn:hover { background: #f7fafc; border-color: #a0aec0; }
+        .sidebar-btn.active { background: #667eea; color: white; border-color: #667eea; }
+        .sidebar-divider { border-top: 1px solid #e2e8f0; }
 
         /* Header */
         .header {
@@ -362,6 +397,19 @@
     </style>
 </head>
 <body>
+    <!-- Sidebar: Gruppen-Auswahl -->
+    <div class="group-sidebar" id="groupSidebar">
+        <div class="sidebar-title">Gruppen</div>
+        <div class="sidebar-counter">
+            <span class="num" id="sidebarCount">0 / 0</span>
+            ausgewählt
+        </div>
+        <button class="sidebar-btn" onclick="sidebarSelectAll()">☑ Alle auswählen</button>
+        <button class="sidebar-btn" onclick="sidebarSelectNone()">☐ Alle abwählen</button>
+        <div class="sidebar-divider"></div>
+        <button class="sidebar-btn" onclick="sidebarInvert()">⇅ Invertieren</button>
+    </div>
+
     <div class="container">
         <div class="header">
             <div class="header-left">
@@ -611,6 +659,7 @@ async function analyzeFiles() {
         showStatus('✅ ' + data.totalGroups + ' Gruppen, ' + data.totalFiles + ' Dateien', 'success');
         renderPatternSummary(data.patternSummary);
         renderGroups(data.groups);
+        updateSidebar();
         document.getElementById('btnSort').disabled = false;
         await checkUndo();
     } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
@@ -655,7 +704,7 @@ function renderGroups(groups) {
 
         return '<div class="group-card" id="group-' + i + '">' +
             '<div class="group-header" onclick="toggleGroup(' + i + ')">' +
-                '<input type="checkbox" class="group-checkbox" checked onclick="event.stopPropagation()" data-prefix="' + g.prefix + '">' +
+                '<input type="checkbox" class="group-checkbox" checked onclick="event.stopPropagation()" onchange="updateSidebar()" data-prefix="' + g.prefix + '">' +
                 '<span class="group-arrow">▶</span>' +
                 '<span class="group-prefix' + pc + '">' + g.prefix + '</span>' +
                 '<span>→</span>' +
@@ -679,6 +728,36 @@ function renderGroups(groups) {
 }
 
 function toggleGroup(i) { document.getElementById('group-' + i).classList.toggle('expanded'); }
+
+// === SIDEBAR ===
+function updateSidebar() {
+    var cbs = document.querySelectorAll('.group-checkbox');
+    if (cbs.length === 0) {
+        document.getElementById('groupSidebar').classList.remove('show');
+        document.body.classList.remove('has-sidebar');
+        return;
+    }
+    document.getElementById('groupSidebar').classList.add('show');
+    document.body.classList.add('has-sidebar');
+    var total = cbs.length;
+    var checked = Array.from(cbs).filter(function(cb) { return cb.checked; }).length;
+    document.getElementById('sidebarCount').textContent = checked + ' / ' + total;
+}
+
+function sidebarSelectAll() {
+    document.querySelectorAll('.group-checkbox').forEach(function(cb) { cb.checked = true; });
+    updateSidebar();
+}
+
+function sidebarSelectNone() {
+    document.querySelectorAll('.group-checkbox').forEach(function(cb) { cb.checked = false; });
+    updateSidebar();
+}
+
+function sidebarInvert() {
+    document.querySelectorAll('.group-checkbox').forEach(function(cb) { cb.checked = !cb.checked; });
+    updateSidebar();
+}
 
 function showAllThumbs(i) {
     expandedGroups[i] = true;
