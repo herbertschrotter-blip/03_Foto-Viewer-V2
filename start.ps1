@@ -475,40 +475,104 @@ try {
             }            
             
             
-            # Route: /img
+            # Route: /img (Lazy Thumbnails — via Runspace Pool parallel)
             if ($path -eq "/img" -and $req.HttpMethod -eq "GET") {
-                $relativePath = $req.QueryString["path"]
-                if ([string]::IsNullOrWhiteSpace($relativePath)) {
-                    Send-ResponseText -Response $res -Text "Missing path" -StatusCode 400
-                    continue
-                }
-                $fullPath = Resolve-SafePath -RootPath $script:State.RootPath -RelativePath $relativePath
-                if (-not $fullPath -or -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
-                    Send-ResponseText -Response $res -Text "Not found" -StatusCode 404
-                    continue
-                }
-                try {
-                    $thumbPath = Get-MediaThumbnail -Path $fullPath -ScriptRoot $ScriptRoot -MaxSize $config.UI.ThumbnailSize -Quality $config.Video.ThumbnailQuality -ThumbnailQuality $config.Video.ThumbnailQuality -ThumbnailStartPercent $config.Video.ThumbnailStartPercent
-                    if ($thumbPath -and (Test-Path -LiteralPath $thumbPath -PathType Leaf)) {
-                        $fullPath = $thumbPath
+                # Cleanup abgeschlossene Runspaces
+                $toRemove = @()
+                foreach ($rs in $script:ActiveRunspaces) {
+                    if ($rs.Handle.IsCompleted) {
+                        try { $rs.PowerShell.EndInvoke($rs.Handle) } catch { }
+                        $rs.PowerShell.Dispose()
+                        $toRemove += $rs
                     }
-                    $contentType = Get-MediaContentType -Path $fullPath
-                    $fileInfo = [System.IO.FileInfo]::new($fullPath)
-                    $res.StatusCode = 200
-                    $res.ContentType = $contentType
-                    $res.ContentLength64 = $fileInfo.Length
-                    $fs = [System.IO.File]::OpenRead($fullPath)
+                }
+                foreach ($rs in $toRemove) {
+                    [void]$script:ActiveRunspaces.Remove($rs)
+                }
+                
+                # /img Request in Runspace ausführen (blockiert Main-Loop NICHT)
+                $ps = [powershell]::Create()
+                $ps.RunspacePool = $runspacePool
+                
+                [void]$ps.AddScript({
+                    param($Context, $RootFull, $ScriptRoot, $ThumbSize, $ThumbQuality, $ThumbStartPercent)
+                    
+                    $req = $Context.Request
+                    $res = $Context.Response
+                    
                     try {
-                        $fs.CopyTo($res.OutputStream)
+                        # Libs laden im Runspace
+                        . (Join-Path $ScriptRoot "Lib\Core\Lib_Config.ps1")
+                        . (Join-Path $ScriptRoot "Lib\Core\Lib_Logging.ps1")
+                        . (Join-Path $ScriptRoot "Lib\Core\Lib_Http.ps1")
+                        . (Join-Path $ScriptRoot "Lib\Media\Lib_ImageThumbnails.ps1")
+                        . (Join-Path $ScriptRoot "Lib\Media\Lib_VideoThumbnails.ps1")
+                        . (Join-Path $ScriptRoot "Lib\Media\Lib_Thumbnails.ps1")
+                        . (Join-Path $ScriptRoot "Lib\Media\Lib_FileSystem.ps1")
+                        
+                        $relativePath = $req.QueryString["path"]
+                        if ([string]::IsNullOrWhiteSpace($relativePath)) {
+                            Send-ResponseText -Response $res -Text "Missing path" -StatusCode 400
+                            return
+                        }
+                        
+                        $fullPath = Resolve-SafePath -RootPath $RootFull -RelativePath $relativePath
+                        if (-not $fullPath -or -not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+                            Send-ResponseText -Response $res -Text "Not found" -StatusCode 404
+                            return
+                        }
+                        
+                        # Thumbnail generieren oder aus Cache holen
+                        $servePath = $fullPath
+                        $thumbPath = Get-MediaThumbnail -Path $fullPath -ScriptRoot $ScriptRoot `
+                            -MaxSize $ThumbSize -Quality $ThumbQuality `
+                            -ThumbnailQuality $ThumbQuality `
+                            -ThumbnailStartPercent $ThumbStartPercent
+                        
+                        if ($thumbPath -and (Test-Path -LiteralPath $thumbPath -PathType Leaf)) {
+                            $servePath = $thumbPath
+                        }
+                        
+                        # Datei senden
+                        $ext = [System.IO.Path]::GetExtension($servePath).ToLowerInvariant()
+                        $contentType = switch ($ext) {
+                            '.jpg'  { 'image/jpeg' }
+                            '.jpeg' { 'image/jpeg' }
+                            '.png'  { 'image/png' }
+                            '.gif'  { 'image/gif' }
+                            '.webp' { 'image/webp' }
+                            '.bmp'  { 'image/bmp' }
+                            default { 'application/octet-stream' }
+                        }
+                        
+                        $fileInfo = [System.IO.FileInfo]::new($servePath)
+                        $res.StatusCode = 200
+                        $res.ContentType = $contentType
+                        $res.ContentLength64 = $fileInfo.Length
+                        $fs = [System.IO.File]::OpenRead($servePath)
+                        try {
+                            $fs.CopyTo($res.OutputStream)
+                        }
+                        finally {
+                            $fs.Close()
+                            $res.OutputStream.Close()
+                        }
                     }
-                    finally {
-                        $fs.Close()
-                        $res.OutputStream.Close()
+                    catch {
+                        try {
+                            $res.StatusCode = 500
+                            $res.Close()
+                        } catch { }
                     }
-                } catch {
-                    Write-Error "Fehler: $($_.Exception.Message)"
-                    Send-ResponseText -Response $res -Text "Error" -StatusCode 500
-                }
+                    
+                }).AddArgument($ctx).AddArgument($script:State.RootPath).AddArgument($ScriptRoot).AddArgument($config.UI.ThumbnailSize).AddArgument($config.Video.ThumbnailQuality).AddArgument($config.Video.ThumbnailStartPercent)
+                
+                $handle = $ps.BeginInvoke()
+                [void]$script:ActiveRunspaces.Add(@{
+                    PowerShell = $ps
+                    Handle = $handle
+                })
+                
                 continue
             }
             
