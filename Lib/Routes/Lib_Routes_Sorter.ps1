@@ -114,6 +114,9 @@ function Handle-SorterRoute {
                     $extensions = @($data.extensions)
                 }
 
+                if (-not $extensions) {
+                    $extensions = @($Config.Media.ImageExtensions) + @($Config.Media.VideoExtensions)
+                }
                 $groups = Get-FileGroups -FolderPath $absolutePath -ScriptRoot $ScriptRoot -Extensions $extensions
 
                 # Multi-Level: Sub-Levels aus Body (optional)
@@ -128,7 +131,7 @@ function Handle-SorterRoute {
                     })
                     $multiGroups = Get-MultiLevelGroups -Groups $groups -SubLevels $subLevels
 
-```
+
                     # Dateigroessen-Lookup einmal aufbauen (Performance!)
                     $fileSizeLookup = @{}
                     foreach ($f in (Get-ChildItem -LiteralPath $absolutePath -File -ErrorAction SilentlyContinue)) {
@@ -312,6 +315,9 @@ function Handle-SorterRoute {
                     $extensions = @($data.extensions)
                 }
 
+                if (-not $extensions) {
+                    $extensions = @($Config.Media.ImageExtensions) + @($Config.Media.VideoExtensions)
+                }
                 $logPath = Export-FileNames -FolderPath $absolutePath -Extensions $extensions
 
                 Send-JsonResponse -Response $res -Data @{
