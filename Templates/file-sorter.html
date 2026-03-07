@@ -667,6 +667,8 @@ function renderGroups(groups) {
             '</div>' +
             (g.subGroups && g.subGroups.length > 0 ?
                 '<div class="subgroup-tree">' + renderSubGroupTree(g.subGroups, g.prefix) + '</div>' : '') +
+            (g.subGroups && g.subGroups.length > 0 ?
+                '<div class="subgroup-tree">' + renderFlatSubGroups(g.subGroups, g.suggestedFolder) + '</div>' : '') +
             '<div class="group-actions">' +
                 '<button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup(\'' + g.prefix + '\')">🔗 Merge ganze Gruppe</button>' +
             '</div></div>';
@@ -684,6 +686,31 @@ function renderSubGroupTree(subGroups, parentPath) {
             '<span class="subgroup-count">' + sg.fileCount + ' Dateien</span>' +
             '</div>' + children;
     }).join('') + '</div>';
+}
+
+function convertSubKeyToShort(key) {
+    if (key === 'result') return 'r0';
+    var m = key.match(/^result_(\d+)$/);
+    if (m) return 'r' + m[1];
+    if (key === '_other') return 'other';
+    return key;
+}
+
+function renderFlatSubGroups(subGroups, baseName) {
+    if (!subGroups || subGroups.length === 0) return '';
+    return subGroups.map(function(sg) {
+        var shortKey = convertSubKeyToShort(sg.subKey);
+        var folderName = baseName + '-' + shortKey;
+        // Rekursiv: wenn weitere Sub-Gruppen, flach weiter aufloesen
+        if (sg.subGroups && sg.subGroups.length > 0) {
+            return renderFlatSubGroups(sg.subGroups, folderName);
+        }
+        return '<div class="subgroup-item">' +
+            '<span style="color:#a0aec0;">📁</span>' +
+            '<span class="subgroup-key">' + folderName + '</span>' +
+            '<span class="subgroup-count">' + sg.fileCount + ' Dateien</span>' +
+            '</div>';
+    }).join('');
 }
 
 function toggleGroup(i) { document.getElementById('group-' + i).classList.toggle('expanded'); }

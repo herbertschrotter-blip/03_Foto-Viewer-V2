@@ -5,7 +5,8 @@ ManifestHint:
                        "Add-SorterPattern", "Remove-SorterPattern",
                        "Move-FileBetweenGroups", "Merge-FileGroups", "Split-FileGroup",
                        "Undo-FileSorting",
-                       "Get-MultiLevelGroups", "Invoke-MultiLevelSorting")
+                       "Get-MultiLevelGroups", "Invoke-MultiLevelSorting",
+                       "Convert-SubKeyToShort")
   Description     = "Dateinamen-Analyse, Multi-Pattern-Gruppierung, N-stufige Sortierung"
   Category        = "Utils"
   Tags            = @("FileSorter", "Grouping", "Organize", "Pattern", "Undo", "MultiLevel")
@@ -46,7 +47,7 @@ Abhaengigkeiten:
 
 .NOTES
     Autor: Herbert Schrotter
-    Version: 0.2.0
+    Version: 0.2.1
 
     AENDERUNGEN v0.2.0:
     - N-stufige Sortierung (Get-MultiLevelGroups, Invoke-MultiLevelSorting)
@@ -1218,23 +1219,25 @@ function Invoke-FileSorting {
 function Invoke-MultiLevelSorting {
     <#
     .SYNOPSIS
-        Verschiebt Dateien in verschachtelte Unterordner (N-stufig)
+        Verschiebt Dateien in flache Ordner mit kombinierten Namen (N-stufig)
 
     .DESCRIPTION
         Nimmt Multi-Level-Gruppen (von Get-MultiLevelGroups) und erstellt
-        verschachtelte Ordner-Strukturen. Undo-Log fuer komplette
-        Rueckgaengig-Machung.
+        flache Ordner mit kombinierten Namen aus Prefix + Sub-Key.
+
+        Sub-Key Mapping (result-Varianten):
+        - result   -> r0
+        - result_1 -> r1
+        - result_N -> rN
+        - _other   -> other
 
         Ergebnis bei 2 Ebenen:
           FolderPath/
-          +-- p105/
-          |   +-- result/
-          |   |   +-- p1050001_1_result.jpg
-          |   +-- result_1/
-          |       +-- p1050001_1_result_1.jpg
-          +-- DSCF/
-              +-- result/
-                  +-- DSCF0001_1_result.JPG
+          +-- p105-r0/     (result)
+          +-- p105-r1/     (result_1)
+          +-- p105-r2/     (result_2)
+          +-- DSCF-r0/
+          +-- DSCF-r1/
 
     .PARAMETER FolderPath
         Absoluter Pfad zum Quell-Ordner
@@ -1243,15 +1246,18 @@ function Invoke-MultiLevelSorting {
         Multi-Level-Gruppen (von Get-MultiLevelGroups, mit SubGroups)
 
     .PARAMETER GroupMappings
-        Hashtable: Key = Prefix, Value = Ziel-Ordnername (Stufe 1)
-        Sub-Ordnernamen werden automatisch aus SubKey abgeleitet.
+        Hashtable: Key = Prefix, Value = Basis-Ordnername (Stufe 1)
+        Sub-Keys werden mit Bindestrich angehaengt.
+
+    .PARAMETER Separator
+        Trennzeichen zwischen Prefix und Sub-Key (Default: "-")
 
     .EXAMPLE
-        $map = @{ "p105" = "Set_105"; "DSCF" = "DSCF_Fotos" }
+        $map = @{ "p105" = "p105"; "dscf" = "DSCF" }
         $result = Invoke-MultiLevelSorting -FolderPath $path -Groups $multiGroups -GroupMappings $map
 
     .EXAMPLE
-        if ($result.Moved -gt 0) { Write-Host "$($result.Moved) Dateien verschoben" }
+        # Ergebnis: p105-r0/, p105-r1/, DSCF-r0/, DSCF-r1/
 
     .OUTPUTS
         [PSCustomObject] Moved, Failed, Skipped, CreatedFolders, UndoLogPath, Details
@@ -1268,10 +1274,13 @@ function Invoke-MultiLevelSorting {
         [PSCustomObject[]]$Groups,
 
         [Parameter(Mandatory)]
-        [hashtable]$GroupMappings
+        [hashtable]$GroupMappings,
+
+        [Parameter()]
+        [string]$Separator = "-"
     )
 
-    Write-Verbose "Multi-Level Sortierung: $FolderPath ($($GroupMappings.Count) Mappings)"
+    Write-Verbose "Multi-Level Sortierung (flach): $FolderPath ($($GroupMappings.Count) Mappings)"
 
     $moved = 0; $failed = 0; $skipped = 0
     $createdFolders = [System.Collections.ArrayList]::new()
@@ -1286,40 +1295,58 @@ function Invoke-MultiLevelSorting {
             continue
         }
 
-        $topFolderName = $GroupMappings[$prefix]
-        if ([string]::IsNullOrWhiteSpace($topFolderName)) {
+        $baseName = $GroupMappings[$prefix]
+        if ([string]::IsNullOrWhiteSpace($baseName)) {
             $skipped += $group.FileCount
             continue
         }
 
         # Path-Traversal Schutz
-        if ($topFolderName -match '[/\\]' -or $topFolderName.Contains('..')) {
+        if ($baseName -match '[/\\]' -or $baseName.Contains('..')) {
             $failed += $group.FileCount
             continue
         }
 
-        # Hat Sub-Gruppen? -> Verschachtelt sortieren
+        # Hat Sub-Gruppen? -> Flache Ordner mit kombinierten Namen
         if ($group.IsMultiLevel -and $group.SubGroups.Count -gt 0) {
-            $sortResult = Invoke-SubGroupSorting `
-                -FolderPath $FolderPath `
-                -BasePath $topFolderName `
-                -SubGroups $group.SubGroups `
-                -Prefix $prefix
+            # SubGroups zu flacher Liste aufloesen
+            $flatList = Resolve-FlatSubGroups -SubGroups $group.SubGroups -BaseName $baseName -Separator $Separator
 
-            $moved += $sortResult.Moved
-            $failed += $sortResult.Failed
-            foreach ($f in $sortResult.CreatedFolders) { [void]$createdFolders.Add($f) }
-            foreach ($d in $sortResult.Details) { [void]$details.Add($d) }
-            foreach ($u in $sortResult.UndoEntries) { [void]$undoEntries.Add($u) }
+            foreach ($flat in $flatList) {
+                $folderName = $flat.FolderName
+                $targetFolder = Join-Path $FolderPath $folderName
+
+                # Ordner erstellen
+                if (-not (Test-Path -LiteralPath $targetFolder -PathType Container)) {
+                    try {
+                        New-Item -ItemType Directory -Path $targetFolder -Force | Out-Null
+                        [void]$createdFolders.Add($folderName)
+                    }
+                    catch {
+                        $failed += $flat.Files.Count
+                        continue
+                    }
+                }
+
+                # Dateien verschieben
+                foreach ($fileName in $flat.Files) {
+                    $moveResult = Move-SingleFile -FolderPath $FolderPath `
+                        -FileName $fileName -TargetFolder $targetFolder `
+                        -Prefix $prefix -TargetName $folderName
+                    $moved += $moveResult.Moved; $failed += $moveResult.Failed
+                    if ($moveResult.Detail) { [void]$details.Add($moveResult.Detail) }
+                    if ($moveResult.UndoEntry) { [void]$undoEntries.Add($moveResult.UndoEntry) }
+                }
+            }
         }
         else {
             # Fallback: Einstufig (keine Sub-Gruppen)
-            $targetFolder = Join-Path $FolderPath $topFolderName
+            $targetFolder = Join-Path $FolderPath $baseName
 
             if (-not (Test-Path -LiteralPath $targetFolder -PathType Container)) {
                 try {
                     New-Item -ItemType Directory -Path $targetFolder -Force | Out-Null
-                    [void]$createdFolders.Add($topFolderName)
+                    [void]$createdFolders.Add($baseName)
                 }
                 catch {
                     $failed += $group.FileCount
@@ -1330,7 +1357,7 @@ function Invoke-MultiLevelSorting {
             foreach ($fileName in $group.Files) {
                 $moveResult = Move-SingleFile -FolderPath $FolderPath `
                     -FileName $fileName -TargetFolder $targetFolder `
-                    -Prefix $prefix -TargetName $topFolderName
+                    -Prefix $prefix -TargetName $baseName
                 $moved += $moveResult.Moved; $failed += $moveResult.Failed
                 if ($moveResult.Detail) { [void]$details.Add($moveResult.Detail) }
                 if ($moveResult.UndoEntry) { [void]$undoEntries.Add($moveResult.UndoEntry) }
@@ -1366,106 +1393,116 @@ function Invoke-MultiLevelSorting {
 }
 
 
-function Invoke-SubGroupSorting {
+function Resolve-FlatSubGroups {
     <#
     .SYNOPSIS
-        Interner Helper: Rekursive Sortierung von Sub-Gruppen
+        Interner Helper: Loest SubGroups rekursiv in flache Ordnernamen auf
 
     .DESCRIPTION
-        Erstellt verschachtelte Ordner und verschiebt Dateien.
-        Wird rekursiv fuer jede weitere Ebene aufgerufen.
-        Blatt-Ebene (keine weiteren SubGroups) = Dateien verschieben.
+        Wandelt verschachtelte SubGroup-Struktur in eine flache Liste um.
+        Jeder Eintrag hat einen kombinierten Ordnernamen und seine Dateien.
 
-    .PARAMETER FolderPath
-        Root-Ordner (wo die Dateien aktuell liegen)
-
-    .PARAMETER BasePath
-        Relativer Pfad ab FolderPath (z.B. "p105" oder "p105\result")
+        Sub-Key Mapping:
+        - "result"   -> "r0"
+        - "result_1" -> "r1"
+        - "result_N" -> "rN"
+        - "_other"   -> "other"
+        - alles andere -> wie es ist
 
     .PARAMETER SubGroups
         Sub-Gruppen mit SubKey, Files, SubGroups
 
-    .PARAMETER Prefix
-        Prefix der Top-Level Gruppe (fuer Details/Logging)
+    .PARAMETER BaseName
+        Basis-Ordnername (z.B. "p105")
+
+    .PARAMETER Separator
+        Trennzeichen (Default: "-")
 
     .EXAMPLE
-        $r = Invoke-SubGroupSorting -FolderPath $root -BasePath "p105" `
-            -SubGroups $group.SubGroups -Prefix "p105"
+        $flat = Resolve-FlatSubGroups -SubGroups $group.SubGroups -BaseName "p105"
+        # Ergebnis: @( @{FolderName="p105-r0"; Files=@(...)}, @{FolderName="p105-r1"; Files=@(...)} )
 
     .OUTPUTS
-        [PSCustomObject] Moved, Failed, CreatedFolders, Details, UndoEntries
+        [hashtable[]] Array mit FolderName + Files
     #>
     [CmdletBinding()]
-    [OutputType([PSCustomObject])]
+    [OutputType([hashtable[]])]
     param(
-        [Parameter(Mandatory)][string]$FolderPath,
-        [Parameter(Mandatory)][string]$BasePath,
         [Parameter(Mandatory)][PSCustomObject[]]$SubGroups,
-        [Parameter(Mandatory)][string]$Prefix
+        [Parameter(Mandatory)][string]$BaseName,
+        [Parameter()][string]$Separator = "-"
     )
 
-    $moved = 0; $failed = 0
-    $createdFolders = [System.Collections.ArrayList]::new()
-    $details = [System.Collections.ArrayList]::new()
-    $undoEntries = [System.Collections.ArrayList]::new()
+    $result = [System.Collections.ArrayList]::new()
 
     foreach ($sub in $SubGroups) {
-        $subFolderName = $sub.SubKey
-        $relPath = Join-Path $BasePath $subFolderName
-        $fullPath = Join-Path $FolderPath $relPath
+        # Sub-Key in kurzen Ordnernamen umwandeln
+        $shortKey = Convert-SubKeyToShort -SubKey $sub.SubKey
 
-        # Path-Traversal Schutz
-        if ($subFolderName -match '[/\\]' -or $subFolderName.Contains('..')) {
-            $failed += $sub.FileCount
-            continue
-        }
+        $folderName = "$BaseName$Separator$shortKey"
 
-        # Ordner erstellen
-        if (-not (Test-Path -LiteralPath $fullPath -PathType Container)) {
-            try {
-                New-Item -ItemType Directory -Path $fullPath -Force | Out-Null
-                [void]$createdFolders.Add($relPath)
-            }
-            catch {
-                $failed += $sub.FileCount
-                continue
-            }
-        }
-
-        # Hat weitere Sub-Gruppen? -> Rekursiv
+        # Hat weitere Sub-Gruppen? -> Rekursiv mit erweitertem BaseName
         if ($sub.SubGroups -and $sub.SubGroups.Count -gt 0) {
-            $childResult = Invoke-SubGroupSorting `
-                -FolderPath $FolderPath `
-                -BasePath $relPath `
-                -SubGroups $sub.SubGroups `
-                -Prefix $Prefix
-
-            $moved += $childResult.Moved
-            $failed += $childResult.Failed
-            foreach ($f in $childResult.CreatedFolders) { [void]$createdFolders.Add($f) }
-            foreach ($d in $childResult.Details) { [void]$details.Add($d) }
-            foreach ($u in $childResult.UndoEntries) { [void]$undoEntries.Add($u) }
+            $childFlat = Resolve-FlatSubGroups -SubGroups $sub.SubGroups -BaseName $folderName -Separator $Separator
+            foreach ($child in $childFlat) {
+                [void]$result.Add($child)
+            }
         }
         else {
-            # Blatt-Ebene: Dateien verschieben
-            foreach ($fileName in $sub.Files) {
-                $moveResult = Move-SingleFile -FolderPath $FolderPath `
-                    -FileName $fileName -TargetFolder $fullPath `
-                    -Prefix $Prefix -TargetName $relPath
-                $moved += $moveResult.Moved; $failed += $moveResult.Failed
-                if ($moveResult.Detail) { [void]$details.Add($moveResult.Detail) }
-                if ($moveResult.UndoEntry) { [void]$undoEntries.Add($moveResult.UndoEntry) }
-            }
+            # Blatt-Ebene: Dateien zuordnen
+            [void]$result.Add(@{
+                FolderName = $folderName
+                Files      = $sub.Files
+            })
         }
     }
 
-    return [PSCustomObject]@{
-        Moved          = $moved
-        Failed         = $failed
-        CreatedFolders = @($createdFolders)
-        Details        = @($details)
-        UndoEntries    = @($undoEntries)
-    }
+    return @($result)
+}
+
+
+function Convert-SubKeyToShort {
+    <#
+    .SYNOPSIS
+        Interner Helper: Wandelt SubKey in kurzen Ordnernamen-Suffix um
+
+    .DESCRIPTION
+        Mapping:
+        - "result"    -> "r0"
+        - "result_1"  -> "r1"
+        - "result_2"  -> "r2"
+        - "result_N"  -> "rN"
+        - "_other"    -> "other"
+        - alles andere -> unveraendert
+
+    .PARAMETER SubKey
+        Der SubKey aus der Sub-Gruppierung
+
+    .EXAMPLE
+        Convert-SubKeyToShort -SubKey "result"    # -> "r0"
+        Convert-SubKeyToShort -SubKey "result_3"  # -> "r3"
+        Convert-SubKeyToShort -SubKey "_other"    # -> "other"
+
+    .OUTPUTS
+        [string]
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)][string]$SubKey
+    )
+
+    # result -> r0
+    if ($SubKey -eq 'result') { return 'r0' }
+
+    # result_N -> rN
+    if ($SubKey -match '^result_(\d+)$') { return "r$($Matches[1])" }
+
+    # _other -> other
+    if ($SubKey -eq '_other') { return 'other' }
+
+    # Alles andere: unveraendert
+    return $SubKey
 }
 
 
