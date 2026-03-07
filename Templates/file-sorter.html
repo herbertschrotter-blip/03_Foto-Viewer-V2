@@ -353,19 +353,22 @@
         }
         .group-more:hover { background: #e2e8f0; color: #4a5568; }
 
-        /* Selection bar per group */
-        .group-selection-bar {
-            display: none; padding: 8px 16px;
-            background: #eff6ff; border-top: 1px solid #bfdbfe;
-            font-size: 12px; color: #1e40af; align-items: center; gap: 8px;
+        /* Floating Selection Bar */
+        .floating-selection-bar {
+            display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 10px 20px; z-index: 60;
+            background: white; border: 1px solid #bfdbfe; border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            font-size: 13px; color: #1e40af; align-items: center; gap: 10px;
         }
-        .group-selection-bar.show { display: flex; }
-        .group-selection-bar .sel-count { font-weight: 600; }
-        .group-sel-btn {
-            padding: 3px 10px; border: 1px solid #93c5fd; border-radius: 4px;
-            background: white; font-size: 11px; cursor: pointer; color: #1e40af;
+        .floating-selection-bar.show { display: flex; }
+        .floating-selection-bar .sel-count { font-weight: 700; }
+        .floating-selection-bar .sel-group { font-size: 12px; color: #667eea; font-weight: 600; }
+        .floating-sel-btn {
+            padding: 6px 14px; border: 1px solid #93c5fd; border-radius: 6px;
+            background: white; font-size: 12px; cursor: pointer; color: #1e40af; font-weight: 500;
         }
-        .group-sel-btn:hover { background: #dbeafe; }
+        .floating-sel-btn:hover { background: #dbeafe; }
 
         /* Sort Summary */
         .sort-summary {
@@ -636,6 +639,15 @@
         </div>
     </div>
 
+    <!-- Floating Selection Bar -->
+    <div class="floating-selection-bar" id="floatingSelBar">
+        <span class="sel-group" id="floatingSelGroup"></span>
+        <span><span class="sel-count" id="floatingSelCount">0</span> ausgewählt</span>
+        <button class="floating-sel-btn" onclick="floatingSelectAll()">Alle</button>
+        <button class="floating-sel-btn" onclick="floatingSelectNone()">Keine</button>
+        <button class="floating-sel-btn" onclick="floatingMove()">📦 Verschieben</button>
+    </div>
+
     <!-- Move Modal -->
     <div class="move-modal-overlay" id="moveModal" onclick="if(event.target===this)closeMoveModal()">
         <div class="move-modal">
@@ -844,12 +856,7 @@ function renderGroups(groups) {
                 '<span class="group-stats">' + g.fileCount + ' Dateien · ' + g.totalSizeFormatted + '</span>' +
             '</div>' +
             '<div class="group-body"><div class="group-thumb-grid">' + th + more + '</div></div>' +
-            '<div class="group-selection-bar" id="selbar-' + i + '">' +
-                '<span class="sel-count" id="selcount-' + i + '">0</span> ausgewählt ' +
-                '<button class="group-sel-btn" onclick="selectAllInGroup(' + i + ')">Alle</button> ' +
-                '<button class="group-sel-btn" onclick="selectNoneInGroup(' + i + ')">Keine</button> ' +
-                '<button class="group-sel-btn" onclick="moveSelectedToGroup(' + i + ')">📦 Verschieben</button>' +
-            '</div>' +
+            
             
             '</div>';
     }).join('');
@@ -954,12 +961,7 @@ function buildGroupCardHTML(i) {
             '<span class="group-stats">' + g.fileCount + ' Dateien · ' + g.totalSizeFormatted + '</span>' +
         '</div>' +
         '<div class="group-body"><div class="group-thumb-grid">' + th + more + '</div></div>' +
-        '<div class="group-selection-bar" id="selbar-' + i + '">' +
-            '<span class="sel-count" id="selcount-' + i + '">0</span> ausgewählt ' +
-            '<button class="group-sel-btn" onclick="selectAllInGroup(' + i + ')">Alle</button> ' +
-            '<button class="group-sel-btn" onclick="selectNoneInGroup(' + i + ')">Keine</button> ' +
-            '<button class="group-sel-btn" onclick="moveSelectedToGroup(' + i + ')">📦 Verschieben</button>' +
-        '</div>' +
+        
         '</div>';
 }
 
@@ -1012,15 +1014,56 @@ function getSelectedFiles(gi) {
         .map(function(cb) { return cb.dataset.file; });
 }
 
+var activeSelectionGroup = -1;
+
 function updateSelectionBar(gi) {
     var sel = getSelectedFiles(gi);
-    var bar = document.getElementById('selbar-' + gi);
-    document.getElementById('selcount-' + gi).textContent = sel.length;
-    bar.classList.toggle('show', sel.length > 0);
+    var bar = document.getElementById('floatingSelBar');
+
     document.querySelectorAll('.group-thumb[data-group="' + gi + '"]').forEach(function(t) {
         var cb = t.querySelector('.group-thumb-cb');
         t.classList.toggle('selected', cb && cb.checked);
     });
+
+    if (sel.length > 0) {
+        activeSelectionGroup = gi;
+        var g = currentGroups[gi];
+        document.getElementById('floatingSelGroup').textContent = g ? g.prefix : '';
+        document.getElementById('floatingSelCount').textContent = sel.length;
+        bar.classList.add('show');
+    } else {
+        // Prüfe ob andere Gruppen noch Auswahl haben
+        var anySelected = false;
+        for (var k = 0; k < currentGroups.length; k++) {
+            if (getSelectedFiles(k).length > 0) {
+                activeSelectionGroup = k;
+                var gk = currentGroups[k];
+                document.getElementById('floatingSelGroup').textContent = gk ? gk.prefix : '';
+                document.getElementById('floatingSelCount').textContent = getSelectedFiles(k).length;
+                anySelected = true;
+                break;
+            }
+        }
+        if (!anySelected) {
+            activeSelectionGroup = -1;
+            bar.classList.remove('show');
+        }
+    }
+}
+
+function floatingSelectAll() {
+    if (activeSelectionGroup === -1) return;
+    selectAllInGroup(activeSelectionGroup);
+}
+
+function floatingSelectNone() {
+    if (activeSelectionGroup === -1) return;
+    selectNoneInGroup(activeSelectionGroup);
+}
+
+function floatingMove() {
+    if (activeSelectionGroup === -1) return;
+    moveSelectedToGroup(activeSelectionGroup);
 }
 
 function selectAllInGroup(gi) {
@@ -1119,13 +1162,19 @@ function confirmMoveModal() {
         targetGroup.fileCount = targetGroup.files.length;
         updateGroupCard(targetIndex);
     } else {
-        currentGroups.push({
+        var newGroup = {
             prefix: target, patternName: 'manual', suggestedFolder: target,
             fileCount: sel.length, totalSize: 0, totalSizeFormatted: '?',
             previewFiles: sel.slice(0, 5), files: sel.sort(),
             folderExists: false, folderFileCount: 0
-        });
-        appendGroupCard(currentGroups.length - 1);
+        };
+        // Alphabetisch einsortieren
+        var insertAt = currentGroups.length;
+        for (var n = 0; n < currentGroups.length; n++) {
+            if (currentGroups[n].prefix.localeCompare(target) > 0) { insertAt = n; break; }
+        }
+        currentGroups.splice(insertAt, 0, newGroup);
+        reindexGroupCards();
     }
 
     // Quelle updaten oder entfernen
@@ -1210,7 +1259,7 @@ async function sortFiles() {
     if (!confirm(n + ' Gruppen sortieren?\n\nOrdner werden erstellt und Dateien verschoben.')) return;
     showStatus('Sortiere...', 'info', true);
     try {
-        var data = await api('/tools/sort-files', 'POST', { mappings: mappings });
+        var data = await api('/tools/sort-files', 'POST', { mappings: mappings, groups: currentGroups });
         if (data.success !== undefined) {
             var s = document.getElementById('sortSummary');
             s.innerHTML = '<div class="sort-summary"><h3>✅ Sortierung abgeschlossen</h3>' +
