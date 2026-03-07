@@ -276,7 +276,8 @@ function Handle-SorterRoute {
                     -FolderPath $script:SorterSession.FolderPath `
                     -GroupMappings $mappings `
                     -Groups $groupsToSort `
-                    -TargetPath $targetPath
+                    -TargetPath $targetPath `
+                    -ScriptRoot $ScriptRoot
 
                 # Quellordner prüfen: noch Medien drin?
                 $sourceEmpty = $false
@@ -322,7 +323,7 @@ function Handle-SorterRoute {
                     failed           = $result.Failed
                     skipped          = $result.Skipped
                     createdFolders   = $result.CreatedFolders
-                    undoAvailable    = ($null -ne $result.UndoLogPath)
+                    undoAvailable    = $result.UndoAvailable
                     sourceEmpty      = $sourceEmpty
                     sourcePath       = if ($sourceEmpty) { $script:SorterSession.FolderPath } else { $null }
                     sourceRemaining  = $sourceRemaining
@@ -395,16 +396,26 @@ function Handle-SorterRoute {
                 $body = Read-RequestBody -Request $req
                 $data = $body | ConvertFrom-Json
 
-                $relativePath = $data.folderPath
-                if ([string]::IsNullOrWhiteSpace($relativePath)) {
-                    Send-JsonResponse -Response $res -Data @{ success = $false; error = "Kein folderPath" } -StatusCode 400
-                    return $true
+                # Optionale UndoId (sonst letzter aktiver Eintrag)
+                $undoId = $null
+                if ($data.PSObject.Properties['undoId'] -and $data.undoId) {
+                    $undoId = [string]$data.undoId
                 }
 
-                $absolutePath = if ($relativePath -eq ".") { $RootPath }
-                                else { Join-Path $RootPath $relativePath }
+                $splatParams = @{ ScriptRoot = $ScriptRoot }
+                if ($undoId) { $splatParams.UndoId = $undoId }
 
-                $result = Undo-FileSorting -FolderPath $absolutePath
+                $result = Undo-FileSorting @splatParams
+
+                # Re-Scan nach Undo
+                if ($result.Restored -gt 0 -and $script:State) {
+                    try {
+                        $mediaExts = $Config.Media.ImageExtensions + $Config.Media.VideoExtensions
+                        $script:State.Folders = @(Get-MediaFolders -RootPath $RootPath -Extensions $mediaExts -ScriptRoot $ScriptRoot)
+                        Save-State -State $script:State
+                    }
+                    catch { Write-Warning "Re-Scan nach Undo fehlgeschlagen: $($_.Exception.Message)" }
+                }
 
                 Send-JsonResponse -Response $res -Data @{
                     success        = $result.Success
@@ -427,28 +438,18 @@ function Handle-SorterRoute {
         # ================================================================
         if ($path -eq "/tools/check-undo" -and $req.HttpMethod -eq "GET") {
             try {
-                $relativePath = $req.QueryString["folderPath"]
-                if ([string]::IsNullOrWhiteSpace($relativePath)) {
-                    Send-JsonResponse -Response $res -Data @{ success = $false; error = "Kein folderPath" } -StatusCode 400
-                    return $true
-                }
+                $history = Get-UndoHistory -ScriptRoot $ScriptRoot
+                $lastActive = $history | Where-Object { -not $_.Undone } | Select-Object -First 1
 
-                $absolutePath = if ($relativePath -eq ".") { $RootPath }
-                                else { Join-Path $RootPath $relativePath }
-
-                $undoPath = Join-Path $absolutePath "_undo-sort.json"
-                $hasUndo = Test-Path -LiteralPath $undoPath
-
+                $hasUndo = $null -ne $lastActive
                 $undoInfo = $null
                 if ($hasUndo) {
-                    try {
-                        $undoData = Get-Content -LiteralPath $undoPath -Raw -Encoding UTF8 | ConvertFrom-Json
-                        $undoInfo = @{
-                            timestamp  = $undoData.Timestamp
-                            movedCount = $undoData.MovedCount
-                        }
+                    $undoInfo = @{
+                        id         = $lastActive.Id
+                        timestamp  = $lastActive.Timestamp
+                        movedCount = $lastActive.MovedCount
+                        folderPath = $lastActive.FolderPath
                     }
-                    catch { }
                 }
 
                 Send-JsonResponse -Response $res -Data @{
