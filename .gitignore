@@ -52,3 +52,6 @@ Lib/Core/char-map.json
 # File Sorter
 file-sorter-patterns.json.backup
 file-sorter-patterns.json
+file-sorter-sublevels.json.backup
+file-sorter-sublevels.json
+_undo-history.json
