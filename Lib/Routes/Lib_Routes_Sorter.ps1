@@ -245,11 +245,29 @@ function Handle-SorterRoute {
                     $mappings[$_.Name] = $_.Value
                 }
 
+                # Client-Gruppen verwenden (enthalten manuelle Umgruppierungen)
+                $groupsToSort = $script:SorterSession.Groups
+                if ($data.PSObject.Properties['groups'] -and $data.groups -and $data.groups.Count -gt 0) {
+                    $groupsToSort = @($data.groups | ForEach-Object {
+                        [PSCustomObject]@{
+                            Prefix             = [string]$_.prefix
+                            PatternName        = [string]$_.patternName
+                            SuggestedFolder    = [string]$_.suggestedFolder
+                            FileCount          = [int]$_.fileCount
+                            TotalSize          = [long]($_.totalSize ?? 0)
+                            TotalSizeFormatted = [string]($_.totalSizeFormatted ?? '?')
+                            PreviewFiles       = @($_.previewFiles ?? @())
+                            Files              = @($_.files)
+                        }
+                    })
+                    Write-Verbose "Verwende Client-Gruppen: $($groupsToSort.Count) Gruppen"
+                }
+
                 # Immer einstufig sortieren (Multi-Level ist bereits zu flachen Gruppen aufgeloest)
                 $result = Invoke-FileSorting `
                     -FolderPath $script:SorterSession.FolderPath `
                     -GroupMappings $mappings `
-                    -Groups $script:SorterSession.Groups
+                    -Groups $groupsToSort
 
                 # Session leeren nach Sortierung
                 $script:SorterSession.Groups = $null
