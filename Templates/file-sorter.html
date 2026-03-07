@@ -565,9 +565,7 @@
 var currentGroups = [];
 var currentFolder = '.';
 var expandedGroups = {};
-var subLevels = [
-    { name: "Variante", regex: "_1_(result(?:_\\d+)?)\\.", groupCapture: 1, enabled: true }
-];
+var subLevels = [];
 
 function showStatus(text, type, showSpinner) {
     var bar = document.getElementById('statusBar');
@@ -612,11 +610,29 @@ function renderSubLevels() {
 function removeSubLevel(i) {
     subLevels.splice(i, 1);
     renderSubLevels();
+    saveSubLevels();
 }
 
 function toggleSubLevel(i, enabled) {
     subLevels[i].enabled = enabled;
     renderSubLevels();
+    saveSubLevels();
+}
+
+async function loadSubLevels() {
+    try {
+        var data = await api('/tools/sorter-sublevels');
+        if (data.success && data.subLevels) {
+            subLevels = data.subLevels;
+            renderSubLevels();
+        }
+    } catch (e) { console.warn('Sub-Levels laden fehlgeschlagen:', e); }
+}
+
+async function saveSubLevels() {
+    try {
+        await api('/tools/sorter-sublevels/save', 'POST', { subLevels: subLevels });
+    } catch (e) { console.warn('Sub-Levels speichern fehlgeschlagen:', e); }
 }
 
 function toggleSubLevelForm() {
@@ -634,6 +650,7 @@ function addSubLevel() {
     document.getElementById('newSubLevelRegex').value = '';
     toggleSubLevelForm();
     renderSubLevels();
+    saveSubLevels();
     showStatus('Sub-Level "' + name + '" hinzugefügt', 'success');
 }
 
