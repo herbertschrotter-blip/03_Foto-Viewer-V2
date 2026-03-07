@@ -38,6 +38,14 @@
         .sidebar-btn-success:hover { background: #047857; }
         .sidebar-btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
         .sidebar-btn-small { font-size: 11px; padding: 7px 10px; }
+        .sidebar-btn-pulse {
+            animation: btnPulse 1.5s ease-in-out infinite;
+            background: #059669; color: white; border-color: #047857;
+        }
+        @keyframes btnPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(5,150,105,0.5); transform: scale(1); }
+            50% { box-shadow: 0 0 0 10px rgba(5,150,105,0); transform: scale(1.03); }
+        }
         .sidebar-title {
             font-size: 12px; font-weight: 700; text-transform: uppercase;
             color: #718096; letter-spacing: 0.5px;
@@ -462,7 +470,7 @@
     <!-- Sidebar: Gruppen-Auswahl -->
     <div class="group-sidebar" id="groupSidebar">
         <div class="sidebar-title">Analyse</div>
-        <button class="sidebar-btn sidebar-btn-primary" onclick="analyzeFiles()" id="btnAnalyze">🔍 Analysieren</button>
+        <button class="sidebar-btn sidebar-btn-primary sidebar-btn-pulse" onclick="analyzeFiles()" id="btnAnalyze">🔍 Analysieren</button>
         <button class="sidebar-btn sidebar-btn-small" onclick="exportFileNames()" id="btnExport">📋 Export</button>
         <div class="sidebar-divider"></div>
         <div class="sidebar-title">Gruppen</div>
@@ -788,6 +796,7 @@ async function analyzeFiles() {
         if (!data.success) { showStatus('❌ ' + data.error, 'error'); return; }
         currentGroups = data.groups;
         currentFolder = folder;
+        document.getElementById('btnAnalyze').classList.remove('sidebar-btn-pulse');
         showStatus('✅ ' + data.totalGroups + ' Gruppen, ' + data.totalFiles + ' Dateien', 'success');
         renderPatternSummary(data.patternSummary);
         renderGroups(data.groups);
@@ -854,8 +863,16 @@ function renderGroups(groups) {
 
 function toggleGroup(i) {
     var card = document.getElementById('group-' + i);
-    card.classList.toggle('expanded');
-    if (card.classList.contains('expanded')) {
+    var wasExpanded = card.classList.contains('expanded');
+
+    // Alle anderen schließen
+    document.querySelectorAll('.group-card.expanded').forEach(function(c) {
+        c.classList.remove('expanded');
+    });
+
+    // Aktuelle togglen
+    if (!wasExpanded) {
+        card.classList.add('expanded');
         setTimeout(function() { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
     }
 }
