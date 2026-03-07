@@ -84,7 +84,7 @@ function Handle-FlattenRoute {
         # Body: { "folderPath": "relative/path" } oder { "folderPath": "." }
         # Scannt Ordnerstruktur und gibt Flatten-Preview zurueck
         # ================================================================
-        if ($path -eq "/tools/analyze-flatten" -and $req.HttpMethod -eq "POST") {
+        if ($path -eq "/tools/flatten-analyze" -and $req.HttpMethod -eq "POST") {
             try {
                 $body = Read-FlattenRequestBody -Request $req
                 $data = $body | ConvertFrom-Json

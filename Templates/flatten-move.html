@@ -436,7 +436,7 @@ async function analyzeFolder() {
     expandedFolders = {};
 
     try {
-        var data = await api('/tools/analyze-flatten', 'POST', { folderPath: folder, separator: sep });
+        var data = await api('/tools/flatten-analyze', 'POST', { folderPath: folder, separator: sep });
         if (!data.success) { showStatus('❌ ' + data.error, 'error'); return; }
         scanData = data;
         showStatus('✅ ' + data.totalFolders + ' Ordner, ' + data.totalFiles + ' Dateien, ' + data.totalSizeFormatted, 'success');
