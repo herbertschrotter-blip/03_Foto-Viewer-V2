@@ -419,6 +419,24 @@
         .lightbox-group { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 4px; }
         .lightbox-counter { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
 
+        /* Undo Modal */
+        .undo-modal-item {
+            padding: 10px 14px; cursor: pointer;
+            border-bottom: 1px solid #f0f0f0; transition: all 0.1s;
+        }
+        .undo-modal-item:last-child { border-bottom: none; }
+        .undo-modal-item:hover { background: #f0f4ff; }
+        .undo-modal-item.selected { background: #e0e7ff; }
+        .undo-modal-item.undone { opacity: 0.4; cursor: default; }
+        .undo-modal-item .undo-date { font-size: 12px; font-weight: 600; color: #2d3748; }
+        .undo-modal-item .undo-detail { font-size: 11px; color: #718096; margin-top: 2px; }
+        .undo-modal-item .undo-folders { font-size: 10px; color: #a0aec0; margin-top: 2px; }
+        .undo-modal-item .undo-badge {
+            display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px;
+            background: #f0fdf4; color: #059669; font-weight: 600;
+        }
+        .undo-modal-item.undone .undo-badge { background: #f3f4f6; color: #9ca3af; }
+
         /* Move Modal */
         .move-modal-overlay {
             display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -647,6 +665,19 @@
         <button class="floating-sel-btn" onclick="floatingSelectAll()">Alle</button>
         <button class="floating-sel-btn" onclick="floatingSelectNone()">Keine</button>
         <button class="floating-sel-btn" onclick="floatingMove()">📦 Verschieben</button>
+    </div>
+
+    <!-- Undo Modal -->
+    <div class="move-modal-overlay" id="undoModal" onclick="if(event.target===this)closeUndoModal()">
+        <div class="move-modal" style="width:440px;">
+            <h3>↩️ Sortierung rückgängig machen</h3>
+            <div class="move-modal-info">Wähle einen Eintrag zum Rückgängig machen:</div>
+            <div class="move-modal-list" id="undoModalList" style="max-height:350px;"></div>
+            <div class="move-modal-buttons">
+                <button class="btn" onclick="closeUndoModal()">Abbrechen</button>
+                <button class="btn btn-danger" id="undoModalOk" onclick="confirmUndoModal()" disabled>↩️ Rückgängig</button>
+            </div>
+        </div>
     </div>
 
     <!-- Move Modal -->
@@ -1301,11 +1332,59 @@ async function checkUndo() {
     } catch (e) {}
 }
 
+var selectedUndoId = null;
+
 async function undoSort() {
-    if (!confirm('Letzte Sortierung rückgängig machen?')) return;
+    showStatus('Lade Undo-History...', 'info', true);
+    try {
+        var data = await api('/tools/undo-history');
+        hideStatus();
+        if (!data.success || !data.entries || data.entries.length === 0) {
+            showStatus('Keine Undo-Einträge vorhanden', 'warning');
+            return;
+        }
+
+        selectedUndoId = null;
+        document.getElementById('undoModalOk').disabled = true;
+
+        var list = document.getElementById('undoModalList');
+        list.innerHTML = data.entries.map(function(e) {
+            var d = new Date(e.timestamp);
+            var dateStr = d.toLocaleDateString('de-DE') + ' ' + d.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+            var folders = e.createdFolders && e.createdFolders.length > 0 ? e.createdFolders.join(', ') : '';
+            var folderName = e.folderPath ? e.folderPath.split('\\').pop().split('/').pop() : '?';
+
+            return '<div class="undo-modal-item' + (e.undone ? ' undone' : '') + '" ' +
+                (e.undone ? '' : 'onclick="selectUndoEntry(\'' + e.id + '\', this)"') + '>' +
+                '<div class="undo-date">' + dateStr +
+                    ' <span class="undo-badge">' + (e.undone ? '✓ erledigt' : e.movedCount + ' Dateien') + '</span></div>' +
+                '<div class="undo-detail">Quelle: ' + folderName + '</div>' +
+                (folders ? '<div class="undo-folders">Ordner: ' + folders + '</div>' : '') +
+            '</div>';
+        }).join('');
+
+        document.getElementById('undoModal').classList.add('show');
+    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+}
+
+function selectUndoEntry(id, el) {
+    document.querySelectorAll('.undo-modal-item').forEach(function(it) { it.classList.remove('selected'); });
+    el.classList.add('selected');
+    selectedUndoId = id;
+    document.getElementById('undoModalOk').disabled = false;
+}
+
+function closeUndoModal() {
+    document.getElementById('undoModal').classList.remove('show');
+    selectedUndoId = null;
+}
+
+async function confirmUndoModal() {
+    if (!selectedUndoId) return;
+    closeUndoModal();
     showStatus('Rückgängig...', 'info', true);
     try {
-        var data = await api('/tools/undo-sort', 'POST', {});
+        var data = await api('/tools/undo-sort', 'POST', { undoId: selectedUndoId });
         if (data.success) {
             showStatus('✅ ' + data.restored + ' zurück, ' + data.removedFolders.length + ' Ordner entfernt', 'success');
             document.getElementById('sortSummary').style.display = 'none';
