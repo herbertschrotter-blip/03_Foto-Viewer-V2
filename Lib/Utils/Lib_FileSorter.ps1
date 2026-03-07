@@ -1264,10 +1264,15 @@ function Invoke-FileSorting {
         [hashtable]$GroupMappings,
 
         [Parameter(Mandatory)]
-        [PSCustomObject[]]$Groups
+        [PSCustomObject[]]$Groups,
+
+        [Parameter()]
+        [string]$TargetPath
     )
 
-    Write-Verbose "Sortiere in: $FolderPath ($($GroupMappings.Count) Mappings)"
+    # TargetPath: wo Ordner erstellt werden (Default = FolderPath)
+    if ([string]::IsNullOrWhiteSpace($TargetPath)) { $TargetPath = $FolderPath }
+    Write-Verbose "Sortiere von: $FolderPath nach: $TargetPath ($($GroupMappings.Count) Mappings)"
 
     $moved = 0; $failed = 0; $skipped = 0
     $createdFolders = [System.Collections.ArrayList]::new()
@@ -1294,7 +1299,7 @@ function Invoke-FileSorting {
             continue
         }
 
-        $targetFolder = Join-Path $FolderPath $targetName
+        $targetFolder = Join-Path $TargetPath $targetName
 
         # Ordner erstellen
         if (-not (Test-Path -LiteralPath $targetFolder -PathType Container)) {
