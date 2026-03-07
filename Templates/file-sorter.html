@@ -293,6 +293,7 @@
             margin-bottom: 12px; overflow: hidden; transition: all 0.2s;
         }
         .group-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .group-card { scroll-margin-top: 90px; }
         .group-header {
             display: flex; align-items: center; gap: 12px;
             padding: 14px 16px; cursor: pointer; user-select: none;
@@ -365,16 +366,6 @@
             background: white; font-size: 11px; cursor: pointer; color: #1e40af;
         }
         .group-sel-btn:hover { background: #dbeafe; }
-
-        /* Group Actions */
-        .group-actions {
-            display: flex; gap: 4px; padding: 8px 16px 12px; border-top: 1px solid #f0f0f0;
-        }
-        .group-action-btn {
-            padding: 4px 10px; border: 1px solid #e2e8f0; border-radius: 4px;
-            background: white; font-size: 11px; cursor: pointer; color: #718096;
-        }
-        .group-action-btn:hover { background: #f7fafc; border-color: #cbd5e0; }
 
         /* Sort Summary */
         .sort-summary {
@@ -857,13 +848,10 @@ function renderGroups(groups) {
                 '<span class="sel-count" id="selcount-' + i + '">0</span> ausgewählt ' +
                 '<button class="group-sel-btn" onclick="selectAllInGroup(' + i + ')">Alle</button> ' +
                 '<button class="group-sel-btn" onclick="selectNoneInGroup(' + i + ')">Keine</button> ' +
-                '<button class="group-sel-btn" onclick="splitSelected(' + i + ')">✂️ Split</button> ' +
                 '<button class="group-sel-btn" onclick="moveSelectedToGroup(' + i + ')">📦 Verschieben</button>' +
             '</div>' +
             
-            '<div class="group-actions">' +
-                '<button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup(\'' + g.prefix + '\')">🔗 Merge ganze Gruppe</button>' +
-            '</div></div>';
+            '</div>';
     }).join('');
 }
 
@@ -970,12 +958,9 @@ function buildGroupCardHTML(i) {
             '<span class="sel-count" id="selcount-' + i + '">0</span> ausgewählt ' +
             '<button class="group-sel-btn" onclick="selectAllInGroup(' + i + ')">Alle</button> ' +
             '<button class="group-sel-btn" onclick="selectNoneInGroup(' + i + ')">Keine</button> ' +
-            '<button class="group-sel-btn" onclick="splitSelected(' + i + ')">✂️ Split</button> ' +
             '<button class="group-sel-btn" onclick="moveSelectedToGroup(' + i + ')">📦 Verschieben</button>' +
         '</div>' +
-        '<div class="group-actions">' +
-            '<button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup(\'' + g.prefix + '\')">🔗 Merge ganze Gruppe</button>' +
-        '</div></div>';
+        '</div>';
 }
 
 function updateGroupCard(i) {
@@ -1017,9 +1002,8 @@ function reindexGroupCards() {
 
 function showAllThumbs(i) {
     expandedGroups[i] = true;
-    var was = document.getElementById('group-' + i).classList.contains('expanded');
-    renderGroups(currentGroups);
-    if (was) document.getElementById('group-' + i).classList.add('expanded');
+    updateGroupCard(i);
+    document.getElementById('group-' + i).classList.add('expanded');
 }
 
 // === SELECTION ===
@@ -1050,35 +1034,6 @@ function selectNoneInGroup(gi) {
 }
 
 // === SPLIT / MOVE SELECTED ===
-function splitSelected(gi) {
-    var sel = getSelectedFiles(gi);
-    if (sel.length === 0) { showStatus('Keine Dateien ausgewählt', 'warning'); return; }
-    var g = currentGroups[gi];
-    if (sel.length >= g.files.length) { showStatus('Mindestens eine Datei muss bleiben', 'warning'); return; }
-    var np = prompt('Name für neue Gruppe (' + sel.length + ' Dateien):');
-    if (!np) return;
-
-    // Aus Quelle entfernen
-    var selSet = new Set(sel);
-    g.files = g.files.filter(function(f) { return !selSet.has(f); });
-    g.fileCount = g.files.length;
-
-    // Neue Gruppe anlegen
-    currentGroups.push({
-        prefix: np, patternName: 'manual_split', suggestedFolder: np,
-        fileCount: sel.length, totalSize: 0, totalSizeFormatted: '?',
-        previewFiles: sel.slice(0, 5), files: sel.sort(),
-        folderExists: false, folderFileCount: 0
-    });
-
-    // Nur betroffene Cards updaten
-    updateGroupCard(gi);
-    var newIndex = currentGroups.length - 1;
-    appendGroupCard(newIndex);
-    updateSidebar();
-    showStatus('✅ ' + sel.length + ' Dateien → "' + np + '"', 'success');
-}
-
 var sessionCustomGroups = [];
 var moveModalState = { gi: -1, files: [] };
 
@@ -1241,19 +1196,6 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'ArrowLeft') lightboxPrev();
     if (e.key === 'ArrowRight') lightboxNext();
 });
-
-// === MERGE ===
-async function mergeGroup(sp) {
-    var prefixes = currentGroups.map(function(g) { return g.prefix; }).filter(function(p) { return p !== sp; });
-    if (prefixes.length === 0) { showStatus('Keine andere Gruppe vorhanden', 'warning'); return; }
-    var t = prompt('"' + sp + '" komplett mergen mit:\n\nVerfügbar: ' + prefixes.join(', '));
-    if (!t || !prefixes.includes(t)) return;
-    try {
-        var data = await api('/tools/merge-groups', 'POST', { sourcePrefix: sp, targetPrefix: t });
-        if (data.success) { showStatus('✅ ' + sp + ' → ' + t, 'success'); await analyzeFiles(); }
-        else { showStatus('❌ ' + data.error, 'error'); }
-    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
-}
 
 // === SORT ===
 async function sortFiles() {
