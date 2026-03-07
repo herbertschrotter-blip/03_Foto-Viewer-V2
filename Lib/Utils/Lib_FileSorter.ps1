@@ -3,6 +3,7 @@ ManifestHint:
   ExportFunctions = @("Get-FileGroups", "Invoke-FileSorting", "Export-FileNames",
                        "Get-SorterPatterns", "Save-SorterPatterns",
                        "Add-SorterPattern", "Remove-SorterPattern",
+                       "Get-SorterSubLevels", "Save-SorterSubLevels",
                        "Move-FileBetweenGroups", "Merge-FileGroups", "Split-FileGroup",
                        "Undo-FileSorting",
                        "Get-MultiLevelGroups", "Invoke-MultiLevelSorting",
@@ -26,6 +27,8 @@ Funktionen:
   - Save-SorterPatterns:      Pattern-Profile speichern
   - Add-SorterPattern:        Neues Custom-Pattern hinzufuegen
   - Remove-SorterPattern:     Pattern entfernen / deaktivieren
+  - Get-SorterSubLevels:      Sub-Level Patterns laden (JSON oder Defaults)
+  - Save-SorterSubLevels:     Sub-Level Patterns speichern
   - Export-FileNames:         Dateinamen + Statistik in Log-Datei
   - Get-FileGroups:           Multi-Pattern Analyse + Gruppierung (Stufe 1)
   - Move-FileBetweenGroups:   Datei zwischen Gruppen verschieben (in-memory)
@@ -462,6 +465,134 @@ function Remove-SorterPattern {
         Write-Verbose "Custom '$Name' entfernt"
     }
     return $true
+}
+
+
+# ============================================================================
+# SUB-LEVEL PATTERN MANAGEMENT
+# ============================================================================
+
+function Get-SorterSubLevels {
+    <#
+    .SYNOPSIS
+        Laedt Sub-Level Patterns aus file-sorter-sublevels.json
+
+    .DESCRIPTION
+        Liest gespeicherte Sub-Level Definitionen. Falls Datei nicht existiert,
+        wird ein Default-Array zurueckgegeben. Jedes Sub-Level hat: Name,
+        Regex, GroupCapture, Enabled.
+
+    .PARAMETER ScriptRoot
+        Projekt-Root Pfad (wo file-sorter-sublevels.json liegt)
+
+    .EXAMPLE
+        $subLevels = Get-SorterSubLevels -ScriptRoot $ScriptRoot
+
+    .EXAMPLE
+        $active = Get-SorterSubLevels -ScriptRoot $root | Where-Object Enabled
+
+    .OUTPUTS
+        [PSCustomObject[]]
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject[]])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ScriptRoot
+    )
+
+    $jsonPath = Join-Path $ScriptRoot "file-sorter-sublevels.json"
+
+    $defaults = @(
+        [PSCustomObject]@{
+            Name         = "Variante"
+            Regex        = '_1_(result(?:_\d+)?)\.'
+            GroupCapture = 1
+            Enabled      = $true
+        }
+    )
+
+    if (-not (Test-Path -LiteralPath $jsonPath)) {
+        Write-Verbose "Keine Sub-Level-Datei gefunden, verwende Defaults"
+        return $defaults
+    }
+
+    try {
+        $json = Get-Content -LiteralPath $jsonPath -Raw -Encoding UTF8 -ErrorAction Stop
+        $loaded = $json | ConvertFrom-Json -ErrorAction Stop
+
+        $subLevels = [System.Collections.ArrayList]::new()
+        foreach ($item in $loaded) {
+            [void]$subLevels.Add([PSCustomObject]@{
+                Name         = [string]$item.Name
+                Regex        = [string]$item.Regex
+                GroupCapture = [int]($item.GroupCapture ?? 1)
+                Enabled      = [bool]($item.Enabled ?? $true)
+            })
+        }
+
+        Write-Verbose "Sub-Levels geladen: $($subLevels.Count) Eintraege"
+        return @($subLevels)
+    }
+    catch {
+        Write-Warning "Sub-Level-Datei fehlerhaft: $($_.Exception.Message). Verwende Defaults."
+        return $defaults
+    }
+}
+
+
+function Save-SorterSubLevels {
+    <#
+    .SYNOPSIS
+        Speichert Sub-Level Patterns nach file-sorter-sublevels.json
+
+    .DESCRIPTION
+        Schreibt Sub-Level-Array als JSON. Erstellt Backup falls vorhanden.
+
+    .PARAMETER SubLevels
+        Array von Sub-Level-Objekten
+
+    .PARAMETER ScriptRoot
+        Projekt-Root Pfad
+
+    .EXAMPLE
+        Save-SorterSubLevels -SubLevels $subLevels -ScriptRoot $ScriptRoot
+
+    .EXAMPLE
+        $sl = Get-SorterSubLevels -ScriptRoot $root
+        $sl[0].Enabled = $false
+        Save-SorterSubLevels -SubLevels $sl -ScriptRoot $root
+
+    .OUTPUTS
+        Keine (wirft bei Fehler)
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [PSCustomObject[]]$SubLevels,
+
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ScriptRoot
+    )
+
+    $jsonPath = Join-Path $ScriptRoot "file-sorter-sublevels.json"
+
+    try {
+        if (Test-Path -LiteralPath $jsonPath) {
+            Copy-Item -LiteralPath $jsonPath -Destination "$jsonPath.backup" -Force
+        }
+
+        $SubLevels | ConvertTo-Json -Depth 5 |
+            Out-File -FilePath $jsonPath -Encoding UTF8 -Force
+
+        Write-Verbose "Sub-Levels gespeichert: $($SubLevels.Count) Eintraege"
+    }
+    catch {
+        Write-Error "Fehler beim Speichern: $($_.Exception.Message)"
+        throw
+    }
 }
 
 
