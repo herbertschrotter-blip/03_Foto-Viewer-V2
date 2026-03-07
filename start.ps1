@@ -158,6 +158,10 @@ if (Test-Path -LiteralPath $libSystemCheckPath) {
 # Libs laden - Routes (Sorter)
 . (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Sorter.ps1")
 
+# Libs laden - Flatten & Move
+. (Join-Path $ScriptRoot "Lib\Utils\Lib_FlattenMove.ps1")
+. (Join-Path $ScriptRoot "Lib\Routes\Lib_Routes_Flatten.ps1")
+
 #region OneDrive-Schutz Check
 
 Write-Verbose "Prüfe OneDrive-Schutz für Thumbnail-Cache..."
@@ -377,6 +381,25 @@ try {
                     Send-ResponseText -Response $res -Text "file-sorter-help.html nicht gefunden" -StatusCode 404
                 }
                 continue
+            }
+            
+            # Route: /flatten-move (Flatten & Move UI)
+            if ($path -eq "/flatten-move" -and $req.HttpMethod -eq "GET") {
+                $flattenHtmlPath = Join-Path $ScriptRoot "Templates\flatten-move.html"
+                if (Test-Path -LiteralPath $flattenHtmlPath) {
+                    $flattenHtml = Get-Content -LiteralPath $flattenHtmlPath -Raw -Encoding UTF8
+                    Send-ResponseHtml -Response $res -Html $flattenHtml
+                } else {
+                    Send-ResponseText -Response $res -Text "flatten-move.html nicht gefunden" -StatusCode 404
+                }
+                continue
+            }
+            
+            # Route: /tools/flatten-* (Flatten API — VOR Sorter-Routes!)
+            if ($path -match "^/tools/flatten-") {
+                if (Handle-FlattenRoute -Context $ctx -RootPath $script:State.RootPath -ScriptRoot $ScriptRoot -Config $config) {
+                    continue
+                }
             }
             
             # Route: /changeroot

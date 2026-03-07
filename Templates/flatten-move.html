@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flatten & Move — PhotoFolder</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f7fafc;
+            min-height: 100vh;
+            color: #2d3748;
+        }
+
+        /* === STICKY HEADER === */
+        .header {
+            position: sticky; top: 0; z-index: 50;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 24px;
+            background: white; border-bottom: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .header h1 { font-size: 1.3em; display: flex; align-items: center; gap: 8px; }
+        .header .badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; padding: 3px 12px; border-radius: 50px;
+            font-size: 0.75em; font-weight: 600;
+        }
+        .header-right { display: flex; align-items: center; gap: 10px; }
+
+        /* === STATUS BAR === */
+        .status-bar {
+            padding: 10px 24px; font-size: 13px; display: none;
+            align-items: center; gap: 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .status-bar.show { display: flex; }
+        .status-bar.info { background: #eff6ff; color: #1e40af; }
+        .status-bar.success { background: #f0fdf4; color: #166534; }
+        .status-bar.error { background: #fef2f2; color: #991b1b; }
+        .status-bar.warning { background: #fffbeb; color: #92400e; }
+        .spinner {
+            width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.1);
+            border-top-color: #667eea; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* === TOOLBAR === */
+        .toolbar {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 12px 24px;
+            background: #f7fafc; border-bottom: 1px solid #e2e8f0;
+        }
+        .toolbar label { font-size: 13px; font-weight: 600; white-space: nowrap; }
+        .toolbar select, .toolbar input[type="text"] {
+            padding: 7px 12px; border: 1px solid #cbd5e0; border-radius: 6px;
+            font-size: 13px; font-family: inherit; background: white;
+        }
+        .toolbar select:focus, .toolbar input:focus { outline: none; border-color: #667eea; }
+
+        .target-display {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px; background: #e0e7ff; border-radius: 6px;
+            font-size: 12px; color: #4338ca; font-weight: 500;
+            max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .target-display.empty { background: #fef3c7; color: #92400e; }
+
+        .stats-display {
+            margin-left: auto;
+            font-size: 12px; color: #718096; display: flex; gap: 12px;
+        }
+        .stats-display span { white-space: nowrap; }
+        .stats-display strong { color: #2d3748; }
+
+        /* === BUTTONS === */
+        .btn {
+            padding: 7px 14px; border: 1px solid #cbd5e0; border-radius: 6px;
+            background: white; color: #2d3748; font-size: 12px; font-weight: 500;
+            cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 5px;
+            white-space: nowrap;
+        }
+        .btn:hover { background: #f7fafc; border-color: #a0aec0; }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary { background: #667eea; border-color: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success { background: #059669; border-color: #047857; color: white; }
+        .btn-success:hover { background: #047857; }
+        .btn-danger { background: #dc2626; border-color: #b91c1c; color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-sm { padding: 5px 10px; font-size: 11px; }
+
+        /* === TREE CONTAINER === */
+        .tree-container {
+            padding: 0 24px 120px;
+        }
+
+        /* === FOLDER CARD === */
+        .folder-card {
+            background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+            margin-top: 8px; overflow: hidden; transition: box-shadow 0.2s;
+        }
+        .folder-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .folder-card.depth-0 { margin-left: 0; }
+        .folder-card.depth-1 { margin-left: 24px; }
+        .folder-card.depth-2 { margin-left: 48px; }
+        .folder-card.depth-3 { margin-left: 72px; }
+        .folder-card.depth-4 { margin-left: 96px; }
+        .folder-card.has-files { border-left: 3px solid #667eea; }
+        .folder-card.empty-after-move { opacity: 0.4; }
+        .folder-card.selected-for-delete { border-color: #dc2626; background: #fef2f2; }
+
+        .folder-header {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; cursor: pointer; user-select: none;
+            transition: background 0.15s;
+        }
+        .folder-header:hover { background: #f7fafc; }
+        .folder-cb { width: 16px; height: 16px; accent-color: #667eea; cursor: pointer; }
+        .folder-arrow { color: #a0aec0; transition: transform 0.2s; font-size: 11px; width: 16px; text-align: center; }
+        .folder-card.expanded > .folder-header .folder-arrow { transform: rotate(90deg); }
+        .folder-icon { font-size: 16px; }
+        .folder-name {
+            font-weight: 600; font-size: 13px; color: #2d3748;
+            flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .folder-name-input {
+            padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 4px;
+            font-size: 12px; font-family: monospace; width: 180px; color: #4338ca;
+        }
+        .folder-name-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
+        .folder-stats {
+            font-size: 11px; color: #718096; white-space: nowrap;
+            display: flex; gap: 8px;
+        }
+        .folder-stats .file-count { font-weight: 600; color: #667eea; }
+        .folder-depth-badge {
+            font-size: 10px; padding: 1px 6px; border-radius: 8px;
+            background: #edf2f7; color: #718096; font-weight: 500;
+        }
+
+        /* === FILE GRID === */
+        .folder-body { display: none; padding: 10px 14px; border-top: 1px solid #f0f0f0; }
+        .folder-card.expanded > .folder-body { display: block; }
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 6px;
+        }
+        .file-thumb {
+            position: relative; aspect-ratio: 1; border-radius: 4px;
+            overflow: hidden; background: #edf2f7; cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .file-thumb:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
+        .file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .file-thumb-name {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.7));
+            color: white; font-size: 8px; padding: 10px 3px 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            opacity: 0; transition: opacity 0.15s;
+        }
+        .file-thumb:hover .file-thumb-name { opacity: 1; }
+        .file-more {
+            display: flex; align-items: center; justify-content: center;
+            aspect-ratio: 1; background: #edf2f7; border-radius: 4px;
+            color: #718096; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .file-more:hover { background: #e2e8f0; }
+
+        /* === FLOATING ACTION BAR === */
+        .action-bar {
+            display: none; position: fixed; bottom: 0; left: 0; right: 0;
+            padding: 12px 24px;
+            background: white; border-top: 1px solid #e2e8f0;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            z-index: 60;
+            align-items: center; gap: 12px;
+        }
+        .action-bar.show { display: flex; }
+        .action-bar .sel-info {
+            font-size: 13px; color: #2d3748;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .action-bar .sel-info strong { color: #667eea; font-size: 15px; }
+        .action-bar .spacer { flex: 1; }
+        .action-bar .action-group { display: flex; gap: 8px; align-items: center; }
+
+        /* === LIGHTBOX === */
+        .lightbox-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.92); z-index: 200;
+            align-items: center; justify-content: center; flex-direction: column;
+        }
+        .lightbox-overlay.show { display: flex; }
+        .lightbox-close {
+            position: absolute; top: 14px; right: 18px;
+            color: white; font-size: 26px; cursor: pointer; z-index: 210;
+            width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: background 0.2s;
+        }
+        .lightbox-close:hover { background: rgba(255,255,255,0.15); }
+        .lightbox-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            color: white; font-size: 30px; cursor: pointer; z-index: 210;
+            width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: background 0.2s; user-select: none;
+        }
+        .lightbox-nav:hover { background: rgba(255,255,255,0.15); }
+        .lightbox-nav.prev { left: 14px; }
+        .lightbox-nav.next { right: 14px; }
+        .lightbox-img {
+            max-width: 90vw; max-height: 80vh; object-fit: contain;
+            border-radius: 4px; box-shadow: 0 4px 30px rgba(0,0,0,0.5);
+        }
+        .lightbox-info {
+            position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+            color: white; text-align: center; z-index: 210;
+        }
+        .lightbox-filename { font-size: 13px; font-weight: 500; }
+        .lightbox-counter { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+        /* === EMPTY STATE === */
+        .empty-state { text-align: center; padding: 80px 20px; color: #a0aec0; }
+        .empty-state .icon { font-size: 3em; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+
+        /* === DELETE CONFIRM MODAL === */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4); z-index: 100;
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: white; border-radius: 12px; padding: 24px;
+            width: 420px; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal h3 { font-size: 15px; margin-bottom: 12px; }
+        .modal-list { max-height: 200px; overflow-y: auto; margin: 12px 0; }
+        .modal-list-item {
+            padding: 6px 10px; font-size: 12px; border-bottom: 1px solid #f0f0f0;
+            display: flex; justify-content: space-between;
+        }
+        .modal-list-item .path { color: #4a5568; font-family: monospace; font-size: 11px; }
+        .modal-list-item .badge { font-size: 10px; color: #059669; }
+        .modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    </style>
+</head>
+<body>
+
+    <!-- STICKY HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <h1>📂 Flatten & Move <span class="badge">v0.1</span></h1>
+        </div>
+        <div class="header-right">
+            <a href="/" class="btn btn-sm">← Zurück</a>
+        </div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="status-bar" id="statusBar">
+        <div class="spinner" id="statusSpinner" style="display:none"></div>
+        <span id="statusText"></span>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar" id="toolbar">
+        <label>📁 Quelle:</label>
+        <select id="folderSelect" style="min-width:200px;">
+            <option value=".">Wird geladen...</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="analyzeFolder()">🔍 Scannen</button>
+        <span style="color:#cbd5e0;">|</span>
+        <label>🎯 Ziel:</label>
+        <div class="target-display empty" id="targetDisplay" title="Klicken zum Wählen" onclick="chooseTarget()" style="cursor:pointer;">
+            Nicht gewählt — klicken
+        </div>
+        <span style="color:#cbd5e0;">|</span>
+        <label>Trenner:</label>
+        <input type="text" id="separatorInput" value="_" style="width:40px;text-align:center;" onchange="recalcNames()">
+        <div class="stats-display" id="statsDisplay" style="display:none;">
+            <span>📁 <strong id="statFolders">0</strong> Ordner</span>
+            <span>🖼 <strong id="statFiles">0</strong> Dateien</span>
+            <span>💾 <strong id="statSize">0</strong></span>
+            <span>📏 Tiefe: <strong id="statDepth">0</strong></span>
+        </div>
+    </div>
+
+    <!-- TREE -->
+    <div class="tree-container" id="treeContainer">
+        <div class="empty-state">
+            <div class="icon">📂</div>
+            <p>Wähle einen Quell-Ordner und klicke <strong>Scannen</strong></p>
+        </div>
+    </div>
+
+    <!-- FLOATING ACTION BAR -->
+    <div class="action-bar" id="actionBar">
+        <div class="sel-info">
+            <strong id="selCount">0</strong> Ordner ausgewählt
+            (<span id="selFiles">0</span> Dateien, <span id="selSize">0</span>)
+        </div>
+        <div class="spacer"></div>
+        <div class="action-group">
+            <button class="btn btn-sm" onclick="selectAll()">☑ Alle</button>
+            <button class="btn btn-sm" onclick="selectNone()">☐ Keine</button>
+            <button class="btn btn-sm" onclick="selectInvert()">⇅ Invertieren</button>
+            <span style="color:#cbd5e0;">|</span>
+            <button class="btn btn-success" onclick="executeFlatten()" id="btnFlatten" disabled>✅ Flatten ausführen</button>
+            <button class="btn btn-sm" onclick="undoFlatten()" id="btnUndo" disabled>↩️ Undo</button>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX -->
+    <div class="lightbox-overlay" id="lightbox" onclick="if(event.target===this)closeLightbox()">
+        <div class="lightbox-close" onclick="closeLightbox()">✕</div>
+        <div class="lightbox-nav prev" onclick="lbPrev()">‹</div>
+        <div class="lightbox-nav next" onclick="lbNext()">›</div>
+        <img class="lightbox-img" id="lbImg" src="" alt="">
+        <div class="lightbox-info">
+            <div class="lightbox-filename" id="lbFilename"></div>
+            <div class="lightbox-counter" id="lbCounter"></div>
+        </div>
+    </div>
+
+    <!-- DELETE MODAL -->
+    <div class="modal-overlay" id="deleteModal" onclick="if(event.target===this)closeDeleteModal()">
+        <div class="modal">
+            <h3>🗑 Leere Quellordner löschen</h3>
+            <p style="font-size:12px;color:#718096;margin-bottom:8px;">
+                Diese Ordner enthalten nach dem Flatten keine Medien mehr:
+            </p>
+            <div class="modal-list" id="deleteModalList"></div>
+            <div class="modal-buttons">
+                <button class="btn" onclick="closeDeleteModal()">Abbrechen</button>
+                <button class="btn btn-danger" onclick="confirmDelete()">🗑 Löschen</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ============================================================================
+// STATE
+// ============================================================================
+var scanData = null;       // Ergebnis von analyze-flatten
+var targetPath = null;     // Gewaehlter Ziel-Ordner
+var expandedFolders = {};  // Welche Ordner aufgeklappt
+var maxThumbsDefault = 20; // Max Thumbs pro Ordner initial
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+function showStatus(text, type, spin) {
+    var bar = document.getElementById('statusBar');
+    bar.className = 'status-bar show ' + (type || 'info');
+    document.getElementById('statusSpinner').style.display = spin ? 'block' : 'none';
+    document.getElementById('statusText').textContent = text;
+}
+function hideStatus() { document.getElementById('statusBar').className = 'status-bar'; }
+
+async function api(url, method, body) {
+    var opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    var res = await fetch(url, opts);
+    return await res.json();
+}
+
+function deduplicateName(levels, separator) {
+    if (!levels || levels.length === 0) return '_root';
+    var seen = {};
+    var unique = [];
+    for (var i = 0; i < levels.length; i++) {
+        var key = levels[i].toLowerCase();
+        if (!seen[key]) {
+            seen[key] = true;
+            unique.push(levels[i]);
+        }
+    }
+    return unique.join(separator || '_');
+}
+
+// ============================================================================
+// FOLDER LIST
+// ============================================================================
+async function loadFolders() {
+    try {
+        var data = await api('/tools/folder-list');
+        if (!data.success) return;
+        var sel = document.getElementById('folderSelect');
+        sel.innerHTML = '';
+        data.folders.forEach(function(f) {
+            var o = document.createElement('option');
+            o.value = f.relativePath;
+            o.textContent = f.displayName + (f.mediaCount > 0 ? ' (' + f.mediaCount + ')' : '');
+            sel.appendChild(o);
+        });
+    } catch (e) { showStatus('Ordner laden fehlgeschlagen: ' + e.message, 'error'); }
+}
+
+// ============================================================================
+// TARGET FOLDER
+// ============================================================================
+async function chooseTarget() {
+    showStatus('Öffne Ordner-Dialog...', 'info', true);
+    try {
+        var data = await api('/tools/flatten-target', 'POST', { initialPath: targetPath || '' });
+        hideStatus();
+        if (data.cancelled) return;
+        if (data.success && data.targetPath) {
+            targetPath = data.targetPath;
+            var el = document.getElementById('targetDisplay');
+            el.textContent = '🎯 ' + targetPath;
+            el.classList.remove('empty');
+            el.title = targetPath;
+            updateFlattenButton();
+        }
+    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+}
+
+// ============================================================================
+// ANALYZE
+// ============================================================================
+async function analyzeFolder() {
+    var folder = document.getElementById('folderSelect').value;
+    var sep = document.getElementById('separatorInput').value || '_';
+    showStatus('Scanne Ordnerstruktur...', 'info', true);
+    expandedFolders = {};
+
+    try {
+        var data = await api('/tools/analyze-flatten', 'POST', { folderPath: folder, separator: sep });
+        if (!data.success) { showStatus('❌ ' + data.error, 'error'); return; }
+        scanData = data;
+        showStatus('✅ ' + data.totalFolders + ' Ordner, ' + data.totalFiles + ' Dateien, ' + data.totalSizeFormatted, 'success');
+        updateStats();
+        renderTree();
+        document.getElementById('actionBar').classList.add('show');
+        updateFlattenButton();
+        updateSelectionInfo();
+    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+}
+
+function updateStats() {
+    if (!scanData) return;
+    document.getElementById('statFolders').textContent = scanData.totalFolders;
+    document.getElementById('statFiles').textContent = scanData.totalFiles;
+    document.getElementById('statSize').textContent = scanData.totalSizeFormatted;
+    document.getElementById('statDepth').textContent = scanData.maxDepth;
+    document.getElementById('statsDisplay').style.display = 'flex';
+}
+
+// ============================================================================
+// RECALC NAMES (when separator changes)
+// ============================================================================
+function recalcNames() {
+    if (!scanData) return;
+    var sep = document.getElementById('separatorInput').value || '_';
+    scanData.folders.forEach(function(f) {
+        if (!f.isRoot) {
+            f.suggestedName = deduplicateName(f.levels, sep);
+        }
+    });
+    // Update input fields
+    scanData.folders.forEach(function(f, i) {
+        var inp = document.querySelector('.folder-name-input[data-index="' + i + '"]');
+        if (inp) inp.value = f.suggestedName;
+    });
+}
+
+// ============================================================================
+// RENDER TREE
+// ============================================================================
+function renderTree() {
+    var c = document.getElementById('treeContainer');
+    if (!scanData || !scanData.folders || scanData.folders.length === 0) {
+        c.innerHTML = '<div class="empty-state"><div class="icon">🤷</div><p>Keine Medien-Ordner gefunden</p></div>';
+        return;
+    }
+
+    var html = '';
+    var rootPath = scanData.rootPath.replace(/\\/g, '/');
+
+    scanData.folders.forEach(function(f, i) {
+        var depth = f.levelCount;
+        if (depth > 4) depth = 4;
+        var isExpanded = expandedFolders[i] === true;
+        var hasFiles = f.fileCount > 0;
+        var displayName = f.isRoot ? '📁 (Root)' : f.relativePath.replace(/\\/g, ' / ');
+        var showAll = expandedFolders['all_' + i] === true;
+        var maxThumbs = showAll ? f.files.length : maxThumbsDefault;
+        var visibleFiles = f.files.slice(0, maxThumbs);
+        var remaining = f.files.length - maxThumbs;
+
+        // Pfad-Prefix fuer /img Requests
+        var folderSelect = document.getElementById('folderSelect').value;
+        var pp = (folderSelect === '.') ? '' : folderSelect.replace(/\\/g, '/') + '/';
+        var imgPrefix = f.isRoot ? pp : pp + f.relativePath.replace(/\\/g, '/') + '/';
+
+        // Thumbnails HTML
+        var thumbsHtml = '';
+        if (hasFiles) {
+            thumbsHtml = visibleFiles.map(function(fn) {
+                var ip = encodeURIComponent(imgPrefix + fn);
+                return '<div class="file-thumb" title="' + fn + '" onclick="openLightbox(' + i + ',\'' + fn.replace(/'/g, "\\'") + '\')">' +
+                    '<img src="/img?path=' + ip + '" loading="lazy" alt="' + fn + '">' +
+                    '<span class="file-thumb-name">' + fn + '</span></div>';
+            }).join('');
+            if (remaining > 0) {
+                thumbsHtml += '<div class="file-more" onclick="event.stopPropagation(); showAllFiles(' + i + ')">+' + remaining + '</div>';
+            }
+        }
+
+        html += '<div class="folder-card depth-' + depth + (hasFiles ? ' has-files' : '') + (isExpanded ? ' expanded' : '') + '" id="folder-' + i + '" data-index="' + i + '">' +
+            '<div class="folder-header" onclick="toggleFolder(' + i + ')">' +
+                (hasFiles ? '<input type="checkbox" class="folder-cb" data-index="' + i + '" checked onclick="event.stopPropagation(); updateSelectionInfo()">' : '<span style="width:16px;"></span>') +
+                '<span class="folder-arrow">' + (hasFiles ? '▶' : '') + '</span>' +
+                '<span class="folder-icon">' + (hasFiles ? '📁' : '📂') + '</span>' +
+                '<span class="folder-name">' + displayName + '</span>' +
+                (hasFiles ? '<span style="color:#a0aec0;">→</span> <input type="text" class="folder-name-input" data-index="' + i + '" value="' + f.suggestedName + '" onclick="event.stopPropagation()" placeholder="Zielname">' : '') +
+                '<div class="folder-stats">' +
+                    (hasFiles ? '<span class="file-count">' + f.fileCount + ' Dateien</span>' : '') +
+                    '<span>' + f.totalSizeFormatted + '</span>' +
+                    (f.levelCount > 0 ? '<span class="folder-depth-badge">Tiefe ' + f.levelCount + '</span>' : '') +
+                '</div>' +
+            '</div>' +
+            (hasFiles ? '<div class="folder-body"><div class="file-grid">' + thumbsHtml + '</div></div>' : '') +
+        '</div>';
+    });
+
+    c.innerHTML = html;
+}
+
+function toggleFolder(i) {
+    var card = document.getElementById('folder-' + i);
+    if (!card) return;
+    var wasExpanded = card.classList.contains('expanded');
+
+    // Andere schliessen
+    document.querySelectorAll('.folder-card.expanded').forEach(function(c) {
+        c.classList.remove('expanded');
+    });
+
+    if (!wasExpanded) {
+        card.classList.add('expanded');
+        expandedFolders[i] = true;
+        setTimeout(function() { card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 50);
+    } else {
+        expandedFolders[i] = false;
+    }
+}
+
+function showAllFiles(i) {
+    expandedFolders['all_' + i] = true;
+    renderTree();
+    var card = document.getElementById('folder-' + i);
+    if (card) card.classList.add('expanded');
+}
+
+// ============================================================================
+// SELECTION
+// ============================================================================
+function getCheckedFolders() {
+    var checked = [];
+    document.querySelectorAll('.folder-cb:checked').forEach(function(cb) {
+        var idx = parseInt(cb.dataset.index);
+        if (scanData && scanData.folders[idx]) {
+            checked.push({ index: idx, folder: scanData.folders[idx] });
+        }
+    });
+    return checked;
+}
+
+function updateSelectionInfo() {
+    var sel = getCheckedFolders();
+    var totalFiles = 0;
+    var totalSize = 0;
+    sel.forEach(function(s) {
+        totalFiles += s.folder.fileCount;
+        totalSize += s.folder.totalSize;
+    });
+    document.getElementById('selCount').textContent = sel.length;
+    document.getElementById('selFiles').textContent = totalFiles;
+    document.getElementById('selSize').textContent = formatSize(totalSize);
+    updateFlattenButton();
+}
+
+function formatSize(bytes) {
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes >= 1024) return Math.round(bytes / 1024) + ' KB';
+    return bytes + ' B';
+}
+
+function selectAll() {
+    document.querySelectorAll('.folder-cb').forEach(function(cb) { cb.checked = true; });
+    updateSelectionInfo();
+}
+
+function selectNone() {
+    document.querySelectorAll('.folder-cb').forEach(function(cb) { cb.checked = false; });
+    updateSelectionInfo();
+}
+
+function selectInvert() {
+    document.querySelectorAll('.folder-cb').forEach(function(cb) { cb.checked = !cb.checked; });
+    updateSelectionInfo();
+}
+
+function updateFlattenButton() {
+    var btn = document.getElementById('btnFlatten');
+    var sel = getCheckedFolders();
+    btn.disabled = !targetPath || sel.length === 0;
+}
+
+// ============================================================================
+// FLATTEN EXECUTE
+// ============================================================================
+async function executeFlatten() {
+    if (!targetPath) { showStatus('Bitte Ziel-Ordner wählen', 'warning'); return; }
+    var sel = getCheckedFolders();
+    if (sel.length === 0) { showStatus('Keine Ordner ausgewählt', 'warning'); return; }
+
+    var total = 0;
+    sel.forEach(function(s) { total += s.folder.fileCount; });
+
+    if (!confirm(sel.length + ' Ordner flatten?\n\n' + total + ' Dateien werden nach:\n' + targetPath + '\nverschoben.')) return;
+
+    // Mappings bauen
+    var mappings = sel.map(function(s) {
+        var inp = document.querySelector('.folder-name-input[data-index="' + s.index + '"]');
+        var targetName = inp ? inp.value.trim() : s.folder.suggestedName;
+        return {
+            sourcePath: s.folder.absolutePath,
+            targetName: targetName
+        };
+    });
+
+    showStatus('Flatten läuft...', 'info', true);
+    try {
+        var data = await api('/tools/flatten-execute', 'POST', {
+            targetPath: targetPath,
+            mappings: mappings
+        });
+
+        if (data.success !== undefined) {
+            var msg = '✅ ' + data.moved + ' Dateien verschoben';
+            if (data.failed > 0) msg += ', ' + data.failed + ' fehlgeschlagen';
+            if (data.createdFolders && data.createdFolders.length > 0) {
+                msg += ' → ' + data.createdFolders.join(', ');
+            }
+            showStatus(msg, data.failed > 0 ? 'warning' : 'success');
+
+            if (data.undoAvailable) {
+                document.getElementById('btnUndo').disabled = false;
+            }
+
+            // Leere Quellordner anbieten zum Loeschen
+            var emptyFolders = [];
+            for (var si = 0; si < sel.length; si++) {
+                var s = sel[si];
+                // Rescan um zu pruefen ob leer
+                try {
+                    var rescan = await api('/tools/flatten-rescan', 'POST', { folderPath: s.folder.absolutePath });
+                    if (rescan.success && rescan.fileCount === 0) {
+                        emptyFolders.push(s.folder.absolutePath);
+                        var card = document.getElementById('folder-' + s.index);
+                        if (card) card.classList.add('empty-after-move');
+                    } else if (rescan.success) {
+                        // Ordner hat noch Dateien - UI updaten
+                        scanData.folders[s.index].fileCount = rescan.fileCount;
+                        scanData.folders[s.index].files = rescan.files;
+                        scanData.folders[s.index].totalSizeFormatted = rescan.totalSizeFormatted;
+                    }
+                } catch (e) { }
+            }
+
+            if (emptyFolders.length > 0) {
+                showDeleteModal(emptyFolders);
+            }
+
+            // Ordner-Liste aktualisieren
+            await loadFolders();
+        } else {
+            showStatus('❌ ' + (data.error || 'Fehler'), 'error');
+        }
+    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+}
+
+// ============================================================================
+// DELETE EMPTY FOLDERS
+// ============================================================================
+var pendingDeleteFolders = [];
+
+function showDeleteModal(folderPaths) {
+    pendingDeleteFolders = folderPaths;
+    var list = document.getElementById('deleteModalList');
+    list.innerHTML = folderPaths.map(function(p) {
+        var shortName = p.split('\\').pop().split('/').pop();
+        return '<div class="modal-list-item"><span class="path">' + shortName + '</span><span class="badge">leer</span></div>';
+    }).join('');
+    document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('show');
+    pendingDeleteFolders = [];
+}
+
+async function confirmDelete() {
+    if (pendingDeleteFolders.length === 0) return;
+    closeDeleteModal();
+    showStatus('Lösche leere Ordner...', 'info', true);
+    try {
+        var data = await api('/tools/flatten-delete', 'POST', { folderPaths: pendingDeleteFolders });
+        if (data.success) {
+            var msg = '🗑 ' + data.deleted.length + ' Ordner gelöscht';
+            if (data.notDeleted && data.notDeleted.length > 0) {
+                msg += ', ' + data.notDeleted.length + ' nicht gelöscht';
+            }
+            showStatus(msg, 'success');
+            await loadFolders();
+            // Geloeschte Ordner aus Tree entfernen
+            data.deleted.forEach(function(dp) {
+                if (scanData && scanData.folders) {
+                    for (var fi = 0; fi < scanData.folders.length; fi++) {
+                        if (scanData.folders[fi].absolutePath === dp) {
+                            var card = document.getElementById('folder-' + fi);
+                            if (card) card.style.display = 'none';
+                            break;
+                        }
+                    }
+                }
+            });
+        } else {
+            showStatus('❌ ' + data.error, 'error');
+        }
+    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+}
+
+// ============================================================================
+// UNDO
+// ============================================================================
+async function undoFlatten() {
+    if (!confirm('Letzte Flatten-Aktion rückgängig machen?')) return;
+    showStatus('Undo...', 'info', true);
+    try {
+        var data = await api('/tools/flatten-undo', 'POST', {});
+        if (data.success) {
+            showStatus('✅ ' + data.restored + ' Dateien zurück verschoben', 'success');
+            document.getElementById('btnUndo').disabled = true;
+            await loadFolders();
+        } else {
+            showStatus('❌ ' + (data.error || data.failed + ' fehlgeschlagen'), 'error');
+        }
+    } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
+}
+
+// ============================================================================
+// LIGHTBOX
+// ============================================================================
+var lbState = { folderIndex: -1, fileIndex: -1 };
+
+function openLightbox(folderIndex, fileName) {
+    if (!scanData || !scanData.folders[folderIndex]) return;
+    var f = scanData.folders[folderIndex];
+    var fi = f.files.indexOf(fileName);
+    if (fi === -1) fi = 0;
+    lbState.folderIndex = folderIndex;
+    lbState.fileIndex = fi;
+    showLbImage();
+    document.getElementById('lightbox').classList.add('show');
+}
+
+function showLbImage() {
+    var f = scanData.folders[lbState.folderIndex];
+    if (!f) return;
+    var fn = f.files[lbState.fileIndex];
+    var folderSelect = document.getElementById('folderSelect').value;
+    var pp = (folderSelect === '.') ? '' : folderSelect.replace(/\\/g, '/') + '/';
+    var imgPrefix = f.isRoot ? pp : pp + f.relativePath.replace(/\\/g, '/') + '/';
+    document.getElementById('lbImg').src = '/original?path=' + encodeURIComponent(imgPrefix + fn);
+    document.getElementById('lbFilename').textContent = fn;
+    document.getElementById('lbCounter').textContent = (lbState.fileIndex + 1) + ' / ' + f.files.length;
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('show');
+    document.getElementById('lbImg').src = '';
+    lbState = { folderIndex: -1, fileIndex: -1 };
+}
+
+function lbPrev() {
+    var f = scanData.folders[lbState.folderIndex];
+    if (!f) return;
+    lbState.fileIndex = (lbState.fileIndex - 1 + f.files.length) % f.files.length;
+    showLbImage();
+}
+
+function lbNext() {
+    var f = scanData.folders[lbState.folderIndex];
+    if (!f) return;
+    lbState.fileIndex = (lbState.fileIndex + 1) % f.files.length;
+    showLbImage();
+}
+
+document.addEventListener('keydown', function(e) {
+    if (lbState.folderIndex === -1) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') lbPrev();
+    if (e.key === 'ArrowRight') lbNext();
+});
+
+// ============================================================================
+// INIT
+// ============================================================================
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadFolders();
+});
+</script>
+</body>
+</html>
