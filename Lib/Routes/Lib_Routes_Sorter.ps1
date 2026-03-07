@@ -304,13 +304,36 @@ function Handle-SorterRoute {
                 # Session leeren nach Sortierung
                 $script:SorterSession.Groups = $null
 
-                # Re-Scan: Ordner-Struktur aktualisieren
+                                # Re-Scan: Ordner-Struktur aktualisieren + leere Ordner löschen
+                $deletedEmptyFolders = @()
                 if ($result.Moved -gt 0 -and $script:State) {
                     try {
                         $mediaExts = $Config.Media.ImageExtensions + $Config.Media.VideoExtensions
+                        $lowerExts = @($mediaExts | ForEach-Object { $_.ToLowerInvariant() })
+
+                        # Leere Unterordner finden und löschen (nicht Root!)
+                        $subDirs = @(Get-ChildItem -LiteralPath $RootPath -Directory -ErrorAction SilentlyContinue |
+                            Where-Object { $_.FullName -ne $RootPath })
+
+                        foreach ($dir in $subDirs) {
+                            $mediaFiles = @(Get-ChildItem -LiteralPath $dir.FullName -File -Recurse -ErrorAction SilentlyContinue |
+                                Where-Object { $_.Extension.ToLowerInvariant() -in $lowerExts })
+
+                            if ($mediaFiles.Count -eq 0) {
+                                try {
+                                    Remove-Item -LiteralPath $dir.FullName -Recurse -Force -ErrorAction Stop
+                                    $deletedEmptyFolders += $dir.Name
+                                    Write-Verbose "Leerer Ordner geloescht: $($dir.Name)"
+                                }
+                                catch {
+                                    Write-Warning "Leerer Ordner nicht loeschbar: $($dir.Name) — $($_.Exception.Message)"
+                                }
+                            }
+                        }
+
                         $script:State.Folders = @(Get-MediaFolders -RootPath $RootPath -Extensions $mediaExts -ScriptRoot $ScriptRoot)
                         Save-State -State $script:State
-                        Write-Verbose "Re-Scan nach Sortierung: $($script:State.Folders.Count) Ordner"
+                        Write-Verbose "Re-Scan nach Sortierung: $($script:State.Folders.Count) Ordner, $($deletedEmptyFolders.Count) leere geloescht"
                     }
                     catch {
                         Write-Warning "Re-Scan fehlgeschlagen: $($_.Exception.Message)"
@@ -324,6 +347,7 @@ function Handle-SorterRoute {
                     skipped          = $result.Skipped
                     createdFolders   = $result.CreatedFolders
                     undoAvailable    = $result.UndoAvailable
+                    deletedEmptyFolders = $deletedEmptyFolders
                     sourceEmpty      = $sourceEmpty
                     sourcePath       = if ($sourceEmpty) { $script:SorterSession.FolderPath } else { $null }
                     sourceRemaining  = $sourceRemaining
