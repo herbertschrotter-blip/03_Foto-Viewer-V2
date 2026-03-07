@@ -551,6 +551,72 @@ function Handle-SorterRoute {
 
 
         # ================================================================
+        # GET /tools/sorter-sublevels
+        # ================================================================
+        if ($path -eq "/tools/sorter-sublevels" -and $req.HttpMethod -eq "GET") {
+            try {
+                $subLevels = Get-SorterSubLevels -ScriptRoot $ScriptRoot
+
+                Send-JsonResponse -Response $res -Data @{
+                    success   = $true
+                    subLevels = @($subLevels | ForEach-Object {
+                        @{
+                            name         = $_.Name
+                            regex        = $_.Regex
+                            groupCapture = $_.GroupCapture
+                            enabled      = $_.Enabled
+                        }
+                    })
+                } -StatusCode 200
+                return $true
+            }
+            catch {
+                Send-JsonResponse -Response $res -Data @{ success = $false; error = $_.Exception.Message } -StatusCode 500
+                return $true
+            }
+        }
+
+
+        # ================================================================
+        # POST /tools/sorter-sublevels/save
+        # Body: { "subLevels": [ { "name": "...", "regex": "...", "groupCapture": 1, "enabled": true } ] }
+        # ================================================================
+        if ($path -eq "/tools/sorter-sublevels/save" -and $req.HttpMethod -eq "POST") {
+            try {
+                $body = Read-RequestBody -Request $req
+                $data = $body | ConvertFrom-Json
+
+                if (-not $data.subLevels) {
+                    Send-JsonResponse -Response $res -Data @{ success = $false; error = "Keine subLevels angegeben" } -StatusCode 400
+                    return $true
+                }
+
+                $subLevelObjects = @($data.subLevels | ForEach-Object {
+                    [PSCustomObject]@{
+                        Name         = [string]$_.name
+                        Regex        = [string]$_.regex
+                        GroupCapture = [int]($_.groupCapture ?? 1)
+                        Enabled      = [bool]($_.enabled ?? $true)
+                    }
+                })
+
+                Save-SorterSubLevels -SubLevels $subLevelObjects -ScriptRoot $ScriptRoot
+
+                Send-JsonResponse -Response $res -Data @{
+                    success = $true
+                    count   = $subLevelObjects.Count
+                    message = "$($subLevelObjects.Count) Sub-Levels gespeichert"
+                } -StatusCode 200
+                return $true
+            }
+            catch {
+                Send-JsonResponse -Response $res -Data @{ success = $false; error = $_.Exception.Message } -StatusCode 500
+                return $true
+            }
+        }
+
+
+        # ================================================================
         # POST /tools/move-file-group
         # Body: { "fileName": "test.jpg", "targetPrefix": "p020" }
         # ================================================================
