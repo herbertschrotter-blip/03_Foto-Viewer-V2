@@ -263,11 +263,42 @@ function Handle-SorterRoute {
                     Write-Verbose "Verwende Client-Gruppen: $($groupsToSort.Count) Gruppen"
                 }
 
+                # Ziel-Pfad: Root oder analysierter Ordner
+                $sortToRoot = $false
+                if ($data.PSObject.Properties['sortToRoot']) {
+                    $sortToRoot = [bool]$data.sortToRoot
+                }
+                $targetPath = if ($sortToRoot) { $RootPath } else { $script:SorterSession.FolderPath }
+                Write-Verbose "Sortierung Ziel: $targetPath (sortToRoot=$sortToRoot)"
+
                 # Immer einstufig sortieren (Multi-Level ist bereits zu flachen Gruppen aufgeloest)
                 $result = Invoke-FileSorting `
                     -FolderPath $script:SorterSession.FolderPath `
                     -GroupMappings $mappings `
-                    -Groups $groupsToSort
+                    -Groups $groupsToSort `
+                    -TargetPath $targetPath
+
+                # Quellordner prüfen: noch Medien drin?
+                $sourceEmpty = $false
+                $sourceRemaining = @()
+                if ($result.Moved -gt 0 -and $script:SorterSession.FolderPath -ne $RootPath) {
+                    $mediaExts = @($Config.Media.ImageExtensions) + @($Config.Media.VideoExtensions)
+                    $lowerExts = @($mediaExts | ForEach-Object { $_.ToLowerInvariant() })
+                    $remainingMedia = @(Get-ChildItem -LiteralPath $script:SorterSession.FolderPath -File -ErrorAction SilentlyContinue |
+                        Where-Object { $_.Extension.ToLowerInvariant() -in $lowerExts })
+
+                    if ($remainingMedia.Count -eq 0) {
+                        $sourceEmpty = $true
+                        $sourceRemaining = @(Get-ChildItem -LiteralPath $script:SorterSession.FolderPath -Force -ErrorAction SilentlyContinue |
+                            ForEach-Object {
+                                @{
+                                    name   = $_.Name
+                                    isDir  = $_.PSIsContainer
+                                    size   = if ($_.PSIsContainer) { 0 } else { $_.Length }
+                                }
+                            })
+                    }
+                }
 
                 # Session leeren nach Sortierung
                 $script:SorterSession.Groups = $null
@@ -286,13 +317,16 @@ function Handle-SorterRoute {
                 }
 
                 Send-JsonResponse -Response $res -Data @{
-                    success        = $true
-                    moved          = $result.Moved
-                    failed         = $result.Failed
-                    skipped        = $result.Skipped
-                    createdFolders = $result.CreatedFolders
-                    undoAvailable  = ($null -ne $result.UndoLogPath)
-                    details        = @($result.Details | ForEach-Object {
+                    success          = $true
+                    moved            = $result.Moved
+                    failed           = $result.Failed
+                    skipped          = $result.Skipped
+                    createdFolders   = $result.CreatedFolders
+                    undoAvailable    = ($null -ne $result.UndoLogPath)
+                    sourceEmpty      = $sourceEmpty
+                    sourcePath       = if ($sourceEmpty) { $script:SorterSession.FolderPath } else { $null }
+                    sourceRemaining  = $sourceRemaining
+                    details          = @($result.Details | ForEach-Object {
                         @{ file = $_.File; prefix = $_.Prefix; target = $_.Target; status = $_.Status; message = $_.Message }
                     })
                 } -StatusCode 200
@@ -730,6 +764,68 @@ function Handle-SorterRoute {
                     groups      = @($script:SorterSession.Groups | ForEach-Object {
                         @{ prefix = $_.Prefix; fileCount = $_.FileCount; files = $_.Files }
                     })
+                } -StatusCode 200
+                return $true
+            }
+            catch {
+                Send-JsonResponse -Response $res -Data @{ success = $false; error = $_.Exception.Message } -StatusCode 500
+                return $true
+            }
+        }
+
+
+        # ================================================================
+        # POST /tools/delete-empty-source
+        # Body: { "folderPath": "absolute/path" }
+        # ================================================================
+        if ($path -eq "/tools/delete-empty-source" -and $req.HttpMethod -eq "POST") {
+            try {
+                $body = Read-RequestBody -Request $req
+                $data = $body | ConvertFrom-Json
+
+                $folderToDelete = $data.folderPath
+                if ([string]::IsNullOrWhiteSpace($folderToDelete)) {
+                    Send-JsonResponse -Response $res -Data @{ success = $false; error = "Kein folderPath" } -StatusCode 400
+                    return $true
+                }
+
+                # Sicherheit: Nicht Root löschen!
+                if ($folderToDelete -eq $RootPath) {
+                    Send-JsonResponse -Response $res -Data @{ success = $false; error = "Root-Ordner kann nicht geloescht werden" } -StatusCode 400
+                    return $true
+                }
+
+                # Sicherheit: Muss innerhalb Root liegen
+                $resolvedPath = [System.IO.Path]::GetFullPath($folderToDelete)
+                if (-not $resolvedPath.StartsWith($RootPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    Send-JsonResponse -Response $res -Data @{ success = $false; error = "Ordner ausserhalb Root" } -StatusCode 400
+                    return $true
+                }
+
+                # Prüfe nochmal: keine Medien drin?
+                $mediaExts = @($Config.Media.ImageExtensions) + @($Config.Media.VideoExtensions)
+                $lowerExts = @($mediaExts | ForEach-Object { $_.ToLowerInvariant() })
+                $remainingMedia = @(Get-ChildItem -LiteralPath $folderToDelete -File -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Extension.ToLowerInvariant() -in $lowerExts })
+
+                if ($remainingMedia.Count -gt 0) {
+                    Send-JsonResponse -Response $res -Data @{ success = $false; error = "Ordner enthaelt noch $($remainingMedia.Count) Medien-Dateien" } -StatusCode 400
+                    return $true
+                }
+
+                # Ordner löschen (rekursiv)
+                Remove-Item -LiteralPath $folderToDelete -Recurse -Force -ErrorAction Stop
+
+                # State aktualisieren (Ordner aus Liste entfernen)
+                if ($script:State -and $script:State.Folders) {
+                    $relPath = $folderToDelete.Substring($RootPath.Length).TrimStart('\', '/')
+                    $script:State.Folders = @($script:State.Folders | Where-Object { $_.RelativePath -ne $relPath })
+                    Save-State -State $script:State
+                }
+
+                Send-JsonResponse -Response $res -Data @{
+                    success = $true
+                    message = "Ordner geloescht: $folderToDelete"
                 } -StatusCode 200
                 return $true
             }
