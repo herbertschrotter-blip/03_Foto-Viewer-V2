@@ -15,12 +15,11 @@
             color: #2d3748;
         }
 
-        .container { max-width: 1100px; margin: 0 auto; }
-        body.has-sidebar .container { margin-left: 200px; }
+        .container { max-width: 1100px; margin: 0 auto; margin-left: 200px; }
 
         /* === SIDEBAR === */
         .group-sidebar {
-            display: none;
+            display: flex;
             position: fixed;
             left: 0; top: 0;
             width: 180px; height: 100vh;
@@ -30,9 +29,15 @@
             z-index: 50;
             padding: 20px 14px;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
+            overflow-y: auto;
         }
-        .group-sidebar.show { display: flex; }
+        .sidebar-btn-primary { background: #667eea; color: white; border-color: #667eea; }
+        .sidebar-btn-primary:hover { background: #5568d3; }
+        .sidebar-btn-success { background: #059669; color: white; border-color: #047857; }
+        .sidebar-btn-success:hover { background: #047857; }
+        .sidebar-btn-success:disabled { opacity: 0.5; cursor: not-allowed; }
+        .sidebar-btn-small { font-size: 11px; padding: 7px 10px; }
         .sidebar-title {
             font-size: 12px; font-weight: 700; text-transform: uppercase;
             color: #718096; letter-spacing: 0.5px;
@@ -74,18 +79,7 @@
         }
         .back-link:hover { text-decoration: underline; }
 
-        /* Toolbar */
-        .toolbar {
-            display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px;
-            padding: 16px; background: white; border: 1px solid #e2e8f0;
-            border-radius: 10px;
-        }
-        .toolbar-group {
-            display: flex; gap: 8px; align-items: center;
-            padding-right: 16px; border-right: 1px solid #e2e8f0;
-        }
-        .toolbar-group:last-child { border-right: none; padding-right: 0; }
-        .toolbar-label { font-size: 12px; color: #718096; font-weight: 600; text-transform: uppercase; }
+        
 
         .btn {
             padding: 8px 16px; border: 1px solid #cbd5e0; border-radius: 6px;
@@ -467,6 +461,10 @@
 <body>
     <!-- Sidebar: Gruppen-Auswahl -->
     <div class="group-sidebar" id="groupSidebar">
+        <div class="sidebar-title">Analyse</div>
+        <button class="sidebar-btn sidebar-btn-primary" onclick="analyzeFiles()" id="btnAnalyze">🔍 Analysieren</button>
+        <button class="sidebar-btn sidebar-btn-small" onclick="exportFileNames()" id="btnExport">📋 Export</button>
+        <div class="sidebar-divider"></div>
         <div class="sidebar-title">Gruppen</div>
         <div class="sidebar-counter">
             <span class="num" id="sidebarCount">0 / 0</span>
@@ -474,11 +472,14 @@
         </div>
         <button class="sidebar-btn" onclick="sidebarSelectAll()">☑ Alle auswählen</button>
         <button class="sidebar-btn" onclick="sidebarSelectNone()">☐ Alle abwählen</button>
-        <div class="sidebar-divider"></div>
         <button class="sidebar-btn" onclick="sidebarInvert()">⇅ Invertieren</button>
         <div class="sidebar-divider"></div>
         <button class="sidebar-btn" id="sidebarHideBtn" onclick="sidebarToggleHideDone()">👁 Erledigte ausblenden</button>
         <div class="sidebar-info" id="sidebarHideInfo" style="display:none"></div>
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-title">Aktionen</div>
+        <button class="sidebar-btn sidebar-btn-success" onclick="sortFiles()" id="btnSort" disabled>✅ Sortieren</button>
+        <button class="sidebar-btn sidebar-btn-small" onclick="undoSort()" id="btnUndo" disabled>↩️ Rückgängig</button>
     </div>
 
     <div class="container">
@@ -500,18 +501,7 @@
             <span id="rootPathDisplay" style="font-size:12px;color:#718096;margin-left:8px"></span>
         </div>
 
-        <div class="toolbar">
-            <div class="toolbar-group">
-                <span class="toolbar-label">Analyse</span>
-                <button class="btn" onclick="exportFileNames()" id="btnExport">📋 Dateinamen exportieren</button>
-                <button class="btn btn-primary" onclick="analyzeFiles()" id="btnAnalyze">🔍 Analysieren</button>
-            </div>
-            <div class="toolbar-group">
-                <span class="toolbar-label">Aktionen</span>
-                <button class="btn btn-success" onclick="sortFiles()" id="btnSort" disabled>✅ Ausgewählte sortieren</button>
-                <button class="btn" onclick="undoSort()" id="btnUndo" disabled>↩️ Rückgängig</button>
-            </div>
-        </div>
+        
 
         <div class="status-bar" id="statusBar">
             <div class="spinner" id="statusSpinner" style="display:none"></div>
@@ -874,12 +864,9 @@ function toggleGroup(i) {
 function updateSidebar() {
     var cbs = document.querySelectorAll('.group-checkbox');
     if (cbs.length === 0) {
-        document.getElementById('groupSidebar').classList.remove('show');
-        document.body.classList.remove('has-sidebar');
+        document.getElementById('sidebarCount').textContent = '0 / 0';
         return;
     }
-    document.getElementById('groupSidebar').classList.add('show');
-    document.body.classList.add('has-sidebar');
     var visibleCbs = Array.from(cbs).filter(function(cb) {
         return !cb.closest('.group-card').classList.contains('hidden-done');
     });
