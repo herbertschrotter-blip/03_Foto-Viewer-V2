@@ -5,7 +5,7 @@ ManifestHint:
                        "Add-SorterPattern", "Remove-SorterPattern",
                        "Get-SorterSubLevels", "Save-SorterSubLevels",
                        "Move-FileBetweenGroups", "Merge-FileGroups", "Split-FileGroup",
-                       "Undo-FileSorting",
+                       "Undo-FileSorting", "Get-UndoHistory",
                        "Get-MultiLevelGroups", "Invoke-MultiLevelSorting",
                        "Convert-SubKeyToShort")
   Description     = "Dateinamen-Analyse, Multi-Pattern-Gruppierung, N-stufige Sortierung"
@@ -36,6 +36,7 @@ Funktionen:
   - Split-FileGroup:          Gruppe aufteilen (in-memory)
   - Invoke-FileSorting:       Dateien einstufig verschieben mit Undo-Log
   - Undo-FileSorting:         Letzte Sortierung rueckgaengig machen
+  - Get-UndoHistory:          Zentrale Undo-History laden (letzte 30)
   - Get-MultiLevelGroups:     Sub-Gruppierung (Stufe 2..N) auf bestehende Gruppen
   - Invoke-MultiLevelSorting: N-stufig verschachtelte Ordner erstellen + verschieben
 
@@ -1267,7 +1268,10 @@ function Invoke-FileSorting {
         [PSCustomObject[]]$Groups,
 
         [Parameter()]
-        [string]$TargetPath
+        [string]$TargetPath,
+
+        [Parameter()]
+        [string]$ScriptRoot
     )
 
     # TargetPath: wo Ordner erstellt werden (Default = FolderPath)
@@ -1332,18 +1336,54 @@ function Invoke-FileSorting {
         }
     }
 
-    # Undo-Log
-    $undoLogPath = $null
-    if ($undoEntries.Count -gt 0) {
-        $undoLogPath = Join-Path $FolderPath "_undo-sort.json"
-        @{
+    # .thumbs im Quellordner aufräumen (Thumbnails wurden mitkopiert)
+    if ($moved -gt 0) {
+        $sourceThumbsDir = Join-Path $FolderPath ".thumbs"
+        if (Test-Path -LiteralPath $sourceThumbsDir -PathType Container) {
+            try {
+                Remove-Item -LiteralPath $sourceThumbsDir -Recurse -Force -ErrorAction Stop
+                Write-Verbose "Quell-.thumbs geloescht: $sourceThumbsDir"
+            }
+            catch {
+                Write-Warning "Quell-.thumbs nicht loeschbar: $($_.Exception.Message)"
+            }
+        }
+    }
+
+    # Zentrales Undo-Log (in ScriptRoot/_undo-history.json)
+    $undoSaved = $false
+    if ($undoEntries.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($ScriptRoot)) {
+        $historyPath = Join-Path $ScriptRoot "_undo-history.json"
+
+        $newEntry = @{
+            Id             = [guid]::NewGuid().ToString('N').Substring(0, 8)
             Timestamp      = (Get-Date).ToString('o')
             FolderPath     = $FolderPath
+            TargetPath     = $TargetPath
             MovedCount     = $moved
             CreatedFolders = @($createdFolders)
             Entries        = @($undoEntries)
-        } | ConvertTo-Json -Depth 5 | Out-File -FilePath $undoLogPath -Encoding UTF8 -Force
-        Write-Verbose "Undo-Log: $undoLogPath"
+            Undone         = $false
+        }
+
+        try {
+            $history = @()
+            if (Test-Path -LiteralPath $historyPath) {
+                $json = Get-Content -LiteralPath $historyPath -Raw -Encoding UTF8 -ErrorAction Stop
+                $history = @($json | ConvertFrom-Json -ErrorAction Stop)
+            }
+
+            # Neuen Eintrag vorne einfügen, max 30
+            $history = @(@($newEntry) + @($history) | Select-Object -First 30)
+
+            $history | ConvertTo-Json -Depth 10 |
+                Out-File -FilePath $historyPath -Encoding UTF8 -Force
+            $undoSaved = $true
+            Write-Verbose "Undo-History aktualisiert: $historyPath ($($history.Count) Eintraege)"
+        }
+        catch {
+            Write-Warning "Undo-History speichern fehlgeschlagen: $($_.Exception.Message)"
+        }
     }
 
     Write-Verbose "Fertig: $moved verschoben, $failed fehlgeschlagen, $skipped uebersprungen"
@@ -1353,7 +1393,7 @@ function Invoke-FileSorting {
         Failed         = $failed
         Skipped        = $skipped
         CreatedFolders = @($createdFolders)
-        UndoLogPath    = $undoLogPath
+        UndoAvailable  = $undoSaved
         Details        = @($details)
     }
 }
@@ -1657,25 +1697,73 @@ function Convert-SubKeyToShort {
 # UNDO (funktioniert fuer einstufig UND mehrstufig)
 # ============================================================================
 
+function Get-UndoHistory {
+    <#
+    .SYNOPSIS
+        Laedt die zentrale Undo-History
+
+    .DESCRIPTION
+        Liest _undo-history.json aus ScriptRoot. Gibt Array der letzten
+        30 Sortierungen zurueck (neueste zuerst). Eintraege mit Undone=$true
+        sind bereits rueckgaengig gemacht.
+
+    .PARAMETER ScriptRoot
+        Projekt-Root Pfad
+
+    .EXAMPLE
+        $history = Get-UndoHistory -ScriptRoot $ScriptRoot
+        $last = $history | Where-Object { -not $_.Undone } | Select-Object -First 1
+
+    .OUTPUTS
+        [PSCustomObject[]]
+    #>
+    [CmdletBinding()]
+    [OutputType([PSCustomObject[]])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ScriptRoot
+    )
+
+    $historyPath = Join-Path $ScriptRoot "_undo-history.json"
+
+    if (-not (Test-Path -LiteralPath $historyPath)) {
+        return @()
+    }
+
+    try {
+        $json = Get-Content -LiteralPath $historyPath -Raw -Encoding UTF8 -ErrorAction Stop
+        return @($json | ConvertFrom-Json -ErrorAction Stop)
+    }
+    catch {
+        Write-Warning "Undo-History nicht lesbar: $($_.Exception.Message)"
+        return @()
+    }
+}
+
+
 function Undo-FileSorting {
     <#
     .SYNOPSIS
-        Macht die letzte Sortierung rueckgaengig
+        Macht die letzte Sortierung rueckgaengig (zentrale History)
 
     .DESCRIPTION
-        Liest _undo-sort.json, verschiebt Dateien zurueck, entfernt leere
-        Ordner. Funktioniert fuer einstufige und mehrstufige Sortierungen.
+        Liest letzten aktiven Eintrag aus _undo-history.json, verschiebt
+        Dateien zurueck, entfernt leere Ordner. Markiert Eintrag als Undone.
+        Fehlerhafte Eintraege (Dateien nicht mehr gefunden) werden protokolliert.
 
-    .PARAMETER FolderPath
-        Ordner mit _undo-sort.json
+    .PARAMETER ScriptRoot
+        Projekt-Root Pfad (wo _undo-history.json liegt)
+
+    .PARAMETER UndoId
+        Optional: Bestimmten Eintrag rueckgaengig machen (statt letzten)
 
     .EXAMPLE
-        $result = Undo-FileSorting -FolderPath "D:\Fotos\Unsortiert"
+        $result = Undo-FileSorting -ScriptRoot $ScriptRoot
         Write-Host "$($result.Restored) zurueck verschoben"
 
     .EXAMPLE
-        $r = Undo-FileSorting -FolderPath $path
-        if (-not $r.Success) { Write-Warning $r.Error }
+        $r = Undo-FileSorting -ScriptRoot $root -UndoId "a1b2c3d4"
 
     .OUTPUTS
         [PSCustomObject] Success, Restored, Failed, RemovedFolders, Error
@@ -1685,40 +1773,76 @@ function Undo-FileSorting {
     param(
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [ValidateScript({ Test-Path -LiteralPath $_ -PathType Container })]
-        [string]$FolderPath
+        [string]$ScriptRoot,
+
+        [Parameter()]
+        [string]$UndoId
     )
 
-    $undoPath = Join-Path $FolderPath "_undo-sort.json"
+    $historyPath = Join-Path $ScriptRoot "_undo-history.json"
 
-    if (-not (Test-Path -LiteralPath $undoPath)) {
+    if (-not (Test-Path -LiteralPath $historyPath)) {
         return [PSCustomObject]@{
             Success = $false; Restored = 0; Failed = 0
-            RemovedFolders = @(); Error = "Keine Undo-Datei gefunden"
+            RemovedFolders = @(); Error = "Keine Undo-History gefunden"
         }
     }
 
     try {
-        $undoData = Get-Content -LiteralPath $undoPath -Raw -Encoding UTF8 -ErrorAction Stop |
-            ConvertFrom-Json -ErrorAction Stop
+        $json = Get-Content -LiteralPath $historyPath -Raw -Encoding UTF8 -ErrorAction Stop
+        $history = @($json | ConvertFrom-Json -ErrorAction Stop)
     }
     catch {
         return [PSCustomObject]@{
             Success = $false; Restored = 0; Failed = 0
-            RemovedFolders = @(); Error = "Undo-Datei nicht lesbar: $($_.Exception.Message)"
+            RemovedFolders = @(); Error = "Undo-History nicht lesbar: $($_.Exception.Message)"
+        }
+    }
+
+    # Eintrag finden
+    $undoEntry = $null
+    $undoIndex = -1
+    for ($i = 0; $i -lt $history.Count; $i++) {
+        $e = $history[$i]
+        if ($UndoId) {
+            if ($e.Id -eq $UndoId -and -not $e.Undone) { $undoEntry = $e; $undoIndex = $i; break }
+        }
+        else {
+            if (-not $e.Undone) { $undoEntry = $e; $undoIndex = $i; break }
+        }
+    }
+
+    if (-not $undoEntry) {
+        return [PSCustomObject]@{
+            Success = $false; Restored = 0; Failed = 0
+            RemovedFolders = @(); Error = "Kein aktiver Undo-Eintrag gefunden"
         }
     }
 
     $restored = 0; $failed = 0
 
-    foreach ($entry in $undoData.Entries) {
+    foreach ($entry in $undoEntry.Entries) {
+        # Zieldatei noch vorhanden?
         if (-not (Test-Path -LiteralPath $entry.To -PathType Leaf)) {
             Write-Warning "Nicht mehr am Ziel: $($entry.File)"
             $failed++; continue
         }
+        # Quellpfad schon belegt?
         if (Test-Path -LiteralPath $entry.From) {
             Write-Warning "Original-Pfad belegt: $($entry.File)"
             $failed++; continue
+        }
+
+        # Quell-Ordner sicherstellen (falls geloescht)
+        $fromDir = Split-Path -Parent $entry.From
+        if (-not (Test-Path -LiteralPath $fromDir -PathType Container)) {
+            try {
+                New-Item -ItemType Directory -Path $fromDir -Force | Out-Null
+            }
+            catch {
+                Write-Warning "Quell-Ordner nicht erstellbar: $fromDir"
+                $failed++; continue
+            }
         }
 
         try {
@@ -1731,26 +1855,21 @@ function Undo-FileSorting {
         }
     }
 
-    # Leere erstellte Ordner entfernen (tiefste zuerst fuer verschachtelte)
+    # Leere erstellte Ordner entfernen
     $removedFolders = [System.Collections.ArrayList]::new()
-    if ($undoData.CreatedFolders) {
-        # Sortiere nach Tiefe absteigend (tiefste Unterordner zuerst)
-        $sortedFolders = @($undoData.CreatedFolders | Sort-Object { ($_ -split '[/\\]').Count } -Descending)
+    $basePath = if ($undoEntry.TargetPath) { $undoEntry.TargetPath } else { $undoEntry.FolderPath }
+
+    if ($undoEntry.CreatedFolders) {
+        $sortedFolders = @($undoEntry.CreatedFolders | Sort-Object { ($_ -split '[/\\]').Count } -Descending)
 
         foreach ($folderName in $sortedFolders) {
-            $folderFull = Join-Path $FolderPath $folderName
-            if ((Test-Path -LiteralPath $folderFull -PathType Container)) {
-                # Prüfe ob leer (ignoriere .thumbs)
-                $remaining = @(Get-ChildItem -LiteralPath $folderFull -ErrorAction SilentlyContinue |
+            $folderFull = Join-Path $basePath $folderName
+            if (Test-Path -LiteralPath $folderFull -PathType Container) {
+                $remaining = @(Get-ChildItem -LiteralPath $folderFull -Force -ErrorAction SilentlyContinue |
                     Where-Object { $_.Name -ne '.thumbs' })
                 if ($remaining.Count -eq 0) {
                     try {
-                        # .thumbs Ordner auch entfernen
-                        $thumbsDir = Join-Path $folderFull ".thumbs"
-                        if (Test-Path -LiteralPath $thumbsDir -PathType Container) {
-                            Remove-Item -LiteralPath $thumbsDir -Recurse -Force -ErrorAction SilentlyContinue
-                        }
-                        Remove-Item -LiteralPath $folderFull -Force
+                        Remove-Item -LiteralPath $folderFull -Recurse -Force
                         [void]$removedFolders.Add($folderName)
                     }
                     catch { Write-Warning "Ordner nicht entfernbar: $folderName" }
@@ -1759,8 +1878,16 @@ function Undo-FileSorting {
         }
     }
 
-    try { Remove-Item -LiteralPath $undoPath -Force }
-    catch { Write-Warning "Undo-Log nicht loeschbar" }
+    # Eintrag als Undone markieren
+    $history[$undoIndex].Undone = $true
+    try {
+        $history | ConvertTo-Json -Depth 10 |
+            Out-File -FilePath $historyPath -Encoding UTF8 -Force
+        Write-Verbose "Undo-Eintrag '$($undoEntry.Id)' als Undone markiert"
+    }
+    catch {
+        Write-Warning "History-Update fehlgeschlagen: $($_.Exception.Message)"
+    }
 
     Write-Verbose "Undo: $restored zurueck, $failed fehlgeschlagen, $($removedFolders.Count) Ordner entfernt"
 
