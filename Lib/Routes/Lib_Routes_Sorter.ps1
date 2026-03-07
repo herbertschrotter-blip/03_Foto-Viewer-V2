@@ -126,7 +126,38 @@ function Handle-SorterRoute {
                             Name         = [string]($_.name ?? "Ebene")
                         }
                     })
-                    $groups = Get-MultiLevelGroups -Groups $groups -SubLevels $subLevels
+                    $multiGroups = Get-MultiLevelGroups -Groups $groups -SubLevels $subLevels
+
+                    # Zu flachen Gruppen aufloesen (p105-r0, p105-r1, etc.)
+                    $flatGroups = [System.Collections.ArrayList]::new()
+                    foreach ($mg in $multiGroups) {
+                        if ($mg.IsMultiLevel -and $mg.SubGroups.Count -gt 0) {
+                            $flatList = Resolve-FlatSubGroups -SubGroups $mg.SubGroups -BaseName $mg.Prefix -Separator "-"
+                            foreach ($flat in $flatList) {
+                                # Dateien aus Original-Gruppe fuer Groesse holen
+                                $flatFiles = @($mg.Files | Where-Object { $_ -in $flat.Files })
+                                $flatFileObjs = @(Get-ChildItem -LiteralPath $absolutePath -File -ErrorAction SilentlyContinue |
+                                    Where-Object { $_.Name -in $flat.Files })
+                                $flatSize = if ($flatFileObjs.Count -gt 0) { ($flatFileObjs | Measure-Object -Property Length -Sum).Sum } else { 0 }
+
+                                [void]$flatGroups.Add([PSCustomObject]@{
+                                    Prefix             = $flat.FolderName
+                                    PatternName        = $mg.PatternName
+                                    SuggestedFolder    = $flat.FolderName
+                                    FileCount          = $flat.Files.Count
+                                    TotalSize          = $flatSize
+                                    TotalSizeFormatted = Format-FileSize -Bytes $flatSize
+                                    PreviewFiles       = @($flat.Files | Select-Object -First 5)
+                                    Files              = @($flat.Files)
+                                })
+                            }
+                        }
+                        else {
+                            # Keine SubGroups (z.B. _unsorted) -> direkt uebernehmen
+                            [void]$flatGroups.Add($mg)
+                        }
+                    }
+                    $groups = @($flatGroups)
                     $isMultiLevel = $true
                 }
 
@@ -135,7 +166,7 @@ function Handle-SorterRoute {
                 $script:SorterSession.FolderPath = $absolutePath
                 $script:SorterSession.Timestamp = (Get-Date).ToString('o')
                 $script:SorterSession.MultiLevel = $isMultiLevel
-                $script:SorterSession.SubLevels = if ($isMultiLevel) { $subLevels } else { $null }
+                $script:SorterSession.SubLevels = $null
 
                 # Pattern-Info für Frontend
                 $patternSummary = @{}
@@ -155,7 +186,7 @@ function Handle-SorterRoute {
                     multiLevel     = $isMultiLevel
                     patternSummary = $patternSummary
                     groups         = @($groups | ForEach-Object {
-                        $groupData = @{
+                        @{
                             prefix             = $_.Prefix
                             patternName        = $_.PatternName
                             suggestedFolder    = $_.SuggestedFolder
@@ -165,15 +196,6 @@ function Handle-SorterRoute {
                             previewFiles       = $_.PreviewFiles
                             files              = $_.Files
                         }
-                        # Sub-Gruppen hinzufuegen wenn Multi-Level
-                        if ($_.PSObject.Properties['SubGroups'] -and $_.SubGroups) {
-                            $groupData.subGroups = @($_.SubGroups | ForEach-Object {
-                                Convert-SubGroupToResponse -SubGroup $_
-                            })
-                            $groupData.isMultiLevel = $true
-                            $groupData.levelCount = $_.LevelCount
-                        }
-                        $groupData
                     })
                 }
 
@@ -212,19 +234,11 @@ function Handle-SorterRoute {
                     $mappings[$_.Name] = $_.Value
                 }
 
-                # Einstufig oder mehrstufig sortieren
-                $result = if ($script:SorterSession.MultiLevel) {
-                    Invoke-MultiLevelSorting `
-                        -FolderPath $script:SorterSession.FolderPath `
-                        -Groups $script:SorterSession.Groups `
-                        -GroupMappings $mappings
-                }
-                else {
-                    Invoke-FileSorting `
-                        -FolderPath $script:SorterSession.FolderPath `
-                        -GroupMappings $mappings `
-                        -Groups $script:SorterSession.Groups
-                }
+                # Immer einstufig sortieren (Multi-Level ist bereits zu flachen Gruppen aufgeloest)
+                $result = Invoke-FileSorting `
+                    -FolderPath $script:SorterSession.FolderPath `
+                    -GroupMappings $mappings `
+                    -Groups $script:SorterSession.Groups
 
                 # Session leeren nach Sortierung
                 $script:SorterSession.Groups = $null
@@ -706,32 +720,6 @@ function Read-RequestBody {
     finally {
         $reader.Close()
     }
-}
-
-
-function Convert-SubGroupToResponse {
-    <# Rekursiver Helper: SubGroup-Objekt in JSON-faehige Hashtable #>
-    [CmdletBinding()]
-    [OutputType([hashtable])]
-    param(
-        [Parameter(Mandatory)]
-        [PSCustomObject]$SubGroup
-    )
-
-    $result = @{
-        subKey    = $SubGroup.SubKey
-        levelName = $SubGroup.LevelName
-        fileCount = $SubGroup.FileCount
-        files     = $SubGroup.Files
-    }
-
-    if ($SubGroup.SubGroups -and $SubGroup.SubGroups.Count -gt 0) {
-        $result.subGroups = @($SubGroup.SubGroups | ForEach-Object {
-            Convert-SubGroupToResponse -SubGroup $_
-        })
-    }
-
-    return $result
 }
 
 

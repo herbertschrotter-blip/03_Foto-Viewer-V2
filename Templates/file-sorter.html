@@ -671,71 +671,11 @@ function renderGroups(groups) {
                 '<button class="group-sel-btn" onclick="splitSelected(' + i + ')">✂️ Split</button> ' +
                 '<button class="group-sel-btn" onclick="moveSelectedToGroup(' + i + ')">📦 Verschieben</button>' +
             '</div>' +
-            (g.subGroups && g.subGroups.length > 0 ?
-                '<div class="subgroup-tree">' + renderFlatSubGroups(g.subGroups, g.suggestedFolder, i) + '</div>' : '') +
+            
             '<div class="group-actions">' +
                 '<button class="group-action-btn" onclick="event.stopPropagation(); mergeGroup(\'' + g.prefix + '\')">🔗 Merge ganze Gruppe</button>' +
             '</div></div>';
     }).join('');
-}
-
-function convertSubKeyToShort(key) {
-    if (key === 'result') return 'r0';
-    var m = key.match(/^result_(\d+)$/);
-    if (m) return 'r' + m[1];
-    if (key === '_other') return 'other';
-    return key;
-}
-
-function renderFlatSubGroups(subGroups, baseName, groupIndex) {
-    if (!subGroups || subGroups.length === 0) return '';
-    return subGroups.map(function(sg, si) {
-        var shortKey = convertSubKeyToShort(sg.subKey);
-        var folderName = baseName + '-' + shortKey;
-        var subId = 'sub-' + groupIndex + '-' + shortKey;
-        if (sg.subGroups && sg.subGroups.length > 0) {
-            return renderFlatSubGroups(sg.subGroups, folderName, groupIndex);
-        }
-        var filesJson = JSON.stringify(sg.files).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
-        return '<div class="subgroup-item" style="cursor:pointer;" onclick="toggleSubGroupThumbs(\'' + subId + '\')">' +
-            '<span style="color:#a0aec0;">📁</span>' +
-            '<span class="subgroup-key">' + folderName + '</span>' +
-            '<span class="subgroup-count">' + sg.fileCount + ' Dateien</span>' +
-            '<span class="subgroup-toggle" id="arrow-' + subId + '" style="color:#a0aec0;margin-left:auto;font-size:11px;">▶</span>' +
-            '</div>' +
-            '<div class="subgroup-thumbs" id="' + subId + '" style="display:none;" data-files="' + filesJson + '"></div>';
-    }).join('');
-}
-
-function toggleSubGroupThumbs(subId) {
-    var el = document.getElementById(subId);
-    var arrow = document.getElementById('arrow-' + subId);
-    if (!el) return;
-    if (el.style.display === 'none') {
-        // Thumbnails laden wenn noch leer
-        if (!el.innerHTML) {
-            var files = JSON.parse(el.dataset.files);
-            var fp = document.getElementById('folderSelect').value;
-            var pp = (fp === '.') ? '' : fp.replace(/\\/g, '/') + '/';
-            var max = 30;
-            var thumbs = files.slice(0, max);
-            var rem = files.length - max;
-            el.innerHTML = '<div class="group-thumb-grid" style="padding:8px 0;">' +
-                thumbs.map(function(f) {
-                    var ip = encodeURIComponent(pp + f);
-                    return '<div class="group-thumb" title="' + f + '">' +
-                        '<img src="/img?path=' + ip + '" loading="lazy" alt="' + f + '">' +
-                        '<span class="group-thumb-name">' + f + '</span></div>';
-                }).join('') +
-                (rem > 0 ? '<div class="group-more">+' + rem + '</div>' : '') +
-                '</div>';
-        }
-        el.style.display = 'block';
-        if (arrow) arrow.textContent = '▼';
-    } else {
-        el.style.display = 'none';
-        if (arrow) arrow.textContent = '▶';
-    }
 }
 
 function toggleGroup(i) { document.getElementById('group-' + i).classList.toggle('expanded'); }
