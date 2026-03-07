@@ -1288,10 +1288,12 @@ async function sortFiles() {
 // === UNDO ===
 async function checkUndo() {
     try {
-        var data = await api('/tools/check-undo?folderPath=' + encodeURIComponent(document.getElementById('folderSelect').value));
+        var data = await api('/tools/check-undo');
         var btn = document.getElementById('btnUndo');
         btn.disabled = !data.hasUndo;
-        if (data.hasUndo && data.undoInfo) btn.title = 'Letzte: ' + data.undoInfo.movedCount + ' Dateien (' + data.undoInfo.timestamp + ')';
+        if (data.hasUndo && data.undoInfo) {
+            btn.title = 'Letzte: ' + data.undoInfo.movedCount + ' Dateien (' + data.undoInfo.timestamp + ')';
+        }
     } catch (e) {}
 }
 
@@ -1299,11 +1301,12 @@ async function undoSort() {
     if (!confirm('Letzte Sortierung rückgängig machen?')) return;
     showStatus('Rückgängig...', 'info', true);
     try {
-        var data = await api('/tools/undo-sort', 'POST', { folderPath: document.getElementById('folderSelect').value });
+        var data = await api('/tools/undo-sort', 'POST', {});
         if (data.success) {
             showStatus('✅ ' + data.restored + ' zurück, ' + data.removedFolders.length + ' Ordner entfernt', 'success');
-            document.getElementById('btnUndo').disabled = true;
             document.getElementById('sortSummary').style.display = 'none';
+            await loadFolders();
+            await checkUndo();
         } else { showStatus('❌ ' + (data.error || data.failed + ' fehlgeschlagen'), 'error'); }
     } catch (e) { showStatus('Fehler: ' + e.message, 'error'); }
 }
