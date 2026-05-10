@@ -59,3 +59,17 @@ _flatten-undo.json
 
 # Claude Code tool config
 .claude/
+
+# .NET Build Output
+[Bb]in/
+[Oo]bj/
+*.userprefs
+
+# Visual Studio
+.vs/
+.vscode/
+*.suo
+*.csproj.user
+
+# Rider
+.idea/
