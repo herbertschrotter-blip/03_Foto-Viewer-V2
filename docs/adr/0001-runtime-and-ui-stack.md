@@ -6,7 +6,7 @@
 
 ## Kontext
 
-Foto-Viewer V2 wird als native Windows-Desktop-Anwendung neu gebaut (Ablösung der PowerShell-HTTP-Server-Notlösung). Constraints: Windows-only, Single-User, lokal, 50.000–500.000 Dateien, dateisystemnah, komplexes Grid + Drag & Drop + Multi-Window-Lightbox + Media-Interop. Welcher .NET-UI-Stack passt?
+PhotoViewer V3 wird als native Windows-Desktop-Anwendung neu gebaut (Ablösung der PowerShell-HTTP-Server-Notlösung). Constraints: Windows-only, Single-User, lokal, 50.000–500.000 Dateien, dateisystemnah, komplexes Grid + Drag & Drop + Multi-Window-Lightbox + Media-Interop. Welcher .NET-UI-Stack passt?
 
 ## Entscheidung
 

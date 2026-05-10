@@ -13,7 +13,7 @@ Wo werden Thumbnail-Caches gespeichert? Klassische Alternativen: `.thumbs\` nebe
 
 **Thumbnails liegen lokal pro Windows-User unter:**
 ```
-%LocalAppData%\FotoViewerV2\thumbs\{libraryId}\{fileId}_{size}_{kind}.jpg
+%LocalAppData%\PhotoViewerV3\thumbs\{libraryId}\{fileId}_{size}_{kind}.jpg
 ```
 **Auch bei NAS-Bibliotheken**. Kein `.thumbs\`-Ordner neben Foto-Bibliothek.
 
@@ -34,7 +34,7 @@ Wo werden Thumbnail-Caches gespeichert? Klassische Alternativen: `.thumbs\` nebe
 - NAS-/OneDrive-freundlich (kein Sync, keine Schreibrechte-Probleme)
 - Schnelle Disk-Reads bei großen Caches
 - Cache kann pro Library gelöscht/regeneriert werden (Pfad enthält LibraryId)
-- Backup von `%LocalAppData%\FotoViewerV2\` als Ganzes möglich
+- Backup von `%LocalAppData%\PhotoViewerV3\` als Ganzes möglich
 
 ### Negativ
 - **Cache wandert nicht mit**, wenn Bibliothek auf anderen PC zieht (akzeptiert für MVP)

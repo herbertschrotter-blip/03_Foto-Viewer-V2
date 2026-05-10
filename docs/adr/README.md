@@ -1,6 +1,6 @@
 # Architecture Decision Records (ADRs)
 
-Dieses Verzeichnis enthält die Architekturentscheidungen für den Foto-Viewer V2 C#-Port.
+Dieses Verzeichnis enthält die Architekturentscheidungen für den PhotoViewer V3 C#-Port.
 
 ## Was ist ein ADR?
 

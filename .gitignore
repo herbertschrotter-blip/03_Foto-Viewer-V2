@@ -56,3 +56,6 @@ file-sorter-sublevels.json.backup
 file-sorter-sublevels.json
 _undo-history.json
 _flatten-undo.json
+
+# Claude Code tool config
+.claude/

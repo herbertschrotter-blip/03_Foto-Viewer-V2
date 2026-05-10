@@ -1,4 +1,4 @@
-# Foto-Viewer V2 — Implementation-Plan (C# Port)
+# PhotoViewer V3 — Implementation-Plan (C# Port)
 
 > **Stand:** 2026-05-10
 > **Quelle:** Konsolidiert aus 3 ChatGPT-Review-Runden mit GPT-5 (siehe `chatgpt-review/`)
@@ -90,20 +90,20 @@ Native Windows-Desktop-Anwendung zum Ansehen, Sortieren und Verschieben von Foto
 **Multi-Project ab Tag 1** (nicht Single-Project):
 
 ```
-FotoViewer.sln
+PhotoViewerV3.sln
 src/
-  FotoViewer.Domain/                  # net10.0 — keine externen Deps
+  PhotoViewerV3.Domain/                  # net10.0 — keine externen Deps
     Entities/                         # Library, File, Folder, Tag, Plan, ...
     ValueObjects/
     Enums/
     Abstractions/                     # Interfaces für Services
-  FotoViewer.Data/                    # → Domain
+  PhotoViewerV3.Data/                    # → Domain
     LibraryContext.cs                 # DbContext
     EntitiesMapping/                  # EF Core Configurations
     Repositories/                     # CRUD via EF
     RawSql/                           # Bulk-Insert, FTS5, Performance-Queries
     Migrations/                       # EF Core auto-generated
-  FotoViewer.Services/                # → Domain + Data
+  PhotoViewerV3.Services/                # → Domain + Data
     Scanning/                         # ScanService, FileEnumerator, BatchWriter
     Thumbnails/                       # ThumbnailQueueService, WIC-/FFmpeg-Generators
     Storage/                          # StorageProfileService, AvailabilityChecker
@@ -111,7 +111,7 @@ src/
     Search/                           # FTS5-Indexer, QueryService
     Settings/                         # Config-Persistenz
     Media/                            # Codec-Detection, EXIF
-  FotoViewer.Wpf/                     # net10.0-windows → alle
+  PhotoViewerV3.Wpf/                     # net10.0-windows → alle
     App.xaml / App.xaml.cs            # HostBuilder-Setup
     MainWindow.xaml
     Views/                            # GalleryView, LightboxWindow, ...
@@ -119,10 +119,10 @@ src/
     Controls/                         # PagedThumbnailGrid, ZoomImage
     Services/                         # UI-Services (Notification, Dialog)
     Themes/                           # WPF-UI Theme-Resources
-  FotoViewer.Tools/                   # optional ab später (CLI für migrate, rebuild-fts, verify-db)
+  PhotoViewerV3.Tools/                   # optional ab später (CLI für migrate, rebuild-fts, verify-db)
 tests/
-  FotoViewer.Tests/                   # xUnit
-  FotoViewer.PerfTests/               # optional, Benchmark/Console-Harness
+  PhotoViewerV3.Tests/                   # xUnit
+  PhotoViewerV3.PerfTests/               # optional, Benchmark/Console-Harness
 ```
 
 **Referenz-Regeln:**
@@ -199,13 +199,13 @@ PRAGMA temp_store=MEMORY;
 |---|---|---|
 | **ADR-001** | Runtime + UI-Stack | .NET 10 LTS, WPF, WPF-UI als isolierter UI-Layer, CommunityToolkit.Mvvm |
 | **ADR-002** | Solution-Architektur | Multi-Project ab Tag 1 (Domain/Data/Services/Wpf) |
-| **ADR-003** | Catalog-Modell | Eine aktive Library, zentrale DB `%LocalAppData%\FotoViewerV2\library.db`, LibraryId-FKs vorbereitet |
+| **ADR-003** | Catalog-Modell | Eine aktive Library, zentrale DB `%LocalAppData%\PhotoViewerV3\library.db`, LibraryId-FKs vorbereitet |
 | **ADR-004** | Datenzugriff | EF Core für CRUD, Raw `Microsoft.Data.Sqlite` für Bulk/FTS5/Performance-Pfade, WAL + Single-Writer |
 | **ADR-005** | Migration-Disziplin | DB-Reset bis erste produktive Nutzung, ab V0.2 strict Migrations, WAL-Checkpoint + versioniertes Backup |
 | **ADR-006** | Bild- & Video-Pipeline | WIC für JPG/PNG, FFmpeg für MP4-Standbilder, LibVLCSharp für MP4-Lightbox (V0.1 Cutline: bei rotem Spike "Extern öffnen") |
 | **ADR-007** | Thumbnail-Scheduling | Multi-Channel Queue (Critical/Viewport/CurrentFolder/Background) + Dedupe + Versioning + Status + `.tmp` Writes |
 | **ADR-008** | Storage-Profile | StorageProfileService (LocalSsd/LocalHddOrUsb/NetworkShare/Unknown), Offline-State separat von Profil |
-| **ADR-009** | Cache-Strategie | Thumbs lokal `%LocalAppData%\FotoViewerV2\thumbs\{libraryId}\` auch bei NAS |
+| **ADR-009** | Cache-Strategie | Thumbs lokal `%LocalAppData%\PhotoViewerV3\thumbs\{libraryId}\` auch bei NAS |
 | **ADR-010** | UI-Datenmodell | Paged/virtualisiertes Grid via Query-DTOs, keine 500k ObservableCollection, SelectionStore nach FileId |
 | **ADR-011** | Suche/Filter V0.1 | FTS5 minimal Pflicht (Files.Name+Extension), Filter Alle/Bilder/Videos/Favoriten Pflicht, Favorit ja, Rating später |
 | **ADR-012** | Operation-Logging | OperationBatches/FileOperations ab V0.1 für Delete-to-Recycle, Move/Rename V0.2+ |
@@ -295,9 +295,9 @@ PRAGMA temp_store=MEMORY;
 4. DI/HostBuilder in WPF App integrieren
 5. Serilog Logging einrichten (Rolling File)
 6. `AppDataPaths`-Service:
-   - DB: `%LocalAppData%\FotoViewerV2\library.db`
-   - Thumbs: `%LocalAppData%\FotoViewerV2\thumbs\`
-   - Logs: `%LocalAppData%\FotoViewerV2\logs\`
+   - DB: `%LocalAppData%\PhotoViewerV3\library.db`
+   - Thumbs: `%LocalAppData%\PhotoViewerV3\thumbs\`
+   - Logs: `%LocalAppData%\PhotoViewerV3\logs\`
 7. Leeres MainWindow mit WPF-UI NavigationView
 8. Smoke-Run
 
@@ -496,7 +496,7 @@ Das kann passieren, wenn ein Laufwerk nicht vollständig verfügbar ist.
 ## 13. Thumbnail-Pipeline
 
 ### Speicherort
-`%LocalAppData%\FotoViewerV2\thumbs\{libraryId}\{fileId}_{size}_{kind}.jpg`
+`%LocalAppData%\PhotoViewerV3\thumbs\{libraryId}\{fileId}_{size}_{kind}.jpg`
 
 - **Naming**: `42_320_still.jpg` für File-ID 42 in 320px statisches Thumb
 - **Animierte (Phase 8)**: `42_320_hover.gif`
